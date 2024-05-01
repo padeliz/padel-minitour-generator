@@ -1,0 +1,8 @@
+{
+    "padel_minitour": {
+        "paths": {
+            "statics": null,
+            "uploads": "%env(FILESTORAGE__PADEL_MINITOUR__LOCATION_UPLOADS)%"
+        }
+    }
+}

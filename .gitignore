@@ -1,0 +1,23 @@
+#################################################
+#### Keep slash ("/") at the beginning,        ##
+#### if you want to ignore only the root item. ##
+#################################################
+
+.DS_Store
+
+/.vscode/*
+!/.vscode/sftp.json.example
+
+/caches/
+/crons/**/error_log
+/errors/
+
+/uploads/**/
+
+/vendor
+
+/.env.local
+
+/.gitmodules
+/.ftpquota
+/error_log

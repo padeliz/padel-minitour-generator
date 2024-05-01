@@ -1,0 +1,9 @@
+{
+    "home":	["GET",	"/"],
+
+    "matches": {
+        "1st-step-generate": ["GET", "matches/generated"],
+        "2nd-step-beautify": ["GET", "matches/beautified"],
+        "3rd-step-pdfy": ["GET", "matches/pdfy"]
+    }
+}

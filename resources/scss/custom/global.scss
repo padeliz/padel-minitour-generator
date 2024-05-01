@@ -1,0 +1,93 @@
+@mixin my--color-classes($colors, $prefix:'') {
+    $prefix: "-#{$prefix}";
+
+    @each $number, $color in $colors {
+        @if type-of($color) == "map" {
+            @include my--color-classes($color, "#{$number}-");
+        }
+        @else {
+            .bg-color#{$prefix}#{$number} {
+                background-color: $color;
+            }
+            .border-color#{$prefix}#{$number} {
+                border-color: $color !important;
+            }
+            .text-color#{$prefix}#{$number} {
+                color: $color;
+            }
+            .box-shadow#{$prefix}#{$number} {
+                box-shadow: 0px 0px 5px 0px $color;
+            }
+        }
+    }
+}
+
+
+html {
+	overflow-x: hidden;
+}
+
+body {
+	margin: 0;
+    padding-right: 0px !important; // against modal and fancy-box feature
+
+	&.body-no-scroll {
+	    overflow: hidden;
+	    position: static;
+	    left: 0;
+	    right: 0;
+	    top: 0;
+	    width: 100%;
+	    height: 100%;
+	}
+}
+
+.wrapper-table {
+    display: table;
+    width: 100%;
+    min-height: -webkit-fill-available;
+    min-height: calc(100vh - 65px);
+    min-height: calc((var(--vh, 1vh) * 100) - 65px);
+
+    .wrapper-table-cell {
+        height: 100%;
+        display: table-cell;
+        word-break: break-word;
+        vertical-align: middle;
+    }
+}
+
+img {
+    max-width: 100%;
+}
+
+input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    background-image: url('#{map-get($arshwell--web-paths, "statics")}media/checkbox/checkbox-13.png');
+    background-size: auto 100%;
+    margin-right: 8px;
+    position: relative;
+    margin-top: 3px;
+    float: left;
+
+    &:checked {
+        background-position: right;
+    }
+}
+input[type="radio"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    background-image: url('#{map-get($arshwell--web-paths, "statics")}media/radiobox/radiobox-6.png');
+    background-size: auto 100%;
+    margin-right: 8px;
+    position: relative;
+    margin-top: 3px;
+    float: left;
+
+    &:checked {
+        background-position: right;
+    }
+}

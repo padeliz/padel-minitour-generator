@@ -1,0 +1,5 @@
+{
+    "translation":  "Arshavinel\\PadelMiniTour\\Table\\Translation",
+    "migration":    "Arshavinel\\PadelMiniTour\\Table\\Migration",
+    "maintenance":  "Arshavinel\\PadelMiniTour\\Table\\Maintenance"
+}

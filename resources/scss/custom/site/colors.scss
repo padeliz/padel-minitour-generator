@@ -1,0 +1,5 @@
+$site-colors: (
+    1: #b34b17
+) !default;
+
+@include my--color-classes($site-colors);

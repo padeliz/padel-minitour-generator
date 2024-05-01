@@ -1,0 +1,77 @@
+// you can style the website layout from here
+
+:root {
+    --1st-color: #b34b17;
+}
+
+body {
+    font-family: 'Poppins', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    color:#5d6778;
+    padding-top: 69px
+}
+
+.header {
+    box-shadow: 0 1px 4px 0 rgba(0,0,0,0.1);
+    background:#fff
+}
+.docs-branding {
+    min-height: 69px
+}
+.docs-branding .top-search-box {
+    width: 300px
+}
+.docs-logo-wrapper {
+    position: absolute;
+    left: 15px;
+    top: 0.5rem
+}
+.docs-logo-wrapper .site-logo {
+    display: inline-block
+}
+.site-logo .logo-text{
+    color:#252930;
+    font-size: 1.5rem;
+    font-weight: bold
+}
+.site-logo .text-alt{
+    font-weight: 300
+}
+.site-logo .navbar-brand{
+    font-size: 2rem;
+    font-weight: 600;
+    padding-top: 0
+}
+.theme-icon-holder {
+    display: inline-block;
+    background:#f4fcf6;
+    color: map-get($site-colors, 1);
+    width: 32px;
+    height: 32px;
+    padding-top: 4px;
+    font-size: 1rem;
+    text-align: center;
+    border-radius: 50%
+}
+.docs-top-utilities {
+    padding-top: 4px
+}
+.social-list li {
+    font-size: 1.125rem;
+    background:#f4fcf6;
+    width: 32px;
+    height: 32px;
+    text-align: center;
+    border-radius: 50%;
+    padding-top: 2px
+}
+.social-list li a {
+    color:#3dd584
+}
+.social-list li a:hover {
+    color: map-get($site-colors, 1)
+}
+.social-list li:not(:last-child) {
+    margin-right: 0.875rem
+}

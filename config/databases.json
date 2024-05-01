@@ -1,0 +1,13 @@
+{
+    "conn": {
+        "padel_minitour": {
+            "host":     "localhost",
+            "name":     "%env(DB_CONN__PADEL_MINITOUR__NAME)%",
+            "charset":  "utf8mb4",
+            "prefix":   "pm_",
+            "username": "%env(DB_USER_NAME)%",
+            "password": "%env(DB_USER_PASS)%"
+        }
+    },
+    "backups": {}
+}

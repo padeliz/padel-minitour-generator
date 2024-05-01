@@ -1,0 +1,126 @@
+/**
+ * This file contains the font rules (also responsive).
+ *
+ * If you want to change fonts, just edit their values and the entire website will be affected.
+ */
+
+// titles
+@mixin ff-title-1st () {
+    font-family: 'Helvetica', 'Segoe UI', 'Arial'; // used for primary titles
+}
+@mixin ff-title-2nd () {
+    font-family: 'Helvetica', 'Segoe UI', 'Arial'; // used for secondary titles
+}
+
+// texts
+@mixin ff-text-1st () {
+    font-family: 'Helvetica', 'Segoe UI', 'Arial'; // used for primary paragraphs
+}
+@mixin ff-text-2nd () {
+    font-family: 'Helvetica', 'Segoe UI', 'Arial'; // used for secondary paragraphs
+}
+
+body {
+	@include ff-text-1st();
+
+	h1, h2, h3, h4, h5, h6 {
+        @include ff-title-1st();
+        margin: 0;
+	}
+
+    // mobile
+    font-size: 14px;
+	h1, .fz-h1 {font-size: 26px}
+	h2, .fz-h2 {font-size: 24px}
+	h3, .fz-h3 {font-size: 22px}
+	h4, .fz-h4 {font-size: 20px}
+	h5, .fz-h5 {font-size: 18px}
+	h6, .fz-h6 {font-size: 16px}
+
+    // big phone
+	@media (min-width: 576px) {
+        font-size: 14px;
+	    h1, .fz-h1 {font-size: 28px}
+	    h2, .fz-h2 {font-size: 26px}
+	    h3, .fz-h3 {font-size: 24px}
+	    h4, .fz-h4 {font-size: 22px}
+	    h5, .fz-h5 {font-size: 20px}
+	    h6, .fz-h6 {font-size: 18px}
+	}
+
+    // tablet
+	@media (min-width: 768px) {
+        font-size: 15px;
+	    h1, .fz-h1 {font-size: 30px}
+	    h2, .fz-h2 {font-size: 28px}
+	    h3, .fz-h3 {font-size: 26px}
+	    h4, .fz-h4 {font-size: 24px}
+	    h5, .fz-h5 {font-size: 22px}
+	    h6, .fz-h6 {font-size: 20px}
+	}
+
+    // laptop
+	@media (min-width: 992px) {
+        font-size: 16px;
+	    h1, .fz-h1 {font-size: 32px}
+	    h2, .fz-h2 {font-size: 30px}
+	    h3, .fz-h3 {font-size: 28px}
+	    h4, .fz-h4 {font-size: 26px}
+	    h5, .fz-h5 {font-size: 24px}
+	    h6, .fz-h6 {font-size: 22px}
+	}
+
+    // desktop
+	@media (min-width: 1200px) {
+        font-size: 17px;
+	    h1, .fz-h1 {font-size: 34px}
+	    h2, .fz-h2 {font-size: 32px}
+	    h3, .fz-h3 {font-size: 30px}
+	    h4, .fz-h4 {font-size: 28px}
+	    h5, .fz-h5 {font-size: 26px}
+	    h6, .fz-h6 {font-size: 24px}
+	}
+
+    // big desktop
+	@media (min-width: 1500px) {
+        font-size: 18px;
+	    h1, .fz-h1 {font-size: 36px}
+	    h2, .fz-h2 {font-size: 34px}
+	    h3, .fz-h3 {font-size: 32px}
+	    h4, .fz-h4 {font-size: 30px}
+	    h5, .fz-h5 {font-size: 28px}
+	    h6, .fz-h6 {font-size: 26px}
+	}
+	@media (min-width: 1800px) {
+        font-size: 19px;
+	    h1, .fz-h1 {font-size: 38px}
+	    h2, .fz-h2 {font-size: 36px}
+	    h3, .fz-h3 {font-size: 34px}
+	    h4, .fz-h4 {font-size: 32px}
+	    h5, .fz-h5 {font-size: 30px}
+	    h6, .fz-h6 {font-size: 28px}
+	}
+	@media (min-width: 2100px) {
+        font-size: 20px;
+	    h1, .fz-h1 {font-size: 40px}
+	    h2, .fz-h2 {font-size: 38px}
+	    h3, .fz-h3 {font-size: 36px}
+	    h4, .fz-h4 {font-size: 34px}
+	    h5, .fz-h5 {font-size: 32px}
+	    h6, .fz-h6 {font-size: 30px}
+	}
+
+	.ff-title-1st {
+        @include ff-title-1st();
+	}
+	.ff-title-2nd {
+        @include ff-title-2nd();
+	}
+
+	.ff-text-1st {
+        @include ff-text-1st();
+	}
+    .ff-text-2nd {
+        @include ff-text-2nd();
+	}
+}

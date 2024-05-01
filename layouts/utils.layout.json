@@ -1,0 +1,38 @@
+{
+    "scss": {
+        "vars": {},
+        "files": {
+            "vendor/arshwell/monolith/resources": [
+                "mixins/v1",
+                "spacings/v1",
+                "defaults"
+            ],
+            "resources": [
+                "plugins/bootstrap/v5",
+                "plugins/font-awesome/v5",
+                "custom/global"
+            ]
+        }
+    },
+
+    "js": {
+        "routes": {
+            "groups": [
+                "site"
+            ],
+            "exceptions": []
+        },
+        "files": {
+            "header": {
+                "resources": [
+                    "plugins/jquery/v3",
+                    "plugins/jquery-ui/v1",
+                    "plugins/floating-ui/v1",
+                    "plugins/bootstrap/v5",
+                    "custom/global"
+                ]
+            },
+            "footer": {}
+        }
+    }
+}

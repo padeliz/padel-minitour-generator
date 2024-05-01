@@ -1,0 +1,16 @@
+{
+    "debug": true,
+
+    "ips": {
+        "MyDevEnv": "%env(DEV_IPS_MINE)%",
+
+        "{{ MyAuthorName }}":     {
+            "ip-1": "aa.bbb.ccc.dd",
+            "ip-2": "aa.bbb.ccc.dd"
+        }
+    },
+
+    "credits": [
+        "arsavinwallentyn@gmail.com"
+    ]
+}

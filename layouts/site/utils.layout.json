@@ -1,0 +1,10 @@
+{
+    "scss": {
+        "files": {
+            "resources": [
+                "custom/site/colors",
+                "custom/site/fonts"
+            ]
+        }
+    }
+}
