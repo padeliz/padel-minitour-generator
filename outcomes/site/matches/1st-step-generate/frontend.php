@@ -3,32 +3,32 @@
 
         <!-- stats -->
         <div class="col-md col-lg-auto">
-            <h2><span class="badge bg-dark"><?= $_GET['title'] ?></span></h2>
+            <h2><span class="badge bg-dark"><?= $eventDivision->getTitle() ?></span></h2>
 
             <table id="stats-minitour" class="table table-striped margin-1st-2nd">
                 <thead>
                     <tr>
-                        <th scope="col">General</th>
-                        <th scope="col"></th>
+                        <th>General</th>
+                        <th></th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr>
-                        <td scope="col">there are</td>
-                        <td scope="col">
-                            <?= count($players) ?> players
+                        <td>there are</td>
+                        <td>
+                            <?= $eventDivision->getPlayersCount() ?> players
                         </td>
                     </tr>
                     <tr>
-                        <td scope="col">having total of</td>
-                        <td scope="col">
-                            <?= count($sortedMatches) ?> matches
+                        <td>having total of</td>
+                        <td>
+                            <?= $eventDivision->getMatchesCount() ?> matches
                         </td>
                     </tr>
                     <tr>
-                        <td scope="col">playing per match</td>
-                        <td scope="col">
-                            <?= floor($limitTotalPointsPlayed / count($sortedMatches)) ?> points
+                        <td>playing per match</td>
+                        <td>
+                            <?= $eventDivision->getPointsPerMatch() ?> points
                         </td>
                     </tr>
                 </tbody>
@@ -37,27 +37,27 @@
             <table id="stats-players" class="table table-striped margin-0-2nd">
                 <thead>
                     <tr>
-                        <th scope="col">For a player</th>
-                        <th scope="col"></th>
+                        <th>For a player</th>
+                        <th></th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr>
-                        <td scope="col">playing</td>
-                        <td scope="col">
-                            <?= $limitPartners ?> matches
+                        <td>playing</td>
+                        <td>
+                            <?= $eventDivision->getPartnersLimit() ?> matches
                         </td>
                     </tr>
                     <tr>
-                        <td scope="col">with</td>
-                        <td scope="col">
-                            <?= array_sum($countPartners) / count($countPartners) ?> partners
+                        <td>with</td>
+                        <td>
+                            <?= $eventDivision->getPartnersLimit() ?> partners
                         </td>
                     </tr>
                     <tr>
-                        <td scope="col">as</td>
-                        <td scope="col">
-                            <?= floor($limitTotalPointsPlayed / count($sortedMatches)) * $limitPartners ?> points
+                        <td>as</td>
+                        <td>
+                            <?= $eventDivision->getPointsPerPlayer() ?> points
                         </td>
                     </tr>
                 </tbody>
@@ -65,14 +65,14 @@
 
             <!-- see beautified matches -->
             <form method="GET" action="<?= Arshwell\Monolith\Web::url('site.matches.2nd-step-beautify') ?>" target="_blank">
-                <input type="hidden" name="title" value="<?= $_GET['title'] ?>" />
+                <input type="hidden" name="title" value="<?= $eventDivision->getTitle() ?>" />
                 <?php
                 array_map(function (int $key, array $match) { ?>
                     <input type="hidden" name="matches[<?= $key ?>][0][0]" value="<?= $match[0][0] ?>" />
                     <input type="hidden" name="matches[<?= $key ?>][0][1]" value="<?= $match[0][1] ?>" />
                     <input type="hidden" name="matches[<?= $key ?>][1][0]" value="<?= $match[1][0] ?>" />
                     <input type="hidden" name="matches[<?= $key ?>][1][1]" value="<?= $match[1][1] ?>" />
-                <?php }, array_keys($sortedMatches), $sortedMatches);
+                <?php }, array_keys($eventDivision->getMatches()), $eventDivision->getMatches());
                 ?>
                 <button type="submit" class="btn btn-primary mr-1 mb-1">
                     Preview beautified matches
@@ -81,14 +81,14 @@
 
             <!-- print PDF -->
             <form method="GET" action="<?= Arshwell\Monolith\Web::url('site.matches.3rd-step-pdfy') ?>" target="_blank">
-                <input type="hidden" name="title" value="<?= $_GET['title'] ?>" />
+                <input type="hidden" name="title" value="<?= $eventDivision->getTitle() ?>" />
                 <?php
                 array_map(function (int $key, array $match) { ?>
                     <input type="hidden" name="matches[<?= $key ?>][0][0]" value="<?= $match[0][0] ?>" />
                     <input type="hidden" name="matches[<?= $key ?>][0][1]" value="<?= $match[0][1] ?>" />
                     <input type="hidden" name="matches[<?= $key ?>][1][0]" value="<?= $match[1][0] ?>" />
                     <input type="hidden" name="matches[<?= $key ?>][1][1]" value="<?= $match[1][1] ?>" />
-                <?php }, array_keys($sortedMatches), $sortedMatches);
+                <?php }, array_keys($eventDivision->getMatches()), $eventDivision->getMatches());
                 ?>
                 <button type="submit" class="btn btn-success mr-1 mb-1">
                     Print PDF
@@ -104,7 +104,7 @@
                         <th scope="col">#</th>
                         <th scope="col">Player name</th>
                         <?php
-                        if ($differentPartnersNumber) { ?>
+                        if ($eventDivision->hasDifferentPartnersNumber()) { ?>
                             <th scope="col">Partners</th>
                         <?php } ?>
                         <th scope="col">Meeting players</th>
@@ -112,21 +112,21 @@
                 </thead>
                 <tbody>
                     <?php
-                    foreach ($players as $i => $player) { ?>
+                    foreach ($eventDivision->getPlayers() as $i => $player) { ?>
                         <tr>
-                            <th scope="row"><?= ($i+1) ?></th>
+                            <th scope="row"><?= ($i + 1) ?></th>
                             <td data-player-name="<?= $player ?>"><?= $player ?></td>
                             <?php
-                            if ($differentPartnersNumber) { ?>
-                                <td><?= $countPartners[$player] ?></td>
+                            if ($eventDivision->hasDifferentPartnersNumber()) { ?>
+                                <td><?= $eventDivision->countPartners($player) ?></td>
                             <?php } ?>
-                            <td><?= (count($countPlayersMet[$player])) ?> players</td>
+                            <td><?= $eventDivision->countPlayersMet($player) ?> players</td>
                         </tr>
                     <?php } ?>
                 </tbody>
             </table>
             <?php
-            if (count(array_count_values($countPartners)) > 1) { ?>
+            if ($eventDivision->hasDifferentPartnersNumber()) { ?>
                 <div class="alert alert-danger d-flex align-items-center" role="alert">
                     <div>
                         Different partners number
@@ -148,9 +148,9 @@
                 </thead>
                 <tbody>
                     <?php
-                    foreach ($sortedMatches as $m => $match) { ?>
+                    foreach ($eventDivision->getMatches() as $m => $match) { ?>
                         <tr>
-                            <th scope="row"><?= ($m+1) ?></th>
+                            <th scope="row"><?= ($m + 1) ?></th>
                             <td>
                                 <span data-player-name="<?= $match[0][0] ?>">
                                     <?= $match[0][0] ?>
