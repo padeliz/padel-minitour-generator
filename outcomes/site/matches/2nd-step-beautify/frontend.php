@@ -2,10 +2,12 @@
     table {
         width: 100%;
     }
+
     table .column {
         vertical-align: top;
         font-size: 40px;
     }
+
     td {
         color: black;
         overflow: hidden;
@@ -29,7 +31,7 @@
                     $player3 = new Arshavinel\PadelMiniTour\DTO\Player($match[1][0], "https://i.pravatar.cc/200?u=3{$m}");
                     $player4 = new Arshavinel\PadelMiniTour\DTO\Player($match[1][1], "https://i.pravatar.cc/200?u=4{$m}");
 
-                    ?>
+                ?>
                     <table style="margin-top: <?= $marginTop ?>px;">
                         <tr>
                             <td style="width: 21%; text-align: right; padding-right: 17px;">
@@ -42,7 +44,7 @@
                             </td>
                             <td style="width: 18%;">
                                 <div style="width: 100%; max-width: 100%; text-align: left;">
-                                    <img src="<?= Arshavinel\PadelMiniTour\Service\MatchImage\ImageTeamService::getImageUrl($player1, $player2) ?>" ?>
+                                    <img src="<?= Arshavinel\PadelMiniTour\Helper\MatchImage\ImageTeamService::getImageUrl($player1, $player2) ?>" ?>
                                 </div>
                             </td>
 
@@ -58,7 +60,7 @@
 
                             <td style="width: 18%;">
                                 <div style="width: 100%; max-width: 100%; text-align: right;">
-                                    <img src="<?= Arshavinel\PadelMiniTour\Service\MatchImage\ImageTeamService::getImageUrl($player3, $player4) ?>" ?>
+                                    <img src="<?= Arshavinel\PadelMiniTour\Helper\MatchImage\ImageTeamService::getImageUrl($player3, $player4) ?>" ?>
                                 </div>
                             </td>
                             <td style="width: 21%; text-align: left; padding-left: 17px;">
@@ -73,53 +75,54 @@
                     </table>
 
                     <?php
-                    if ($m == ($countMatches / 2)-1) { ?>
-                        </td><td class="column" style="border-left: 1px solid gray;">
-                    <?php } ?>
-                <?php } ?>
+                    if ($m == ($countMatches / 2) - 1) { ?>
+            </td>
+            <td class="column" style="border-left: 1px solid gray;">
+            <?php } ?>
+        <?php } ?>
 
-                <!-- final match -->
-                <table style="margin-top: <?= $marginTop ?>px;">
-                    <tr>
-                        <td style="width: 21%; text-align: right; padding-right: 17px;">
-                            <div style="font-size: 40px; overflow: hidden;">
-                                ____________
-                            </div>
-                            <div style="font-size: 40px; overflow: hidden; margin-top: 50px;">
-                                ____________
-                            </div>
-                        </td>
-                        <td style="width: 18%;">
-                            <div style="width: 100%; max-width: 100%; text-align: left;">
-                                <img style="max-width: 200px;" src="<?= Arshwell\Monolith\Web::site() . 'statics/media/MiniTour-final-match.jpg' ?>" />
-                            </div>
-                        </td>
+        <!-- final match -->
+        <table style="margin-top: <?= $marginTop ?>px;">
+            <tr>
+                <td style="width: 21%; text-align: right; padding-right: 17px;">
+                    <div style="font-size: 40px; overflow: hidden;">
+                        ____________
+                    </div>
+                    <div style="font-size: 40px; overflow: hidden; margin-top: 50px;">
+                        ____________
+                    </div>
+                </td>
+                <td style="width: 18%;">
+                    <div style="width: 100%; max-width: 100%; text-align: left;">
+                        <img style="max-width: 200px;" src="<?= Arshwell\Monolith\Web::site() . 'statics/media/MiniTour-final-match.jpg' ?>" />
+                    </div>
+                </td>
 
-                        <td style="width: 9%; vertical-align: bottom;">
-                            <hr>
-                        </td>
-                        <td style="width: 4%;">
-                            <hr>
-                        </td>
-                        <td style="width: 9%; vertical-align: bottom;">
-                            <hr>
-                        </td>
+                <td style="width: 9%; vertical-align: bottom;">
+                    <hr>
+                </td>
+                <td style="width: 4%;">
+                    <hr>
+                </td>
+                <td style="width: 9%; vertical-align: bottom;">
+                    <hr>
+                </td>
 
-                        <td style="width: 18%;">
-                            <div style="width: 100%; max-width: 100%; text-align: right;">
-                                <img style="max-width: 200px;" src="<?= Arshwell\Monolith\Web::site() . 'statics/media/MiniTour-final-match.jpg' ?>" />
-                            </div>
-                        </td>
-                        <td style="width: 21%; text-align: left; padding-left: 17px;">
-                            <div style="font-size: 40px; overflow: hidden; height: 100px;">
-                                ____________
-                            </div>
-                            <div style="font-size: 40px; overflow: hidden; height: 100px;">
-                                ____________
-                            </div>
-                        </td>
-                    </tr>
-                </table>
+                <td style="width: 18%;">
+                    <div style="width: 100%; max-width: 100%; text-align: right;">
+                        <img style="max-width: 200px;" src="<?= Arshwell\Monolith\Web::site() . 'statics/media/MiniTour-final-match.jpg' ?>" />
+                    </div>
+                </td>
+                <td style="width: 21%; text-align: left; padding-left: 17px;">
+                    <div style="font-size: 40px; overflow: hidden; height: 100px;">
+                        ____________
+                    </div>
+                    <div style="font-size: 40px; overflow: hidden; height: 100px;">
+                        ____________
+                    </div>
+                </td>
+            </tr>
+        </table>
 
             </td>
         </tr>

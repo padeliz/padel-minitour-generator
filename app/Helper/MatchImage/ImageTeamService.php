@@ -1,6 +1,6 @@
 <?php
 
-namespace Arshavinel\PadelMiniTour\Service\MatchImage;
+namespace Arshavinel\PadelMiniTour\Helper\MatchImage;
 
 use Arshavinel\PadelMiniTour\DTO\Player;
 use Arshavinel\PadelMiniTour\Table\Match\Team;
@@ -63,7 +63,7 @@ final class ImageTeamService
         $cropWidth2 = $cropHeight2 = min($size2->getWidth(), $size2->getHeight()); // Use the minimum dimension
 
         // Crop the center parts of the first and second images
-        $image1->crop(new Point(($cropWidth1 / 4), 0), new Box($cropWidth1 / 2 , $cropHeight1));
+        $image1->crop(new Point(($cropWidth1 / 4), 0), new Box($cropWidth1 / 2, $cropHeight1));
         $image2->crop(new Point(($cropWidth2 / 4), 0), new Box($cropWidth2 / 2, $cropHeight2));
 
         $palette = new RGB();
@@ -95,10 +95,10 @@ final class ImageTeamService
         }
 
         $tempDirPath = sys_get_temp_dir() . '/arshpadelminitour';
-        $tempFilePath = $tempDirPath .'/'. $playerOne->getSlugName() .'-'. $playerTwo->getSlugName() .'.png';
+        $tempFilePath = $tempDirPath . '/' . $playerOne->getSlugName() . '-' . $playerTwo->getSlugName() . '.png';
 
-        if (! file_exists($tempDirPath)) {
-            if (! mkdir($tempDirPath, 0777, true)) {
+        if (!file_exists($tempDirPath)) {
+            if (!mkdir($tempDirPath, 0777, true)) {
                 throw new \RuntimeException('Failed to create directory: ' . $tempDirPath);
             }
         }
@@ -118,7 +118,8 @@ final class ImageTeamService
         return $avatars->url('medium');
     }
 
-    private static function getPlayerAvatarPath(Player $player): string {
+    private static function getPlayerAvatarPath(Player $player): string
+    {
         $imageFilePath = 'statics/media/MiniTour-participants/' . $player->getSlugName();
 
         if (is_file($imageFilePath . '.png')) {
@@ -129,7 +130,7 @@ final class ImageTeamService
             return $imageFilePath . '.jpeg';
         }
 
-        throw new Exception('No avatar found for: '. $player->getName() .'.');
+        throw new Exception('No avatar found for: ' . $player->getName() . '.');
     }
 
     private static function resizeImage(ImageInterface $image, int $squareSize)
