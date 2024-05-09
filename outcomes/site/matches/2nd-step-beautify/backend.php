@@ -9,7 +9,7 @@ if (empty($_GET['matches']) || !is_array($_GET['matches']) || empty($_GET['title
 $countMatches = count($_GET['matches']);
 
 if ($countMatches >= 28) {
-    $marginTop = 7;
+    $marginTop = 14;
 } elseif ($countMatches >= 24) {
     $marginTop = 40;
 } else {
@@ -18,11 +18,13 @@ if ($countMatches >= 28) {
 
 
 function getFontSize(string $name) {
+    $max = 43;
+
     if (strlen($name) > 10) {
-        return 40 - (3 * (strlen($name) - 10));
+        return $max - (3 * (strlen($name) - 10));
     }
 
-    return 40;
+    return $max;
 }
 
 Meta::set('title', "Matches beautified | ARSH Padel MiniTour");

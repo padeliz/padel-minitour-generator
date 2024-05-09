@@ -4,8 +4,13 @@
     }
 
     table .column {
+        width: 50%;
         vertical-align: top;
         font-size: 40px;
+    }
+
+    tr {
+        width: 100%;
     }
 
     td {
@@ -16,12 +21,26 @@
 </style>
 
 <div style="text-align: center; width: 100%;">
-
-    <h1><?= $_GET['title'] ?></h1>
-
     <table cellspacing="0" style="text-align: center; width: 100%;" autosize="1">
         <tr>
-            <td class="column" style="border-right: 1px solid gray;">
+            <td colspan="2">
+                <table cellspacing="0" style="width: 100%;" autosize="1">
+                    <tr>
+                        <td style="width: 33.33%; text-align: left;">
+                            <img style="max-width: 100%; width: 400px; max-height: 100px;" src="<?= Arshwell\Monolith\Web::site() . 'statics/media/MiniTour Long F.png' ?>" />
+                        </td>
+                        <td style="width: 33.33%; text-align: center;">
+                            <h1><?= $_GET['title'] ?></h1>
+                        </td>
+                        <td style="width: 33.33%; text-align: right;">
+                            <img style="max-width: 100%; max-height: 80px;" src="<?= Arshwell\Monolith\Web::site() . 'statics/media/PadelMania colored.png' ?>" />
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+        <tr>
+            <td class="column" style="width: 50%; border-right: 1px solid gray;">
                 <?php
                 $countMatches = count($_GET['matches']);
 
@@ -36,15 +55,15 @@
                         <tr>
                             <td style="width: 21%; text-align: right; padding-right: 17px;">
                                 <div style="font-size: <?= getFontSize($player1->getShortName()) ?>px;">
-                                    <?= $player1->getShortName() ?>
+                                    <?= $player1->getHtmlShortName() ?>
                                 </div>
                                 <div style="font-size: <?= getFontSize($player2->getShortName()) ?>px;">
-                                    <?= $player2->getShortName() ?>
+                                    <?= $player2->getHtmlShortName() ?>
                                 </div>
                             </td>
                             <td style="width: 18%;">
                                 <div style="width: 100%; max-width: 100%; text-align: left;">
-                                    <img src="<?= Arshavinel\PadelMiniTour\Helper\MatchImage\ImageTeamService::getImageUrl($player1, $player2) ?>" ?>
+                                    <img width="195px" src="<?= Arshavinel\PadelMiniTour\Helper\MatchImage\ImageTeamService::getImageUrl($player1, $player2) ?>" ?>
                                 </div>
                             </td>
 
@@ -60,15 +79,15 @@
 
                             <td style="width: 18%;">
                                 <div style="width: 100%; max-width: 100%; text-align: right;">
-                                    <img src="<?= Arshavinel\PadelMiniTour\Helper\MatchImage\ImageTeamService::getImageUrl($player3, $player4) ?>" ?>
+                                    <img width="195px" src="<?= Arshavinel\PadelMiniTour\Helper\MatchImage\ImageTeamService::getImageUrl($player3, $player4) ?>" ?>
                                 </div>
                             </td>
                             <td style="width: 21%; text-align: left; padding-left: 17px;">
                                 <div style="font-size: <?= getFontSize($player3->getShortName()) ?>px;">
-                                    <?= $player3->getShortName() ?>
+                                    <?= $player3->getHtmlShortName() ?>
                                 </div>
                                 <div style="font-size: <?= getFontSize($player4->getShortName()) ?>px;">
-                                    <?= $player4->getShortName() ?>
+                                    <?= $player4->getHtmlShortName() ?>
                                 </div>
                             </td>
                         </tr>
@@ -77,7 +96,7 @@
                     <?php
                     if ($m == ($countMatches / 2) - 1) { ?>
             </td>
-            <td class="column" style="border-left: 1px solid gray;">
+            <td class="column" style="width: 50%; border-left: 1px solid gray;">
             <?php } ?>
         <?php } ?>
 
@@ -88,7 +107,8 @@
                     <div style="font-size: 40px; overflow: hidden;">
                         ____________
                     </div>
-                    <div style="font-size: 40px; overflow: hidden; margin-top: 50px;">
+                    <br><br>
+                    <div style="font-size: 40px; overflow: hidden;">
                         ____________
                     </div>
                 </td>
@@ -114,10 +134,11 @@
                     </div>
                 </td>
                 <td style="width: 21%; text-align: left; padding-left: 17px;">
-                    <div style="font-size: 40px; overflow: hidden; height: 100px;">
+                    <div style="font-size: 40px; overflow: hidden;">
                         ____________
                     </div>
-                    <div style="font-size: 40px; overflow: hidden; height: 100px;">
+                    <br><br>
+                    <div style="font-size: 40px; overflow: hidden;">
                         ____________
                     </div>
                 </td>
