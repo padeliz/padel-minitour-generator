@@ -82,6 +82,7 @@
                 <input type="hidden" name="title" value="<?= $eventDivision->getTitle() ?>" />
                 <input type="hidden" name="time-start" value="<?= $eventDivision->getTimeStart() ?>" />
                 <input type="hidden" name="time-end" value="<?= $eventDivision->getTimeEnd() ?>" />
+                <input type="hidden" name="points-per-match" value="<?= $eventDivision->getPointsPerMatch() ?>" />
                 <?php
                 array_map(function (int $key, array $match) { ?>
                     <input type="hidden" name="matches[<?= $key ?>][0][0]" value="<?= $match[0][0] ?>" />
@@ -102,6 +103,7 @@
                 <input type="hidden" name="title" value="<?= $eventDivision->getTitle() ?>" />
                 <input type="hidden" name="time-start" value="<?= $eventDivision->getTimeStart() ?>" />
                 <input type="hidden" name="time-end" value="<?= $eventDivision->getTimeEnd() ?>" />
+                <input type="hidden" name="points-per-match" value="<?= $eventDivision->getPointsPerMatch() ?>" />
                 <?php
                 array_map(function (int $key, array $match) { ?>
                     <input type="hidden" name="matches[<?= $key ?>][0][0]" value="<?= $match[0][0] ?>" />

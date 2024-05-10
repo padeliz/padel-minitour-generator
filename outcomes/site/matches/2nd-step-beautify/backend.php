@@ -11,6 +11,8 @@ if (
     die('$_GET vars [title], [time-start], [time-end] and [matches] are mandatory.');
 }
 
+$pointsPerMatch = ($_GET['points-per-match'] % 2 == 0 ? $_GET['points-per-match'] : ($_GET['points-per-match'] + 1));
+
 $countMatches = count($_GET['matches']);
 
 $marginTop = PdfHtmlHelper::getMatchesMarginTop($countMatches);

@@ -30,7 +30,12 @@
                             <img style="max-width: 100%; width: 400px; max-height: 100px;" src="<?= Arshwell\Monolith\Web::site() . 'statics/media/MiniTour Long F.png' ?>" />
                         </td>
                         <td style="width: 33.33%; text-align: left; padding-left: 170px;">
-                            <h1 style="font-size: 40px;"><?= $_GET['title'] ?></h1>
+                            <h1 style="font-size: 40px;">
+                                <?= $_GET['title'] ?>
+                            </h1>
+                            <span>
+                                <?= $pointsPerMatch ?> points per match
+                            </span>
                         </td>
                         <td style="width: 33.33%; text-align: right;">
                             <img style="max-width: 100%; max-height: 80px;" src="<?= Arshwell\Monolith\Web::site() . 'statics/media/PadelMania colored.png' ?>" />
