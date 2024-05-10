@@ -14,7 +14,7 @@ use Imagine\Image\Palette\RGB;
 use Imagine\Image\Point;
 use Imagine\Image\PointSigned;
 
-final class ImageTeamService
+final class ImageTeamHelper
 {
     const SQUARE_SIZE = 200; // Square size in pixels
 

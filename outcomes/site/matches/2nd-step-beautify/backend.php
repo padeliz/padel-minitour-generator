@@ -1,31 +1,19 @@
 <?php
 
+use Arshavinel\PadelMiniTour\Helper\PdfHtmlHelper;
 use Arshwell\Monolith\Meta;
 
-if (empty($_GET['matches']) || !is_array($_GET['matches']) || empty($_GET['title'])) {
-    die('$_GET vars [title] and [matches] are mandatory.');
+if (
+    empty($_GET['title']) || empty($_GET['matches']) || !is_array($_GET['matches']) ||
+    empty($_GET['time-start']) || !is_string($_GET['time-start']) ||
+    empty($_GET['time-end']) || !is_string($_GET['time-end'])
+) {
+    die('$_GET vars [title], [time-start], [time-end] and [matches] are mandatory.');
 }
 
 $countMatches = count($_GET['matches']);
 
-if ($countMatches >= 28) {
-    $marginTop = 14;
-} elseif ($countMatches >= 24) {
-    $marginTop = 40;
-} else {
-    $marginTop = 50;
-}
-
-
-function getFontSize(string $name) {
-    $max = 43;
-
-    if (strlen($name) > 10) {
-        return $max - (3 * (strlen($name) - 10));
-    }
-
-    return $max;
-}
+$marginTop = PdfHtmlHelper::getMatchesMarginTop($countMatches);
 
 Meta::set('title', "Matches beautified | ARSH Padel MiniTour");
 Meta::set('description', "Fun short padel matches.");

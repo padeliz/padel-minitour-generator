@@ -4,7 +4,7 @@ use Arshwell\Monolith\Web;
 use Mpdf\Mpdf;
 use Mpdf\Output\Destination;
 
-if (empty($_GET['matches']) || !is_array($_GET['matches']) || empty($_GET['title'])) {
+if (empty($_GET['title']) || empty($_GET['matches']) || !is_array($_GET['matches'])) {
     die('$_GET vars [title] and [matches] are mandatory.');
 }
 
@@ -35,10 +35,9 @@ $mpdf->SetFooter([
         ],
     ]
 ]);
-$mpdf->title = "Ggege";
 
 $mpdf->WriteHTML(
-    file_get_contents(Web::url('site.matches.2nd-step-beautify', NULL, NULL, 0, $_GET))
+    file_get_contents(Web::url('site.matches.2nd-step-beautify', null, null, 0, $_GET))
 );
 
 $mpdf->Output('MiniTour ' . $_GET['title'] . '.pdf', Destination::INLINE);

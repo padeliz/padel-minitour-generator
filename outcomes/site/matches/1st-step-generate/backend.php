@@ -3,16 +3,19 @@
 use Arshavinel\PadelMiniTour\Service\EventDivision;
 use Arshwell\Monolith\Meta;
 
-
-if (empty($_GET['players']) || empty($_GET['limit-partners']) || !is_numeric($_GET['limit-partners']) ||
-    empty($_GET['title']) || empty($_GET['time-in-hours']) || !is_numeric($_GET['time-in-hours'])
+if (
+    empty($_GET['title']) || empty($_GET['players']) ||
+    empty($_GET['limit-partners']) || !is_numeric($_GET['limit-partners']) ||
+    empty($_GET['time-start']) || !is_string($_GET['time-start']) ||
+    empty($_GET['time-end']) || !is_string($_GET['time-end'])
 ) {
-    die('$_GET vars [time-in-hours], [limit-partners] and [players] are mandatory.');
+    die('$_GET vars [title], [time-start], [time-end], [limit-partners] and [players] are mandatory.');
 }
 
 $eventDivision = new EventDivision(
     $_GET['title'],
-    $_GET['time-in-hours'],
+    $_GET['time-start'],
+    $_GET['time-end'],
     explode(',', trim(preg_replace('/([\s,]+)?\n([\s,]+)?/m', ',', $_GET['players']), ', ')), // players
     $_GET['limit-partners']
 );

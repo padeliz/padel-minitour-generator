@@ -3,7 +3,21 @@
 
         <!-- stats -->
         <div class="col-md col-lg-auto">
-            <h2><span class="badge bg-dark"><?= $eventDivision->getTitle() ?></span></h2>
+            <div class="row align-items-center">
+                <div class="col-auto">
+                    <h2>
+                        <span class="badge bg-dark">
+                            <?= $eventDivision->getTitle() ?>
+                        </span>
+                    </h2>
+                </div>
+                <div class="col-auto">
+                    <small class="badge bg-secondary">
+                        <?= $eventDivision->getTimeStart() ?> - <?= $eventDivision->getTimeEnd() ?>
+                    </small>
+                </div>
+            </div>
+
 
             <table id="stats-minitour" class="table table-striped margin-1st-2nd">
                 <thead>
@@ -66,12 +80,16 @@
             <!-- see beautified matches -->
             <form method="GET" action="<?= Arshwell\Monolith\Web::url('site.matches.2nd-step-beautify') ?>" target="_blank">
                 <input type="hidden" name="title" value="<?= $eventDivision->getTitle() ?>" />
+                <input type="hidden" name="time-start" value="<?= $eventDivision->getTimeStart() ?>" />
+                <input type="hidden" name="time-end" value="<?= $eventDivision->getTimeEnd() ?>" />
                 <?php
                 array_map(function (int $key, array $match) { ?>
                     <input type="hidden" name="matches[<?= $key ?>][0][0]" value="<?= $match[0][0] ?>" />
                     <input type="hidden" name="matches[<?= $key ?>][0][1]" value="<?= $match[0][1] ?>" />
                     <input type="hidden" name="matches[<?= $key ?>][1][0]" value="<?= $match[1][0] ?>" />
                     <input type="hidden" name="matches[<?= $key ?>][1][1]" value="<?= $match[1][1] ?>" />
+                    <input type="hidden" name="matches[<?= $key ?>][2]" value="<?= $match[2] ?>" />
+                    <input type="hidden" name="matches[<?= $key ?>][3]" value="<?= $match[3] ?>" />
                 <?php }, array_keys($eventDivision->getMatches()), $eventDivision->getMatches());
                 ?>
                 <button type="submit" class="btn btn-primary mr-1 mb-1">
@@ -82,12 +100,16 @@
             <!-- print PDF -->
             <form method="GET" action="<?= Arshwell\Monolith\Web::url('site.matches.3rd-step-pdfy') ?>" target="_blank">
                 <input type="hidden" name="title" value="<?= $eventDivision->getTitle() ?>" />
+                <input type="hidden" name="time-start" value="<?= $eventDivision->getTimeStart() ?>" />
+                <input type="hidden" name="time-end" value="<?= $eventDivision->getTimeEnd() ?>" />
                 <?php
                 array_map(function (int $key, array $match) { ?>
                     <input type="hidden" name="matches[<?= $key ?>][0][0]" value="<?= $match[0][0] ?>" />
                     <input type="hidden" name="matches[<?= $key ?>][0][1]" value="<?= $match[0][1] ?>" />
                     <input type="hidden" name="matches[<?= $key ?>][1][0]" value="<?= $match[1][0] ?>" />
                     <input type="hidden" name="matches[<?= $key ?>][1][1]" value="<?= $match[1][1] ?>" />
+                    <input type="hidden" name="matches[<?= $key ?>][2]" value="<?= $match[2] ?>" />
+                    <input type="hidden" name="matches[<?= $key ?>][3]" value="<?= $match[3] ?>" />
                 <?php }, array_keys($eventDivision->getMatches()), $eventDivision->getMatches());
                 ?>
                 <button type="submit" class="btn btn-success mr-1 mb-1">

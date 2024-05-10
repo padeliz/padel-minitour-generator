@@ -2,25 +2,33 @@
 
 namespace Arshavinel\PadelMiniTour\Service;
 
+use DateTime;
+
 class EventDivision
 {
     private MatchesGenerator $matchesGenerator;
     private string $title;
+    private string $timeStart;
+    private string $timeEnd;
+    private int $eventDuration;
     private array $players;
     private int $partnersLimit;
     private int $playersCount;
     private int $pointsPerMatch;
     private int $pointsPerPlayer;
 
-    public function __construct(string $title, int $eventHours, array $players, int $partnersLimit)
+    public function __construct(string $title, string $timeStart, string $timeEnd, array $players, int $partnersLimit)
     {
-        $matchesGenerator = new MatchesGenerator($players, $partnersLimit);
+        $matchesGenerator = new MatchesGenerator($players, $partnersLimit, $timeStart, $timeEnd);
 
         $this->title = $title;
+        $this->timeStart = $timeStart;
+        $this->timeEnd = $timeEnd;
+        $this->eventDuration = DateTime::createFromFormat('H:i', $timeStart)->diff(DateTime::createFromFormat('H:i', $timeEnd))->h;
         $this->players = $players;
         $this->playersCount = count($players);
 
-        $this->pointsPerMatch = floor(ceil(110 * $eventHours - 1 + (20 / 60)) / $matchesGenerator->getMatchesCount());
+        $this->pointsPerMatch = floor(ceil(110 * $this->eventDuration - 1 + (20 / 60)) / $matchesGenerator->getMatchesCount());
         $this->pointsPerPlayer = $this->pointsPerMatch * $partnersLimit;
         $this->partnersLimit = $partnersLimit;
         $this->matchesGenerator = $matchesGenerator;
@@ -29,6 +37,21 @@ class EventDivision
     public function getTitle(): string
     {
         return $this->title;
+    }
+
+    public function getTimeStart(): string
+    {
+        return $this->timeStart;
+    }
+
+    public function getTimeEnd(): string
+    {
+        return $this->timeEnd;
+    }
+
+    public function getDuration(): int
+    {
+        return $this->eventDuration;
     }
 
     public function getPartnersLimit(): int

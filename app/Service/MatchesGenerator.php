@@ -2,23 +2,48 @@
 
 namespace Arshavinel\PadelMiniTour\Service;
 
+use DateInterval;
+use DateTime;
+
 class MatchesGenerator
 {
-    private TemplateMatchesGenerator $templateMatchesGenerator;
     private array $matches;
     private int $matchesCount;
     private array $partnersCount;
     private array $playersMet;
     private bool $hasDifferentPartnersNumber;
 
-    public function __construct(array $players, int $partnersLimit)
+    public function __construct(array $players, int $partnersLimit, string $timeStart, string $timeEnd)
     {
         $templateMatchesGenerator = new TemplateMatchesGenerator(count($players), $partnersLimit);
 
+
         $matches = $templateMatchesGenerator->getMatches();
-        array_walk_recursive($matches, function (&$value) use ($players) {
-            $value = $players[$value];
+        array_walk_recursive($matches, function (int &$playerIndex) use ($players) {
+            $playerIndex = $players[$playerIndex];
         });
+
+        $this->matchesCount = count($matches);
+
+        $segments = $this->matchesCount + 1;
+
+        $dateTime1 = DateTime::createFromFormat('H:i', $timeStart);
+        $dateTime2 = DateTime::createFromFormat('H:i', $timeEnd);
+
+        $totalMinutes = ($dateTime2->getTimestamp() - $dateTime1->getTimestamp()) / 60;
+        $segmentDuration = floor($totalMinutes / $segments);
+
+        for ($i = 0; $i < $segments - 1; $i++) {
+            $startTime = clone $dateTime1;
+            $startTime->add(new DateInterval('PT' . ($segmentDuration * $i) . 'M'));
+
+            $endTime = clone $dateTime1;
+            $endTime->add(new DateInterval('PT' . ($segmentDuration * ($i + 1)) . 'M'));
+
+            $matches[$i][2] = $startTime->format('H:i');
+            $matches[$i][3] = $endTime->format('H:i');
+        }
+
 
         $countPartners = [];
         $templateCountPartners = $templateMatchesGenerator->getPartnersCount();
@@ -33,14 +58,9 @@ class MatchesGenerator
         });
 
         $this->matches = $matches;
-        $this->matchesCount = count($matches);
         $this->hasDifferentPartnersNumber = $templateMatchesGenerator->hasDifferentPartnersNumber();
         $this->partnersCount = $countPartners;
         $this->playersMet = $countPlayersMet;
-
-        // _vd($countPartners, '$countPartners');
-        // _vd($countPlayersMet, '$countPlayersMet');
-        // exit;
     }
 
     public function getMatches(): array

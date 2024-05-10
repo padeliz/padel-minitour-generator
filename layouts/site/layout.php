@@ -2,7 +2,9 @@
 <!--[if lt IE 7]><html lang="<?= Arshavinel\PadelMiniTour\Language\LangSite::get() ?>" class="no-js lt-ie9 lt-ie8 lt-ie7"><![endif]-->
 <!--[if (IE 7)&!(IEMobile)]><html lang="<?= Arshavinel\PadelMiniTour\Language\LangSite::get() ?>" class="no-js lt-ie9 lt-ie8"><![endif]-->
 <!--[if (IE 8)&!(IEMobile)]><html lang="<?= Arshavinel\PadelMiniTour\Language\LangSite::get() ?>" class="no-js lt-ie9"><![endif]-->
-<!--[if gt IE 8]><!--><html lang="<?= Arshavinel\PadelMiniTour\Language\LangSite::get() ?>" class="no-js"><!--<![endif]-->
+<!--[if gt IE 8]><!-->
+<html lang="<?= Arshavinel\PadelMiniTour\Language\LangSite::get() ?>" class="no-js"><!--<![endif]-->
+
 <head>
     <title><?= Arshwell\Monolith\Meta::get('title') ?></title>
 
@@ -30,6 +32,7 @@
 
     [@js-header@]
 </head>
+
 <body>
     <!-- change this header as you'd like -->
     <header class="header fixed-top">
@@ -65,62 +68,7 @@
         [@frontend@]
     </div>
 
-    <footer class="footer">
-	    <div class="text-center text-secondary py-5">
-            <button class="btn" type="button" data-bs-toggle="collapse" data-bs-target="#collapseExample" aria-expanded="false" aria-controls="collapseExample">
-                Combinations which will work:
-            </button>
-            <br>
-
-            <div class="collapse" id="collapseExample">
-                <?php
-                array_map(function ($combination) {
-                    echo '<br>' . $combination;
-                }, [
-                    "4 players, having 2 partners everyone",
-                    "4 players, having 3 partners everyone",
-                    "",
-                    "5 players, having 4 partners everyone",
-                    "",
-                    "6 players, having 4 partners everyone",
-                    "",
-                    "7 players, having 4 partners everyone",
-                    "",
-                    "8 players, having 2 partners everyone",
-                    "8 players, having 4 partners everyone",
-                    "8 players, having 6 partners everyone",
-                    "8 players, having 7 partners everyone",
-                    "",
-                    "9 players, having 8 partners everyone",
-                    "",
-                    "10 players, having 8 partners everyone",
-                    "",
-                    "12 players, having 2 partners everyone",
-                    "12 players, having 3 partners everyone",
-                    "12 players, having 6 partners everyone",
-                    "12 players, having 7 partners everyone",
-                    "12 players, having 8 partners everyone",
-                    "12 players, having 9 partners everyone",
-                    "",
-                    "13 players, having 4 partners everyone",
-                    "",
-                    "14 players, having 4 partners everyone",
-                    "14 players, having 8 partners everyone",
-                    "",
-                    "15 players, having 4 partners everyone",
-                    "15 players, having 8 partners everyone",
-                    "",
-                    "16 players, having 2 partners everyone",
-                    "16 players, having 3 partners everyone",
-                    "16 players, having 4 partners everyone",
-                    "16 players, having 5 partners everyone",
-                    "16 players, having 8 partners everyone",
-                ])
-                ?>
-            </div>
-	    </div>
-    </footer>
-
     [@js-footer@]
 </body>
+
 </html>
