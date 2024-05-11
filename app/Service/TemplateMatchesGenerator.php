@@ -101,7 +101,7 @@ class TemplateMatchesGenerator
 
         $size = count($pairs) - 1;
         $perm = range(0, $size);
-        $permCopy = range(0, $size);
+        $permCopy = range(0, $size); // representing the first permutation
 
         do {
             $permutedPairs = [];

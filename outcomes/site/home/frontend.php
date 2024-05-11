@@ -15,7 +15,7 @@
                     <div class="col-md">
                         <div class="mb-3">
                             <label for="time-start" class="form-label">Time start</label>
-                            <input type="time" class="form-control" name="time-start" id="time-start" value="13:30" aria-describedby="time-start--help">
+                            <input type="time" class="form-control" name="time-start" id="time-start" value="14:00" aria-describedby="time-start--help">
                             <div id="time-start--help" class="form-text">Starting matches...</div>
                         </div>
                     </div>
