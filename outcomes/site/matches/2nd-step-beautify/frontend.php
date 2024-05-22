@@ -30,10 +30,10 @@
                             <img style="max-width: 100%; width: 400px; max-height: 100px;" src="<?= Arshwell\Monolith\Web::site() . 'statics/media/MiniTour Long F.png' ?>" />
                         </td>
                         <td style="width: 33.33%; text-align: left; padding-left: 170px;">
-                            <h1 style="font-size: 40px;">
+                            <h1 style="font-size: 60px;">
                                 <?= $_GET['title'] ?>
                             </h1>
-                            <span>
+                            <span style="font-size: 20px;">
                                 <?= $pointsPerMatch ?> points per match
                             </span>
                         </td>
