@@ -12,14 +12,21 @@ class EventDivision
     private string $timeEnd;
     private int $eventDuration;
     private array $players;
-    private int $partnersLimit;
+    private int $partnersPerPlayer;
     private int $playersCount;
     private int $pointsPerMatch;
     private int $pointsPerPlayer;
 
-    public function __construct(string $title, string $timeStart, string $timeEnd, array $players, int $partnersLimit)
+    public function __construct(
+        string $title,
+        array $players,
+        int $partnersPerPlayer,
+        int $repeatPartners,
+        string $timeStart,
+        string $timeEnd
+    )
     {
-        $matchesGenerator = new MatchesGenerator($players, $partnersLimit, $timeStart, $timeEnd);
+        $matchesGenerator = new MatchesGenerator($players, $partnersPerPlayer, $repeatPartners, $timeStart, $timeEnd);
 
         $this->title = $title;
         $this->timeStart = $timeStart;
@@ -29,8 +36,8 @@ class EventDivision
         $this->playersCount = count($players);
 
         $this->pointsPerMatch = floor(ceil(110 * $this->eventDuration - 1 + (20 / 60)) / $matchesGenerator->getMatchesCount());
-        $this->pointsPerPlayer = $this->pointsPerMatch * $partnersLimit;
-        $this->partnersLimit = $partnersLimit;
+        $this->pointsPerPlayer = $this->pointsPerMatch * $partnersPerPlayer * $repeatPartners;
+        $this->partnersPerPlayer = $partnersPerPlayer;
         $this->matchesGenerator = $matchesGenerator;
     }
 
@@ -54,9 +61,9 @@ class EventDivision
         return $this->eventDuration;
     }
 
-    public function getPartnersLimit(): int
+    public function getPartnersPerPlayer(): int
     {
-        return $this->partnersLimit;
+        return $this->partnersPerPlayer;
     }
 
     public function getPlayers(): array

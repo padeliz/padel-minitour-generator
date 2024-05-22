@@ -13,10 +13,15 @@ class MatchesGenerator
     private array $playersMet;
     private bool $hasDifferentPartnersNumber;
 
-    public function __construct(array $players, int $partnersLimit, string $timeStart, string $timeEnd)
+    public function __construct(
+        array $players,
+        int $partnersPerPlayer,
+        int $repeatPartners,
+        string $timeStart,
+        string $timeEnd
+    )
     {
-        $templateMatchesGenerator = new TemplateMatchesGenerator(count($players), $partnersLimit);
-
+        $templateMatchesGenerator = new TemplateMatchesGenerator(count($players), $partnersPerPlayer, $repeatPartners);
 
         $matches = $templateMatchesGenerator->getMatches();
         array_walk_recursive($matches, function (int &$playerIndex) use ($players) {
@@ -88,9 +93,14 @@ class MatchesGenerator
         return $this->playersMet;
     }
 
+    /**
+     * Returns empty array if the player doesn't have any matches.
+     *
+     * This is an error representing that the number of total players is invalid.
+     */
     public function getPlayersMetBy(string $player): array
     {
-        return $this->playersMet[$player];
+        return $this->playersMet[$player] ?? [];
     }
 
     public function hasDifferentPartnersNumber(): bool

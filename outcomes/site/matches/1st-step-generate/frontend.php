@@ -7,7 +7,11 @@
                 <div class="col-auto">
                     <h2>
                         <span class="badge bg-dark">
-                            <?= $eventDivision->getTitle() ?>
+                            <?php
+                            /** @var Arshavinel\PadelMiniTour\Service\EventDivision $eventDivision */
+
+                            echo $eventDivision->getTitle();
+                            ?>
                         </span>
                     </h2>
                 </div>
@@ -59,13 +63,13 @@
                     <tr>
                         <td>playing</td>
                         <td>
-                            <?= $eventDivision->getPartnersLimit() ?> matches
+                            <?= $eventDivision->getPartnersPerPlayer() ?> matches
                         </td>
                     </tr>
                     <tr>
                         <td>with</td>
                         <td>
-                            <?= $eventDivision->getPartnersLimit() ?> partners
+                            <?= $eventDivision->getPartnersPerPlayer() ?> partners
                         </td>
                     </tr>
                     <tr>

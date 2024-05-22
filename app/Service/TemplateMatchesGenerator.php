@@ -12,15 +12,15 @@ class TemplateMatchesGenerator
     private array $playersMet;
     private bool $hasDifferentPartnersNumber;
 
-    public function __construct(int $playersCount, int $partnersLimit)
+    public function __construct(int $playersCount, int $partnersPerPlayer, int $repeatPartners)
     {
-        $divisionData = Cache::fetch("template-matches/v1.0/players-{$playersCount}-partners-{$partnersLimit}");
+        $divisionData = Cache::fetch("template-matches/v1.1/players-{$playersCount}-partners-{$partnersPerPlayer}-repeat-{$repeatPartners}");
 
         if (empty($divisionData)) {
-            $divisionData = $this->generateTemplateMatches($playersCount, $partnersLimit);
+            $divisionData = $this->generateTemplateMatches($playersCount, $partnersPerPlayer, $repeatPartners);
 
             Cache::store(
-                "template-matches/v1.0/players-{$playersCount}-partners-{$partnersLimit}",
+                "template-matches/v1.1/players-{$playersCount}-partners-{$partnersPerPlayer}-repeat-{$repeatPartners}",
                 $divisionData
             );
         }
@@ -62,7 +62,7 @@ class TemplateMatchesGenerator
     }
 
 
-    private function generateTemplateMatches(int $playersCount, int $partnersLimit): array
+    private function generateTemplateMatches(int $playersCount, int $partnersPerPlayer, int $repeatPartners): array
     {
         $mockPlayers = range(0, $playersCount - 1);
 
@@ -81,7 +81,7 @@ class TemplateMatchesGenerator
 
             foreach (array_reverse($mockPlayers) as $p2) {
 
-                if ($partnersCount[$p1] < $partnersLimit && $partnersCount[$p2] < $partnersLimit) {
+                if ($partnersCount[$p1] < $partnersPerPlayer && $partnersCount[$p2] < $partnersPerPlayer) {
 
                     if ($p1 != $p2 && !isset($countTeams["$p1 + $p2"]) && !isset($countTeams["$p2 + $p1"])) {
                         $countTeams["$p1 + $p2"] = count($pairs);
@@ -152,7 +152,7 @@ class TemplateMatchesGenerator
         } while (!empty($permutedPairs) && ($perm = $this->pcNextPermutation($perm, $size)) && $perm !== $permCopy);
 
         return [
-            'matches' => $this->sortMatches($matches, $mockPlayers),
+            'matches' => $this->repeatMatches($this->sortMatches($matches, $mockPlayers), $repeatPartners),
             'partnersCount' => $partnersCount,
             'playersMet' => $playersMet,
             'hasDifferentPartnersNumber' => (count(array_count_values($partnersCount)) > 1),
@@ -363,5 +363,18 @@ class TemplateMatchesGenerator
         }
 
         return $sortedMatches;
+    }
+
+    private function repeatMatches(array $matches, int $repeatPartners): array
+    {
+        $repeatedMatches = [];
+
+        for ($i = 1; $i <= $repeatPartners; $i++) {
+            foreach ($matches as $match) {
+                $repeatedMatches[] = $match;
+            }
+        }
+
+        return $repeatedMatches;
     }
 }
