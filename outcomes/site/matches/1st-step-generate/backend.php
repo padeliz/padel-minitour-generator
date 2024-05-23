@@ -20,6 +20,7 @@ $eventDivision = new EventDivision(
     $_GET['repeat-partners'],
     $_GET['time-start'],
     $_GET['time-end'],
+    (bool) ($_GET['include-scores'] ?? false),
 );
 
 

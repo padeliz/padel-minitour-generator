@@ -18,7 +18,8 @@ class MatchesGenerator
         int $partnersPerPlayer,
         int $repeatPartners,
         string $timeStart,
-        string $timeEnd
+        string $timeEnd,
+        bool $includeFinal
     )
     {
         $templateMatchesGenerator = new TemplateMatchesGenerator(count($players), $partnersPerPlayer, $repeatPartners);
@@ -30,20 +31,24 @@ class MatchesGenerator
 
         $this->matchesCount = count($matches);
 
-        $segments = $this->matchesCount + 1;
+        $segments = $this->matchesCount;
+
+        if ($includeFinal) {
+            $segments = $segments + 1;
+        }
 
         $dateTime1 = DateTime::createFromFormat('H:i', $timeStart);
         $dateTime2 = DateTime::createFromFormat('H:i', $timeEnd);
 
         $totalMinutes = ($dateTime2->getTimestamp() - $dateTime1->getTimestamp()) / 60;
-        $segmentDuration = floor($totalMinutes / $segments);
+        $segmentDuration = $totalMinutes / $segments;
 
-        for ($i = 0; $i < $segments - 1; $i++) {
+        for ($i = 0; $i < $this->matchesCount; $i++) {
             $startTime = clone $dateTime1;
-            $startTime->add(new DateInterval('PT' . ($segmentDuration * $i) . 'M'));
+            $startTime->add(new DateInterval('PT' . floor($segmentDuration * $i) . 'M'));
 
             $endTime = clone $dateTime1;
-            $endTime->add(new DateInterval('PT' . ($segmentDuration * ($i + 1)) . 'M'));
+            $endTime->add(new DateInterval('PT' . floor($segmentDuration * ($i + 1)) . 'M'));
 
             $matches[$i][2] = $startTime->format('H:i');
             $matches[$i][3] = $endTime->format('H:i');

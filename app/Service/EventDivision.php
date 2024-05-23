@@ -23,10 +23,11 @@ class EventDivision
         int $partnersPerPlayer,
         int $repeatPartners,
         string $timeStart,
-        string $timeEnd
+        string $timeEnd,
+        bool $includeFinal
     )
     {
-        $matchesGenerator = new MatchesGenerator($players, $partnersPerPlayer, $repeatPartners, $timeStart, $timeEnd);
+        $matchesGenerator = new MatchesGenerator($players, $partnersPerPlayer, $repeatPartners, $timeStart, $timeEnd, $includeFinal);
 
         $this->title = $title;
         $this->timeStart = $timeStart;

@@ -33,9 +33,12 @@
                             <h1 style="font-size: 60px;">
                                 <?= $_GET['title'] ?>
                             </h1>
-                            <span style="font-size: 20px;">
-                                <?= $pointsPerMatch ?> points per match
-                            </span>
+                            <?php
+                            if (!empty($_GET['include-scores'])) { ?>
+                                <span style="font-size: 20px;">
+                                    <?= $pointsPerMatch ?> points per match
+                                </span>
+                            <?php } ?>
                         </td>
                         <td style="width: 33.33%; text-align: right;">
                             <img style="max-width: 100%; max-height: 80px;" src="<?= Arshwell\Monolith\Web::site() . 'statics/media/PadelMania colored.png' ?>" />

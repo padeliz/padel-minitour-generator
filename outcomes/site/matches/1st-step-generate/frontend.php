@@ -172,8 +172,7 @@
                 <thead>
                     <tr>
                         <th scope="col">#</th>
-                        <th scope="col">Home</th>
-                        <th scope="col">Away</th>
+                        <th scope="col">Matches</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -190,6 +189,7 @@
                                     <?= $match[0][1] ?>
                                 </span>
                             </td>
+                            <td><?= $match[2] ?></td>
                             <td>
                                 <span data-player-name="<?= $match[1][0] ?>">
                                     <?= $match[1][0] ?>
