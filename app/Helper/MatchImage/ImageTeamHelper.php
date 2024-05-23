@@ -130,7 +130,7 @@ final class ImageTeamHelper
             return $imageFilePath . '.jpeg';
         }
 
-        throw new Exception('No avatar found for: ' . $player->getName() . '.');
+        throw new Exception('No avatar found for: ' . $player->getName() . ' (' . $player->getSlugName() . ')');
     }
 
     private static function resizeImage(ImageInterface $image, int $squareSize)
