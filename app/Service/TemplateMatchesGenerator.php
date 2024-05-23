@@ -14,13 +14,13 @@ class TemplateMatchesGenerator
 
     public function __construct(int $playersCount, int $partnersPerPlayer, int $repeatPartners)
     {
-        $divisionData = Cache::fetch("template-matches/v1.1/players-{$playersCount}-partners-{$partnersPerPlayer}-repeat-{$repeatPartners}");
+        $divisionData = Cache::fetch("template-matches/v1.2/players-{$playersCount}-partners-{$partnersPerPlayer}-repeat-{$repeatPartners}");
 
         if (empty($divisionData)) {
             $divisionData = $this->generateTemplateMatches($playersCount, $partnersPerPlayer, $repeatPartners);
 
             Cache::store(
-                "template-matches/v1.1/players-{$playersCount}-partners-{$partnersPerPlayer}-repeat-{$repeatPartners}",
+                "template-matches/v1.2/players-{$playersCount}-partners-{$partnersPerPlayer}-repeat-{$repeatPartners}",
                 $divisionData
             );
         }
@@ -121,8 +121,9 @@ class TemplateMatchesGenerator
                         foreach ($permutedPairs as $j => &$pair2) {
                             if (
                                 $i != $j && $pair1['used'] == false && $pair2['used'] == false &&
-                                !array_intersect($pair1['players'], $pair2['players']) &&
-                                !$this->playersMetTooMuch($pair1['players'], $pair2['players'], $playersMet)
+                                !array_intersect($pair1['players'], $pair2['players'])
+                                // &&
+                                // !$this->playersMetTooMuch($pair1['players'], $pair2['players'], $playersMet)
                             ) {
                                 $matches[] = [
                                     $pair1['players'],
