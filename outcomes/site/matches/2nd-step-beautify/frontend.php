@@ -169,6 +169,7 @@
                     </td>
                 </tr>
             </table>
+            <span style="font-size: 18px;">final: total of 24 points played</span>
         <?php } ?>
 
             </td>
