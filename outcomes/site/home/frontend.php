@@ -24,7 +24,7 @@
                         <!-- time end -->
                         <div class="padding-0-1st">
                             <label for="time-end" class="form-label">Time end</label>
-                            <input type="time" class="form-control" name="time-end" id="time-end" value="18:30" aria-describedby="time-end--help">
+                            <input type="time" class="form-control" name="time-end" id="time-end" value="16:30" aria-describedby="time-end--help">
                             <div id="time-end--help" class="form-text">...including also the finals.</div>
                         </div>
 
@@ -37,6 +37,14 @@
                                 <input type="number" class="form-control text-end" name="repeat-partners" placeholder="Repeat partners" aria-label="Repeat partners" value="1">
                             </div>
                             <div id="partners-per-player--help" class="form-text">All having the same number of partners.</div>
+                        </div>
+
+                        <!-- include score -->
+                        <div class="padding-0-1st">
+                            <input type="checkbox" name="include-scores" checked value="1" id="include-scores">
+                            <label class="form-check-label" for="include-scores">
+                                Include scores
+                            </label>
                         </div>
                     </div>
 

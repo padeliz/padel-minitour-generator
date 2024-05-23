@@ -70,19 +70,29 @@
                                 </div>
                             </td>
 
-                            <td style="width: 9%; vertical-align: bottom;">
-                                <hr>
-                            </td>
-                            <td style="width: 4%;">
-                                <?php
-                                if ($m % 3 == 0) { ?>
-                                    <span style="font-size: 15px;"><?= $match[2] ?></span>
-                                <?php } ?>
-                                <hr>
-                            </td>
-                            <td style="width: 9%; vertical-align: bottom;">
-                                <hr>
-                            </td>
+                            <?php
+                            if (!empty($_GET['include-scores'])) { ?>
+                                <td style="width: 9%; vertical-align: bottom;">
+                                    <hr>
+                                </td>
+                                <td style="width: 4%;">
+                                    <?php
+                                    if ($m % 3 == 0) { ?>
+                                        <!-- timestamp -->
+                                        <span style="font-size: 15px;"><?= $match[2] ?></span>
+                                    <?php } ?>
+                                    <hr>
+                                </td>
+                                <td style="width: 9%; vertical-align: bottom;">
+                                    <hr>
+                                </td>
+                            <?php } else { ?>
+                                <td style="width: 22%;">
+                                    <!-- timestamp -->
+                                    <span style="font-size: 30px;"><?= $match[2] ?></span>
+                                </td>
+                            <?php } ?>
+
 
                             <td style="width: 18%;">
                                 <div style="width: 100%; max-width: 100%; text-align: right;">
@@ -107,51 +117,55 @@
             <?php } ?>
         <?php } ?>
 
-        <!-- final match -->
-        <table style="margin-top: <?= $marginTop ?>px;">
-            <tr>
-                <td style="width: 21%; text-align: right; padding-right: 17px;">
-                    <div style="font-size: 40px; overflow: hidden;">
-                        ____________
-                    </div>
-                    <br><br><br>
-                    <div style="font-size: 40px; overflow: hidden;">
-                        ____________
-                    </div>
-                </td>
-                <td style="width: 18%;">
-                    <div style="width: 100%; max-width: 100%; text-align: left;">
-                        <img width="195px" src="<?= Arshwell\Monolith\Web::site() . 'statics/media/MiniTour-final-match.jpg' ?>" />
-                    </div>
-                </td>
+        <?php
+        if (!empty($_GET['include-scores'])) { ?>
+            <!-- final match -->
+            <table style="margin-top: <?= $marginTop ?>px;">
+                <tr>
+                    <td style="width: 21%; text-align: right; padding-right: 17px;">
+                        <div style="font-size: 40px; overflow: hidden;">
+                            ____________
+                        </div>
+                        <br><br><br>
+                        <div style="font-size: 40px; overflow: hidden;">
+                            ____________
+                        </div>
+                    </td>
+                    <td style="width: 18%;">
+                        <div style="width: 100%; max-width: 100%; text-align: left;">
+                            <img width="195px" src="<?= Arshwell\Monolith\Web::site() . 'statics/media/MiniTour-final-match.jpg' ?>" />
+                        </div>
+                    </td>
 
-                <td style="width: 9%; vertical-align: bottom;">
-                    <hr>
-                </td>
-                <td style="width: 4%;">
-                    <span style="font-size: 15px;"><?= $match[3] ?></span>
-                    <hr>
-                </td>
-                <td style="width: 9%; vertical-align: bottom;">
-                    <hr>
-                </td>
+                    <td style="width: 9%; vertical-align: bottom;">
+                        <hr>
+                    </td>
+                    <td style="width: 4%;">
+                        <!-- timestamp -->
+                        <span style="font-size: 15px;"><?= $match[3] ?></span>
+                        <hr>
+                    </td>
+                    <td style="width: 9%; vertical-align: bottom;">
+                        <hr>
+                    </td>
 
-                <td style="width: 18%;">
-                    <div style="width: 100%; max-width: 100%; text-align: right;">
-                        <img width="195px" src="<?= Arshwell\Monolith\Web::site() . 'statics/media/MiniTour-final-match.jpg' ?>" />
-                    </div>
-                </td>
-                <td style="width: 21%; text-align: left; padding-left: 17px;">
-                    <div style="font-size: 40px; overflow: hidden;">
-                        ____________
-                    </div>
-                    <br><br><br>
-                    <div style="font-size: 40px; overflow: hidden;">
-                        ____________
-                    </div>
-                </td>
-            </tr>
-        </table>
+                    <td style="width: 18%;">
+                        <div style="width: 100%; max-width: 100%; text-align: right;">
+                            <img width="195px" src="<?= Arshwell\Monolith\Web::site() . 'statics/media/MiniTour-final-match.jpg' ?>" />
+                        </div>
+                    </td>
+                    <td style="width: 21%; text-align: left; padding-left: 17px;">
+                        <div style="font-size: 40px; overflow: hidden;">
+                            ____________
+                        </div>
+                        <br><br><br>
+                        <div style="font-size: 40px; overflow: hidden;">
+                            ____________
+                        </div>
+                    </td>
+                </tr>
+            </table>
+        <?php } ?>
 
             </td>
         </tr>
