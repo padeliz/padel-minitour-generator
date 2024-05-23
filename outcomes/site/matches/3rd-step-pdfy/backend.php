@@ -28,10 +28,16 @@ $mpdf->SetMargins(0, 0, 0);
 $mpdf->SetFooter([
     'odd' => [
         'L' => [
-            'content' => 'Dacă cineva lipsește din meciul curent, îi poți lua locul, fără să primești puncte pentru acest meci.',
+            'content' => call_user_func(function () {
+                if (!empty($_GET['include-scores'])) {
+                    return 'If someone is missing from the next match, you can take their place without receiving points for that match.';
+                } else {
+                    return "The score doesn't matter, but if you prefer, you can keep it during the match.";
+                }
+            }),
         ],
         'R' => [
-            'content' => 'Echipa din stânga servește prima.',
+            'content' => 'Two serves per player/team. The team on the left serves first.',
         ],
     ]
 ]);

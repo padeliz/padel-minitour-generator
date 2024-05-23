@@ -14,13 +14,13 @@ class TemplateMatchesGenerator
 
     public function __construct(int $playersCount, int $partnersPerPlayer, int $repeatPartners)
     {
-        $divisionData = Cache::fetch("template-matches/v1.2/players-{$playersCount}-partners-{$partnersPerPlayer}-repeat-{$repeatPartners}");
+        $divisionData = Cache::fetch("template-matches/v1.3/players-{$playersCount}-partners-{$partnersPerPlayer}-repeat-{$repeatPartners}");
 
         if (empty($divisionData)) {
             $divisionData = $this->generateTemplateMatches($playersCount, $partnersPerPlayer, $repeatPartners);
 
             Cache::store(
-                "template-matches/v1.2/players-{$playersCount}-partners-{$partnersPerPlayer}-repeat-{$repeatPartners}",
+                "template-matches/v1.3/players-{$playersCount}-partners-{$partnersPerPlayer}-repeat-{$repeatPartners}",
                 $divisionData
             );
         }
@@ -363,7 +363,34 @@ class TemplateMatchesGenerator
             unset($matches[$nextMatchIndex]);
         }
 
-        return $sortedMatches;
+        return $this->adjustServingOrder($sortedMatches, count($mockPlayers));
+    }
+
+    private function adjustServingOrder(array $matches, int $playerNumber): array
+    {
+        // Initialize serving counts for each player
+        $serve_counts = array_fill(0, $playerNumber, 0);
+
+        foreach ($matches as &$match) {
+            // Calculate total serves for each player in the match
+            $team1 = $match[0];
+            $team2 = $match[1];
+
+            $team1_serve_count = $serve_counts[$team1[0]] + $serve_counts[$team1[1]];
+            $team2_serve_count = $serve_counts[$team2[0]] + $serve_counts[$team2[1]];
+
+            // Swap teams if team2 has served less than team1
+            if ($team2_serve_count < $team1_serve_count) {
+                $match = array($team2, $team1);
+                $team1 = $match[0];
+            }
+
+            // Increment serve counts for the first team players
+            $serve_counts[$team1[0]]++;
+            $serve_counts[$team1[1]]++;
+        }
+
+        return $matches;
     }
 
     private function repeatMatches(array $matches, int $repeatPartners): array

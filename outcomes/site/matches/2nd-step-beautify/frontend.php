@@ -46,6 +46,10 @@
         </tr>
         <tr>
             <td class="column" style="width: 50%; border-right: 1px solid gray;">
+                <img height="180px" src="<?= Arshwell\Monolith\Web::site() . 'statics/media/MiniTour-step-stretching.jpg' ?>" />
+                <br>
+                <span style="font-size: 18px;">we start with stretching</span>
+
                 <?php
                 foreach ($_GET['matches'] as $m => $match) {
                     $player1 = new Arshavinel\PadelMiniTour\DTO\Player($match[0][0], "https://i.pravatar.cc/200?u=1{$m}");
@@ -54,7 +58,7 @@
                     $player4 = new Arshavinel\PadelMiniTour\DTO\Player($match[1][1], "https://i.pravatar.cc/200?u=4{$m}");
 
                 ?>
-                    <table <?= ($m > 0 && $m != (($countMatches / 2) + 1) ? 'style="margin-top: ' . $marginTop . 'px;"' : '') ?>>
+                    <table <?= ($m != (($countMatches / 2)) ? 'style="margin-top: ' . $marginTop . 'px;"' : '') ?>>
                         <tr>
                             <td style="width: 21%; text-align: right; padding-right: 17px;">
                                 <div style="font-size: <?= Arshavinel\PadelMiniTour\Helper\PdfHtmlHelper::getFontSize($player1->getShortName()) ?>px;">
@@ -111,7 +115,7 @@
                     </table>
 
                     <?php
-                    if ($m == ($countMatches / 2)) { ?>
+                    if ($m == ($countMatches / 2) - 1) { ?>
             </td>
             <td class="column" style="width: 50%; border-left: 1px solid gray;">
             <?php } ?>
