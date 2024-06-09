@@ -25,5 +25,10 @@
             "name": "Arshavin",
             "email": "arsavinwallentyn@gmail.com"
         }
-    ]
+    ],
+    "require-dev": {
+        "symfony/console": "^5.4",
+        "symfony/process": "^5.4",
+        "phpunit/phpunit": "^9.6"
+    }
 }

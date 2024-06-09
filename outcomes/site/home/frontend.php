@@ -70,45 +70,16 @@
                 <div class="collapse show" id="valid-combinations">
                     <small>
                         <?php
-                        array_map(function ($combination) {
-                            echo '<br>' . $combination;
-                        }, [
-                            "4 players,",
-                            "partners: 2, 3",
-                            "",
-                            "5 players,",
-                            "partners: 4",
-                            "",
-                            "6 players,",
-                            "partners: 4",
-                            "",
-                            "7 players,",
-                            "partners: 4",
-                            "",
-                            "8 players,",
-                            "partners: 2, 4, 6, 7",
-                            "",
-                            "9 players,",
-                            "partners: 8",
-                            "",
-                            "10 players,",
-                            "partners: 8",
-                            "",
-                            "12 players,",
-                            "partners: 2, 3, 6, 7, 8, 9",
-                            "",
-                            "13 players,",
-                            "partners: 4",
-                            "",
-                            "14 players,",
-                            "partners: 4, 8",
-                            "",
-                            "15 players,",
-                            "partners: 4, 8",
-                            "",
-                            "16 players,",
-                            "partners: 2, 3, 4, 5, 8",
-                        ])
+                        array_map(
+                            function (array $partners, int $players) {
+                                echo "<br>{$players} players,";
+                                echo "<br>partners: ";
+                                echo implode(', ', $partners);
+                                echo "<br>";
+                            },
+                            Arshavinel\PadelMiniTour\Service\TemplateMatchesGenerator::COMBINATIONS, // partners
+                            array_keys(Arshavinel\PadelMiniTour\Service\TemplateMatchesGenerator::COMBINATIONS) // players
+                        );
                         ?>
                     </small>
                 </div>
