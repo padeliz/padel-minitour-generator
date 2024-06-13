@@ -12,7 +12,7 @@ class EventDivision
     private string $timeEnd;
     private int $eventDuration;
     private array $players;
-    private int $partnersPerPlayer;
+    private int $opponentsPerPlayer;
     private int $playersCount;
     private int $pointsPerMatch;
     private int $pointsPerPlayer;
@@ -20,14 +20,15 @@ class EventDivision
     public function __construct(
         string $title,
         array $players,
-        int $partnersPerPlayer,
+        int $opponentsPerPlayer,
         int $repeatPartners,
         string $timeStart,
         string $timeEnd,
-        bool $includeFinal
+        bool $includeFinal,
+        bool $fixedTeams = false
     )
     {
-        $matchesGenerator = new MatchesGenerator($players, $partnersPerPlayer, $repeatPartners, $timeStart, $timeEnd, $includeFinal);
+        $matchesGenerator = new MatchesGenerator($players, $opponentsPerPlayer, $repeatPartners, $timeStart, $timeEnd, $includeFinal, $fixedTeams);
 
         $this->title = $title;
         $this->timeStart = $timeStart;
@@ -37,8 +38,8 @@ class EventDivision
         $this->playersCount = count($players);
 
         $this->pointsPerMatch = floor(ceil(110 * $this->eventDuration - 1 + (20 / 60)) / $matchesGenerator->getMatchesCount());
-        $this->pointsPerPlayer = $this->pointsPerMatch * $partnersPerPlayer * $repeatPartners;
-        $this->partnersPerPlayer = $partnersPerPlayer;
+        $this->pointsPerPlayer = $this->pointsPerMatch * $opponentsPerPlayer * $repeatPartners;
+        $this->opponentsPerPlayer = $opponentsPerPlayer;
         $this->matchesGenerator = $matchesGenerator;
     }
 
@@ -62,9 +63,9 @@ class EventDivision
         return $this->eventDuration;
     }
 
-    public function getPartnersPerPlayer(): int
+    public function getOpponentsPerPlayer(): int
     {
-        return $this->partnersPerPlayer;
+        return $this->opponentsPerPlayer;
     }
 
     public function getPlayers(): array

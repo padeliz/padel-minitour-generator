@@ -12,7 +12,7 @@ use Tests\TestCase;
 
 require_once "vendor/autoload.php";
 
-class TemplateMatchesGeneratorTest extends TestCase
+class TemplateMatchesGeneratorTestFixedTeams extends TestCase
 {
     public function run(array $combinations)
     {
@@ -23,8 +23,8 @@ class TemplateMatchesGeneratorTest extends TestCase
 
         $table->setHeaders([
             '<fg=white>Players</>', '<fg=white>Opponents</>', '<fg=white>Matches</>',
-            '<fg=white>Meetings Variation</>', '<fg=white>Same partners number</>', '<fg=white>Permutation Index</>',
-            '<fg=white>Template Index</>', '<fg=white>Generation Time</>',
+            '<fg=white>Meetings Variation</>', '<fg=white>Permutation Index</>', '<fg=white>Template Index</>',
+            '<fg=white>Generation Time</>',
         ]);
 
 
@@ -38,7 +38,7 @@ class TemplateMatchesGeneratorTest extends TestCase
                 $process = new Process(['php', '-r', 'while (true) { echo "."; sleep(1); }']);
                 $process->start();
 
-                $template = new TemplateMatchesGenerator($players, $opponents_per_player, 1);
+                $template = new TemplateMatchesGenerator($players, $opponents_per_player, 1, true);
 
                 $process->stop(); // stop loading dots process
 
@@ -50,7 +50,6 @@ class TemplateMatchesGeneratorTest extends TestCase
                     '<fg=cyan>' . $opponents_per_player . '</>',
                     '<fg=white>' . ($template->getMatches() ? count($template->getMatches()) : '-') . '</>',
                     $this->formatMeetingsVariation($template->getMeetingsVariation()),
-                    $this->formatBoolean(!$template->hasDifferentPartnersNumber()),
                     $this->formatIndex($template->getPermutationIndex(), $template->getPermutationsIterated()),
                     $this->formatIndex($template->getTemplateIndex(), $template->getTemplatesGenerated()),
                     $this->formatTime($template->getGenerationTime() * 1000, $template->getEstimatedGenerationTime() * 1000),
@@ -61,7 +60,6 @@ class TemplateMatchesGeneratorTest extends TestCase
             }
 
             $table->addRow([
-                new TableSeparator(),
                 new TableSeparator(),
                 new TableSeparator(),
                 new TableSeparator(),
@@ -84,8 +82,6 @@ class TemplateMatchesGeneratorTest extends TestCase
             ) . ' (AVG)',
             '',
             '',
-            '',
-            '',
         ]);
 
         $this->clearScreen();
@@ -98,7 +94,7 @@ class TemplateMatchesGeneratorTest extends TestCase
     }
 }
 
-$test = new TemplateMatchesGeneratorTest();
+$test = new TemplateMatchesGeneratorTestFixedTeams();
 
 if ($argc > 1) {
     $combinations = [];
@@ -110,7 +106,9 @@ if ($argc > 1) {
         $combinations[$players] = explode(',', $opponentsList);
     }
 } else {
-    $combinations = TemplateMatchesGenerator::COMBINATIONS;
+    $combinations = [
+        8 => [2, 3]
+    ];
 }
 
 $test->run($combinations);

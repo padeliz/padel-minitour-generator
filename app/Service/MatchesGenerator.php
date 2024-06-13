@@ -15,14 +15,15 @@ class MatchesGenerator
 
     public function __construct(
         array $players,
-        int $partnersPerPlayer,
+        int $opponentsPerPlayer,
         int $repeatPartners,
         string $timeStart,
         string $timeEnd,
-        bool $includeFinal
+        bool $includeFinal,
+        bool $fixedTeams = false
     )
     {
-        $templateMatchesGenerator = new TemplateMatchesGenerator(count($players), $partnersPerPlayer, $repeatPartners);
+        $templateMatchesGenerator = new TemplateMatchesGenerator(count($players), $opponentsPerPlayer, $repeatPartners, $fixedTeams);
 
         $matches = $templateMatchesGenerator->getMatches();
         array_walk_recursive($matches, function (int &$playerIndex) use ($players) {

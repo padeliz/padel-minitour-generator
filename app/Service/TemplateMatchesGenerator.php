@@ -16,7 +16,7 @@ class TemplateMatchesGenerator
         8 => [2, 4, 6, 7],
         9 => [8],
         10 => [8],
-        11 => [3],
+        // 11 => [],
         12 => [2, 3, 6, 7, 8, 9],
         13 => [4],
         14 => [4, 8],
@@ -25,11 +25,11 @@ class TemplateMatchesGenerator
     ];
 
     // data
-    private array $matches;
+    private ?array $matches;
     private ?float $meetingsVariation;
-    private array $partnersCount;
-    private array $playersMet;
-    private bool $hasDifferentPartnersNumber;
+    private ?array $partnersCount;
+    private ?array $playersMet;
+    private ?bool $hasDifferentPartnersNumber;
 
     // processes
     private ?int $permutationsIterated;
@@ -41,140 +41,57 @@ class TemplateMatchesGenerator
     private int $estimatedGenerationTime;
     private int $generationTime;
 
-    public function __construct(int $playersCount, int $partnersPerPlayer, int $repeatPartners)
+    public function __construct(int $playersCount, int $opponentsPerPlayer, int $repeatOpponents, bool $fixedTeams = false)
     {
-        $divisionData = Cache::fetch("template-matches/v1.4/players-{$playersCount}-partners-{$partnersPerPlayer}-repeat-{$repeatPartners}");
+        $key = "template-matches/v1.5/players-{$playersCount}-partners-{$opponentsPerPlayer}-repeat-{$repeatOpponents}";
 
-        if (empty($divisionData)) {
-            $divisionData = $this->generateTemplateMatches($playersCount, $partnersPerPlayer, $repeatPartners);
-
-            Cache::store(
-                "template-matches/v1.4/players-{$playersCount}-partners-{$partnersPerPlayer}-repeat-{$repeatPartners}",
-                $divisionData
-            );
+        if ($fixedTeams) {
+            $key .= '-fixedteams';
         }
 
+        $divisionData = Cache::fetch($key);
+
+        if (empty($divisionData)) {
+            $divisionData = $this->generateTemplateMatches($playersCount, $opponentsPerPlayer, $repeatOpponents, $fixedTeams);
+
+            Cache::store($key, $divisionData);
+        }
+
+        // data
         $this->matches = $divisionData['matches'];
         $this->meetingsVariation = $divisionData['meetingsVariation'];
         $this->hasDifferentPartnersNumber = $divisionData['hasDifferentPartnersNumber'];
         $this->partnersCount = $divisionData['partnersCount'];
         $this->playersMet = $divisionData['playersMet'];
+
+        // processes
         $this->permutationsIterated = $divisionData['permutationsIterated'];
         $this->permutationIndex = $divisionData['permutationIndex'];
         $this->templatesGenerated = $divisionData['templatesGenerated'];
         $this->templateIndex = $divisionData['templateIndex'];
+
+        // time
         $this->estimatedGenerationTime = $divisionData['estimatedGenerationTime'];
         $this->generationTime = $divisionData['generationTime'];
     }
 
-    public function getMatches(): array
+
+    public function generateTemplateMatches(int $playersCount, int $opponentsPerPlayer, int $repeatOpponents, bool $fixedTeams): array
     {
-        return $this->matches;
+        if ($fixedTeams) {
+            return $this->generateTemplateFixedMatches($playersCount, $opponentsPerPlayer, $repeatOpponents);
+        } else {
+            return $this->generateTemplateMixedMatches($playersCount, $opponentsPerPlayer, $repeatOpponents);
+        }
     }
 
-    public function getMeetingsVariation(): ?float
-    {
-        return $this->meetingsVariation;
-    }
-
-    public function getPartnersCount(): array
-    {
-        return $this->partnersCount;
-    }
-
-    public function getPartnersCountBy(string $player): int
-    {
-        return $this->partnersCount[$player];
-    }
-
-    public function getPlayersMet(): array
-    {
-        return $this->playersMet;
-    }
-
-    public function getPlayersMetBy(string $player): int
-    {
-        return $this->playersMet[$player];
-    }
-
-    public function hasDifferentPartnersNumber(): bool
-    {
-        return $this->hasDifferentPartnersNumber;
-    }
-
-    public function getPermutationsIterated(): ?int
-    {
-        return $this->permutationsIterated;
-    }
-
-    public function getPermutationIndex(): ?int
-    {
-        return $this->permutationIndex;
-    }
-
-    public function getTemplatesGenerated(): ?int
-    {
-        return $this->templatesGenerated;
-    }
-
-    public function getTemplateIndex(): ?int
-    {
-        return $this->templateIndex;
-    }
-
-    /**
-     * Seconds estimated for generating the template.
-     */
-    public function getEstimatedGenerationTime(): int
-    {
-        return $this->estimatedGenerationTime;
-    }
-
-    /**
-     * Seconds took for generating the template.
-     */
-    public function getGenerationTime(): int
-    {
-        return $this->generationTime;
-    }
-
-
-    private function generateTemplateMatches(int $playersCount, int $partnersPerPlayer, int $repeatPartners): array
+    private function generateTemplateMixedMatches(int $playersCount, int $opponentsPerPlayer, int $repeatOpponents): array
     {
         $startTime = microtime(true);
 
         $mockPlayers = range(0, $playersCount - 1);
 
-        $countTeams = [];
-        $partnersCount = [];
-
-        $pairs = [];
-
-        foreach ($mockPlayers as $player) {
-            $partnersCount[$player] = 0;
-        }
-
-
-        foreach ($mockPlayers as $p1) {
-
-            foreach (array_reverse($mockPlayers) as $p2) {
-
-                if ($partnersCount[$p1] < $partnersPerPlayer && $partnersCount[$p2] < $partnersPerPlayer) {
-
-                    if ($p1 != $p2 && !isset($countTeams["$p1 + $p2"]) && !isset($countTeams["$p2 + $p1"])) {
-                        $countTeams["$p1 + $p2"] = count($pairs);
-
-                        $partnersCount[$p1] = $partnersCount[$p1] + 1;
-                        $partnersCount[$p2] = $partnersCount[$p2] + 1;
-
-                        $pairs[] = [
-                            'players' => [$p1, $p2],
-                            'used' => false,
-                        ];
-                    }
-                }
-            }
-        }
+        list($pairs, $partnersCount) = $this->generateMixedPairs($mockPlayers, $opponentsPerPlayer);
 
 
         $size = count($pairs) - 1;
@@ -250,7 +167,7 @@ class TemplateMatchesGenerator
                 $unusedPairs = array_filter($permutation['pairs'], function ($pair) {
                     return $pair['used'] === false;
                 });
-            } while ($matchAdded /*&& $this->hasUsefullPairs($unusedPairs)*/);
+            } while ($matchAdded);
 
             if (empty($unusedPairs)) {
                 $processes['templatesGenerated']++;
@@ -271,26 +188,246 @@ class TemplateMatchesGenerator
             ($perm = $this->pcNextPermutation($perm, $size)) && $perm !== $permCopy
         );
 
-        $bestMatches = $this->repeatMatches(
-            $this->sortMatches($bestTemplate['matches'] ?? [], $mockPlayers),
-            $repeatPartners
-        );
+        if (empty($bestTemplate['matches'])) {
+            $bestTemplate['matches'] = null;
+            $partnersCount = null;
+            $bestTemplate['playersMet'] = null;
+            $hasDifferentPartnersNumber = null;
+        } else {
+            $bestTemplate['matches'] = $this->sortMatches($bestTemplate['matches'], $mockPlayers);
+            $bestTemplate['matches'] = $this->adjustServingOrder($bestTemplate['matches'], $playersCount);
+            $bestTemplate['matches'] = $this->repeatMatches($bestTemplate['matches'], $repeatOpponents);
+
+            $hasDifferentPartnersNumber = (count(array_count_values($partnersCount)) > 1);
+        }
 
         $endTime = microtime(true);
 
         return [
-            'matches' => $bestMatches,
+            // data
+            'matches' => $bestTemplate['matches'],
             'meetingsVariation' => $bestTemplate['meetingsVariation'],
             'partnersCount' => $partnersCount,
             'playersMet' => $bestTemplate['playersMet'],
-            'hasDifferentPartnersNumber' => (count(array_count_values($partnersCount)) > 1),
+            'hasDifferentPartnersNumber' => $hasDifferentPartnersNumber,
+
+            // processes
             'permutationsIterated' => $processes['permutationsIterated'],
             'permutationIndex' => $bestTemplate['permutationIndex'],
             'templatesGenerated' => $processes['templatesGenerated'],
             'templateIndex' => $bestTemplate['templateIndex'],
+
+            // time
             'estimatedGenerationTime' => $estimatedGenerationTime,
             'generationTime' => number_format($endTime - $startTime, 2),
         ];
+    }
+
+    private function generateTemplateFixedMatches(int $playersCount, int $opponentsPerPlayer, int $repeatOpponents): array
+    {
+        $startTime = microtime(true);
+
+        $mockPlayers = range(
+            0,
+            $playersCount - 1
+        );
+
+        list($pairs, $partnersCount) = $this->generateFixedPairs($mockPlayers);
+
+        $processes = [
+            'permutationsIterated' => 1,
+            'templatesGenerated' => 1,
+        ];
+
+        $bestTemplate = [
+            'meetingsVariation' => null,
+            'matches' => null,
+            'playersMet' => [],
+            'permutationIndex' => 1,
+            'templateIndex' => 1,
+        ];
+
+        $combinations = [];
+        $matchesPerPair = array_fill_keys(range(0, count($pairs) - 1), 0);
+
+        foreach ($pairs as $i => $pair1) {
+            foreach (array_reverse($pairs, true) as $j => $pair2) {
+                if (
+                    $i != $j && !in_array("$i.$j", $combinations)
+                    && $matchesPerPair[$i] < $opponentsPerPlayer && $matchesPerPair[$j] < $opponentsPerPlayer
+                ) {
+                    $bestTemplate['matches'][] = [
+                        $pair1['players'],
+                        $pair2['players'],
+                    ];
+
+                    $matchesPerPair[$i]++;
+                    $matchesPerPair[$j]++;
+
+                    $combinations[] = "$i.$j";
+
+                    $bestTemplate['playersMet'] = $this->addPlayersMet($bestTemplate['playersMet'], [$pair1['players'], $pair2['players']]);
+                }
+            }
+        }
+
+
+        $bestTemplate['meetingsVariation'] = $this->calculatePlayersMetMeetingsVariation($bestTemplate['playersMet']);
+
+        $bestTemplate['matches'] = $this->sortMatches($bestTemplate['matches'], $mockPlayers);
+        $bestTemplate['matches'] = $this->adjustServingOrder($bestTemplate['matches'], $playersCount);
+        $bestTemplate['matches'] = $this->repeatMatches($bestTemplate['matches'], $repeatOpponents);
+
+        $hasDifferentPartnersNumber = (count(array_count_values($partnersCount)) > 1);
+
+        $endTime = microtime(true);
+
+        return [
+            // data
+            'matches' => $bestTemplate['matches'],
+            'meetingsVariation' => $bestTemplate['meetingsVariation'],
+            'partnersCount' => $partnersCount,
+            'playersMet' => $bestTemplate['playersMet'],
+            'hasDifferentPartnersNumber' => $hasDifferentPartnersNumber,
+
+            // processes
+            'permutationsIterated' => $processes['permutationsIterated'],
+            'permutationIndex' => $bestTemplate['permutationIndex'],
+            'templatesGenerated' => $processes['templatesGenerated'],
+            'templateIndex' => $bestTemplate['templateIndex'],
+
+            // time
+            'estimatedGenerationTime' => 1,
+            'generationTime' => number_format($endTime - $startTime, 2),
+        ];
+    }
+
+    public function getMatches(): ?array
+    {
+        return $this->matches;
+    }
+    public function getMeetingsVariation(): ?float
+    {
+        return $this->meetingsVariation;
+    }
+    public function getPartnersCount(): ?array
+    {
+        return $this->partnersCount;
+    }
+    public function getPartnersCountBy(string $player): ?int
+    {
+        return $this->partnersCount[$player] ?? null;
+    }
+    public function getPlayersMet(): ?array
+    {
+        return $this->playersMet;
+    }
+    public function getPlayersMetBy(string $player): ?int
+    {
+        return $this->playersMet[$player] ?? null;
+    }
+    public function hasDifferentPartnersNumber(): ?bool
+    {
+        return $this->hasDifferentPartnersNumber;
+    }
+
+    public function getPermutationsIterated(): ?int
+    {
+        return $this->permutationsIterated;
+    }
+    public function getPermutationIndex(): ?int
+    {
+        return $this->permutationIndex;
+    }
+    public function getTemplatesGenerated(): ?int
+    {
+        return $this->templatesGenerated;
+    }
+    public function getTemplateIndex(): ?int
+    {
+        return $this->templateIndex;
+    }
+
+    /**
+     * Seconds estimated for generating the template.
+     */
+    public function getEstimatedGenerationTime(): int
+    {
+        return $this->estimatedGenerationTime;
+    }
+    /**
+     * Seconds took for generating the template.
+     */
+    public function getGenerationTime(): int
+    {
+        return $this->generationTime;
+    }
+
+
+
+    /**
+     * @return [$pairs, $partnersCount]
+     */
+    private function generateFixedPairs(array $mockPlayers): array
+    {
+        $playersCount = count($mockPlayers);
+        $partnersCount = [];
+        $pairs = [];
+
+        foreach ($mockPlayers as $player) {
+            $partnersCount[$player] = 1;
+        }
+
+        for ($i = 0; $i < $playersCount; $i++) {
+            if ($i % 2 == 1) {
+                $pairs[] = [
+                    'players' => [$mockPlayers[$i - 1], $mockPlayers[$i]],
+                    'used' => false,
+                ];
+            }
+        }
+
+        return [$pairs, $partnersCount];
+    }
+
+    /**
+     * @return [$pairs, $partnersCount]
+     */
+    private function generateMixedPairs(array $mockPlayers, int $opponentsPerPlayer): array
+    {
+        $countTeams = [];
+        $partnersCount = [];
+        $pairs = [];
+
+        foreach ($mockPlayers as $player) {
+            $partnersCount[$player] = 0;
+        }
+
+
+        foreach ($mockPlayers as $p1) {
+
+            foreach (array_reverse($mockPlayers) as $p2) {
+
+                if ($partnersCount[$p1] < $opponentsPerPlayer && $partnersCount[$p2] < $opponentsPerPlayer) {
+
+                    if (
+                        $p1 != $p2 && !isset($countTeams["$p1 + $p2"]) && !isset($countTeams["$p2 + $p1"])
+                    ) {
+                        $countTeams["$p1 + $p2"] = count($pairs);
+
+                        $partnersCount[$p1] = $partnersCount[$p1] + 1;
+                        $partnersCount[$p2] = $partnersCount[$p2] + 1;
+
+                        $pairs[] = [
+                                'players' => [$p1, $p2],
+                                'used' => false,
+                            ];
+                    }
+                }
+            }
+        }
+
+        return [$pairs, $partnersCount];
     }
 
     /**
@@ -310,32 +447,6 @@ class TemplateMatchesGenerator
             $pairs,
             2
         ) + $b * $pairs + $c;
-    }
-
-    private function calculatePlayersMet(array $matches): array
-    {
-        $playersMet = [];
-
-        foreach ($matches as $match) {
-            $players = Func::arrayFlatten($match);
-
-            foreach ($players as $p1) {
-                foreach ($players as $p2) {
-                    if ($p1 != $p2) {
-                        if (!isset($playersMet[$p1])) {
-                            $playersMet[$p1] = [];
-                        }
-                        if (!isset($playersMet[$p1][$p2])) {
-                            $playersMet[$p1][$p2] = 0;
-                        }
-
-                        $playersMet[$p1][$p2]++;
-                    }
-                }
-            }
-        }
-
-        return $playersMet;
     }
 
     private function calculatePlayersMetMeetingsVariation(array $playersMet): float
@@ -376,27 +487,6 @@ class TemplateMatchesGenerator
         }
 
         return $p;
-    }
-
-    private function hasUsefullPairs(array $unusedPairs): bool
-    {
-        $playerCounts = array();
-
-        foreach ($unusedPairs as $pair) {
-            foreach ($pair['players'] as $player) {
-                if (!isset($playerCounts[$player])) {
-                    $playerCounts[$player] = 1;
-                } else {
-                    $playerCounts[$player]++;
-                }
-            }
-        }
-
-        $repeatingPlayers = array_filter($playerCounts, function ($count) use ($unusedPairs) {
-            return $count == count($unusedPairs);
-        });
-
-        return empty($repeatingPlayers);
     }
 
     private function addPlayersMet(array $playersMet, array $match): array
@@ -557,7 +647,7 @@ class TemplateMatchesGenerator
             unset($matches[$nextMatchIndex]);
         }
 
-        return $this->adjustServingOrder($sortedMatches, count($mockPlayers));
+        return $sortedMatches;
     }
 
     /**
@@ -591,13 +681,13 @@ class TemplateMatchesGenerator
     }
 
     /**
-     * Duplicate the matches equally with @param repeatPartners.
+     * Duplicate the matches equally with @param repeatOpponents.
      */
-    private function repeatMatches(array $matches, int $repeatPartners): array
+    private function repeatMatches(array $matches, int $repeatOpponents): array
     {
         $repeatedMatches = [];
 
-        for ($i = 1; $i <= $repeatPartners; $i++) {
+        for ($i = 1; $i <= $repeatOpponents; $i++) {
             foreach ($matches as $match) {
                 $repeatedMatches[] = $match;
             }

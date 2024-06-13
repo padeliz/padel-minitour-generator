@@ -28,22 +28,32 @@
                             <div id="time-end--help" class="form-text">...including also the finals.</div>
                         </div>
 
-                        <!-- matches per player -->
+                        <!-- opponents per player -->
                         <div class="padding-0-1st">
-                            <label for="partners-per-player" class="form-label">Partners per player</label>
+                            <label for="opponents-per-player" class="form-label">Opponents per player</label>
                             <div class="input-group">
-                                <input type="number" class="form-control" name="partners-per-player" id="partners-per-player" value="4" aria-describedby="partners-per-player--help" aria-label="Partners per player">
+                                <input type="number" class="form-control" name="opponents-per-player" id="opponents-per-player" value="4" aria-describedby="opponents-per-player--help" aria-label="Partners per player">
                                 <span class="input-group-text">×</span>
                                 <input type="number" class="form-control text-end" name="repeat-partners" placeholder="Repeat partners" aria-label="Repeat partners" value="1">
                             </div>
-                            <div id="partners-per-player--help" class="form-text">All having the same number of partners.</div>
+                            <div id="opponents-per-player--help" class="form-text">
+                                [opponents] × [repeat] = [matches per player]
+                            </div>
                         </div>
 
-                        <!-- include score -->
+                        <!-- include scores -->
                         <div class="padding-0-1st">
                             <input type="checkbox" name="include-scores" checked value="1" id="include-scores">
                             <label class="form-check-label" for="include-scores">
                                 Include scores
+                            </label>
+                        </div>
+
+                        <!-- fixed teams -->
+                        <div class="padding-0-1st">
+                            <input type="checkbox" name="fixed-teams" value="1" id="fixed-teams">
+                            <label class="form-check-label" for="fixed-teams">
+                                Fixed teams
                             </label>
                         </div>
                     </div>

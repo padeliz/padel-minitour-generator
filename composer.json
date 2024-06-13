@@ -13,7 +13,8 @@
 
     "autoload": {
         "psr-4": {
-            "Arshavinel\\PadelMiniTour\\": "app/"
+            "Arshavinel\\PadelMiniTour\\": "app/",
+            "Tests\\": "tests/"
         }
     },
 

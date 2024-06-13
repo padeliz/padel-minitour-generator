@@ -61,7 +61,7 @@
                     $player4 = new Arshavinel\PadelMiniTour\DTO\Player($match[1][1], "https://i.pravatar.cc/200?u=4{$m}");
 
                 ?>
-                    <table <?= ($m != (($countMatches / 2)) ? 'style="margin-top: ' . $marginTop . 'px;"' : '') ?>>
+                    <table <?= ($m != (ceil($countMatches / 2)) ? 'style="margin-top: ' . $marginTop . 'px;"' : '') ?>>
                         <tr>
                             <td style="width: 21%; text-align: right; padding-right: 17px;">
                                 <div style="font-size: <?= Arshavinel\PadelMiniTour\Helper\PdfHtmlHelper::getFontSize($player1->getShortName()) ?>px;">
@@ -84,7 +84,7 @@
                                 </td>
                                 <td style="width: 4%;">
                                     <?php
-                                    if ($m % 3 == 0) { ?>
+                                    if ($m % 2 == 0) { ?>
                                         <!-- timestamp -->
                                         <span style="font-size: 15px;"><?= $match[2] ?></span>
                                     <?php } ?>
@@ -118,7 +118,7 @@
                     </table>
 
                     <?php
-                    if ($m == ($countMatches / 2) - 1) { ?>
+                    if ($m == ceil($countMatches / 2) - 1) { ?>
             </td>
             <td class="column" style="width: 50%; border-left: 1px solid gray;">
             <?php } ?>
