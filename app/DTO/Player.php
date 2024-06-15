@@ -24,12 +24,12 @@ final class Player
     public function setName(string $name) {
         $this->name = $name;
         $this->shortName = preg_replace(
-            '/(\b.+?\b)([a-zA-ZăâșȘțȚî])[a-zA-ZăâșȘțȚî]+\b/u',
+            '/(\b.+?\b)([a-zA-ZăâșşȘțȚî])[a-zA-ZăâșşȘțȚî]+\b/u',
             '$1$2.',
             $name
         );
         $this->htmlShortName = preg_replace(
-            '/([a-zA-ZăâșȘțȚî]\.)/u',
+            '/([a-zA-ZăâșşȘțȚî]\.)/u',
             '<small style="font-weight: 400; color: #444;"><small>$1</small></small>',
             $this->shortName
         );
