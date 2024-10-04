@@ -22,7 +22,7 @@ final class ImageTeamHelper
     {
         $team = Team::first(
             [
-                'columns' => Team::PRIMARY_KEY,
+                'columns' => "inserted_at, updated_at",
                 'where' => "player_1 LIKE ? AND player_2 LIKE ?",
                 'files' => true
             ],
@@ -30,8 +30,28 @@ final class ImageTeamHelper
         );
 
         if ($team && $team->file('avatars') && $team->file('avatars')->url('medium')) {
-            return $team->file('avatars')->url('medium');
+            $last_update_at = max($team->inserted_at, $team->updated_at ?: 0);
+
+            if (filemtime(self::getPlayerAvatarPath($playerOne)) < $last_update_at && filemtime(self::getPlayerAvatarPath($playerTwo)) < $last_update_at) {
+                return $team->file('avatars')->url('medium');
+            }
+
+            /* else, a new player image has been uploaded, so regenerate the team image */
         }
+
+        // _vd($playerOne->getName(), '$playerOne->getName()');
+        // _vd($playerTwo->getName(), '$playerTwo->getName()');
+        // _br(2);
+        // _vd($team->inserted_at, '$team->inserted_at');
+        // _vd($team->updated_at, '$team->updated_at');
+        // _vd($last_update_at, '$last_update_at');
+        // _br(2);
+        // _vd(self::getPlayerAvatarPath($playerOne), 'self::getPlayerAvatarPath($playerOne)');
+        // _vd(filemtime(self::getPlayerAvatarPath($playerOne)), 'filemtime(self::getPlayerAvatarPath($playerOne)');
+        // _br(2);
+        // _vd(self::getPlayerAvatarPath($playerTwo), 'self::getPlayerAvatarPath($playerTwo)');
+        // _vd(filemtime(self::getPlayerAvatarPath($playerTwo)), 'filemtime(self::getPlayerAvatarPath($playerTwo)');
+        // exit;
 
         return self::generateImage($playerOne, $playerTwo, ($team ? $team->id() : null));
     }
@@ -92,6 +112,11 @@ final class ImageTeamHelper
                 "?, ?, UNIX_TIMESTAMP()",
                 [$playerOne->getName(), $playerTwo->getName()]
             );
+        } else {
+            Team::update([
+                'set' => "updated_at = UNIX_TIMESTAMP()",
+                'where' => "id_team = ?"
+            ], [$teamId]);
         }
 
         $tempDirPath = sys_get_temp_dir() . '/arshpadelminitour';
