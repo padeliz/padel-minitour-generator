@@ -7,17 +7,22 @@ use DateTime;
 class EventDivision
 {
     private MatchesGenerator $matchesGenerator;
+    private string $edition;
+    private string $partnerId;
     private string $title;
     private string $timeStart;
     private string $timeEnd;
     private int $eventDuration;
     private array $players;
     private int $opponentsPerPlayer;
+    private int $repeatPartners;
     private int $playersCount;
     private int $pointsPerMatch;
     private int $pointsPerPlayer;
 
     public function __construct(
+        string $edition,
+        string $partnerId,
         string $title,
         array $players,
         int $opponentsPerPlayer,
@@ -30,6 +35,8 @@ class EventDivision
     {
         $matchesGenerator = new MatchesGenerator($players, $opponentsPerPlayer, $repeatPartners, $timeStart, $timeEnd, $includeFinal, $fixedTeams);
 
+        $this->edition = $edition;
+        $this->partnerId = $partnerId;
         $this->title = $title;
         $this->timeStart = $timeStart;
         $this->timeEnd = $timeEnd;
@@ -40,7 +47,18 @@ class EventDivision
         $this->pointsPerMatch = floor(ceil(110 * $this->eventDuration - 1 + (20 / 60)) / $matchesGenerator->getMatchesCount());
         $this->pointsPerPlayer = $this->pointsPerMatch * $opponentsPerPlayer * $repeatPartners;
         $this->opponentsPerPlayer = $opponentsPerPlayer;
+        $this->repeatPartners = $repeatPartners;
         $this->matchesGenerator = $matchesGenerator;
+    }
+
+    public function getEdition(): int
+    {
+        return $this->edition;
+    }
+
+    public function getPartnerId(): int
+    {
+        return $this->partnerId;
     }
 
     public function getTitle(): string
@@ -66,6 +84,11 @@ class EventDivision
     public function getOpponentsPerPlayer(): int
     {
         return $this->opponentsPerPlayer;
+    }
+
+    public function getRepeatPartners(): int
+    {
+        return $this->repeatPartners;
     }
 
     public function getPlayers(): array

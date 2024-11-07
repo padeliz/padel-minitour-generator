@@ -1,3 +1,5 @@
+<link href="https://fonts.googleapis.com/css?family=Open%20Sans" rel="stylesheet">
+
 <style type="text/css">
     table {
         width: 100%;
@@ -27,21 +29,24 @@
                 <table cellspacing="0" style="width: 100%;" autosize="1">
                     <tr>
                         <td style="width: 33.33%; text-align: left;">
-                            <img style="max-width: 100%; width: 400px; max-height: 100px;" src="<?= Arshwell\Monolith\Web::site() . 'statics/media/MiniTour Long F.png' ?>" />
+                            <img style="max-width: 100%; width: 400px; max-height: 100px;" src="<?= Arshwell\Monolith\Web::site() . 'statics/media/MiniTour LongDown F.png' ?>" />
+                            <b style="font-family: sans; font-size: 60px; display: block; padding-left: 10px; color: #7ab857; line-height: 90px;">
+                                #<?= $_GET['edition'] ?>
+                            </b>
                         </td>
-                        <td style="width: 33.33%; text-align: left; padding-left: 170px;">
+                        <td style="width: 33.33%; text-align: left; padding-left: 150px;">
                             <h1 style="font-size: 60px;">
                                 <?= $_GET['title'] ?>
                             </h1>
                             <?php
                             if (!empty($_GET['include-scores'])) { ?>
-                                <span style="font-size: 20px;">
+                                <span style="font-size: 24px;">
                                     <?= $pointsPerMatch ?> points per match
                                 </span>
                             <?php } ?>
                         </td>
                         <td style="width: 33.33%; text-align: right;">
-                            <img style="max-width: 100%; max-height: 80px;" src="<?= Arshwell\Monolith\Web::site() . 'statics/media/PadelMania colored.png' ?>" />
+                            <img style="max-width: 100%; max-height: 80px;" src="<?= Arshwell\Monolith\Web::site() . 'statics/media/MiniTour-partners/partner-' . $_GET['partner-id'] . '.png' ?>" />
                         </td>
                     </tr>
                 </table>
@@ -83,11 +88,8 @@
                                     <hr>
                                 </td>
                                 <td style="width: 4%;">
-                                    <?php
-                                    if ($m % 2 == 0) { ?>
-                                        <!-- timestamp -->
-                                        <span style="font-size: 15px;"><?= $match[2] ?></span>
-                                    <?php } ?>
+                                    <!-- timestamp -->
+                                    <span style="font-size: 15px;"><?= $match[2] ?></span>
                                     <hr>
                                 </td>
                                 <td style="width: 9%; vertical-align: bottom;">

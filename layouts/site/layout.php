@@ -48,8 +48,8 @@
                                     </span>
                                 </div>
                                 <div class="flex-grow-1 ms-3">
-                                    <span class="logo-text" style="display: block;">MiniTour</span>
-                                    <small class="text-alt" style="display: block; font-size: 14px; line-height: 14px;">ARSH Padel</small>
+                                    <span class="logo-text" style="display: block;">ARSH Padel MiniTour</span>
+                                    <small class="text-alt" style="display: block; font-size: 14px; line-height: 14px;">#MakeFriendsPlayingPadel</small>
                                 </div>
                             </div>
                         </a>

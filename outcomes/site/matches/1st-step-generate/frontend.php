@@ -3,27 +3,42 @@
 
         <!-- stats -->
         <div class="col-md col-lg-auto">
-            <div class="row align-items-center">
-                <div class="col-auto">
-                    <h2>
-                        <span class="badge bg-dark">
-                            <?php
-                            /** @var Arshavinel\PadelMiniTour\Service\EventDivision $eventDivision */
+            <table id="stats-event" class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Event</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>edition</td>
+                        <td>
+                            #<?= $eventDivision->getEdition() ?>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>partner</td>
+                        <td>
+                            <?= (new \NumberFormatter("en", \NumberFormatter::ORDINAL))->format($eventDivision->getPartnerId()) ?>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>interval</td>
+                        <td>
+                            <?= $eventDivision->getTimeStart() ?> - <?= $eventDivision->getTimeEnd() ?>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>division</td>
+                        <td>
+                            <?= $eventDivision->getTitle(); ?>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
 
-                            echo $eventDivision->getTitle();
-                            ?>
-                        </span>
-                    </h2>
-                </div>
-                <div class="col-auto">
-                    <small class="badge bg-secondary">
-                        <?= $eventDivision->getTimeStart() ?> - <?= $eventDivision->getTimeEnd() ?>
-                    </small>
-                </div>
-            </div>
-
-
-            <table id="stats-minitour" class="table table-striped margin-1st-2nd">
+            <table id="stats-matches" class="table table-striped margin-1st-2nd">
                 <thead>
                     <tr>
                         <th>General</th>
@@ -63,7 +78,7 @@
                     <tr>
                         <td>playing</td>
                         <td>
-                            <?= $eventDivision->getOpponentsPerPlayer() ?> matches
+                            <?= $eventDivision->getOpponentsPerPlayer() * $eventDivision->getRepeatPartners() ?> matches
                         </td>
                     </tr>
                     <tr>
@@ -81,51 +96,60 @@
                 </tbody>
             </table>
 
-            <!-- see beautified matches -->
-            <form method="GET" action="<?= Arshwell\Monolith\Web::url('site.matches.2nd-step-beautify') ?>" target="_blank">
-                <input type="hidden" name="title" value="<?= $eventDivision->getTitle() ?>" />
-                <input type="hidden" name="time-start" value="<?= $eventDivision->getTimeStart() ?>" />
-                <input type="hidden" name="time-end" value="<?= $eventDivision->getTimeEnd() ?>" />
-                <input type="hidden" name="points-per-match" value="<?= $eventDivision->getPointsPerMatch() ?>" />
-                <input type="hidden" name="include-scores" value="<?= $_GET['include-scores'] ?? 0 ?>" />
-                <input type="hidden" name="fixed-teams" value="<?= $_GET['fixed-teams'] ?? 0 ?>" />
-                <?php
-                array_map(function (int $key, array $match) { ?>
-                    <input type="hidden" name="matches[<?= $key ?>][0][0]" value="<?= $match[0][0] ?>" />
-                    <input type="hidden" name="matches[<?= $key ?>][0][1]" value="<?= $match[0][1] ?>" />
-                    <input type="hidden" name="matches[<?= $key ?>][1][0]" value="<?= $match[1][0] ?>" />
-                    <input type="hidden" name="matches[<?= $key ?>][1][1]" value="<?= $match[1][1] ?>" />
-                    <input type="hidden" name="matches[<?= $key ?>][2]" value="<?= $match[2] ?>" />
-                    <input type="hidden" name="matches[<?= $key ?>][3]" value="<?= $match[3] ?>" />
-                <?php }, array_keys($eventDivision->getMatches()), $eventDivision->getMatches());
-                ?>
-                <button type="submit" class="btn btn-primary mr-1 mb-1">
-                    Preview beautified matches
-                </button>
-            </form>
+            <b class="text-primary">Matches design:</b>
+            <div>
+                <!-- see beautified matches -->
+                <form method="GET" action="<?= Arshwell\Monolith\Web::url('site.matches.2nd-step-beautify') ?>" class="d-inline" target="_blank">
+                    <input type="hidden" name="edition" value="<?= $eventDivision->getEdition() ?>" />
+                    <input type="hidden" name="partner-id" value="<?= $eventDivision->getPartnerId() ?>" />
+                    <input type="hidden" name="title" value="<?= $eventDivision->getTitle() ?>" />
+                    <input type="hidden" name="time-start" value="<?= $eventDivision->getTimeStart() ?>" />
+                    <input type="hidden" name="time-end" value="<?= $eventDivision->getTimeEnd() ?>" />
+                    <input type="hidden" name="points-per-match" value="<?= $eventDivision->getPointsPerMatch() ?>" />
+                    <input type="hidden" name="include-scores" value="<?= $_GET['include-scores'] ?? 0 ?>" />
+                    <input type="hidden" name="fixed-teams" value="<?= $_GET['fixed-teams'] ?? 0 ?>" />
+                    <?php
+                    array_map(function (int $key, array $match) { ?>
+                        <input type="hidden" name="matches[<?= $key ?>][0][0]" value="<?= $match[0][0] ?>" />
+                        <input type="hidden" name="matches[<?= $key ?>][0][1]" value="<?= $match[0][1] ?>" />
+                        <input type="hidden" name="matches[<?= $key ?>][1][0]" value="<?= $match[1][0] ?>" />
+                        <input type="hidden" name="matches[<?= $key ?>][1][1]" value="<?= $match[1][1] ?>" />
+                        <input type="hidden" name="matches[<?= $key ?>][2]" value="<?= $match[2] ?>" />
+                        <input type="hidden" name="matches[<?= $key ?>][3]" value="<?= $match[3] ?>" />
+                    <?php }, array_keys($eventDivision->getMatches()), $eventDivision->getMatches());
+                    ?>
+                    <button type="submit" class="btn btn-outline-primary btn-sm mr-1 mb-1">
+                        Preview
+                        <i class="fas fa-external-link-alt fa-sm"></i>
+                    </button>
+                </form>
 
-            <!-- print PDF -->
-            <form method="GET" action="<?= Arshwell\Monolith\Web::url('site.matches.3rd-step-pdfy') ?>" target="_blank">
-                <input type="hidden" name="title" value="<?= $eventDivision->getTitle() ?>" />
-                <input type="hidden" name="time-start" value="<?= $eventDivision->getTimeStart() ?>" />
-                <input type="hidden" name="time-end" value="<?= $eventDivision->getTimeEnd() ?>" />
-                <input type="hidden" name="points-per-match" value="<?= $eventDivision->getPointsPerMatch() ?>" />
-                <input type="hidden" name="include-scores" value="<?= $_GET['include-scores'] ?? 0 ?>" />
-                <input type="hidden" name="fixed-teams" value="<?= $_GET['fixed-teams'] ?? 0 ?>" />
-                <?php
-                array_map(function (int $key, array $match) { ?>
-                    <input type="hidden" name="matches[<?= $key ?>][0][0]" value="<?= $match[0][0] ?>" />
-                    <input type="hidden" name="matches[<?= $key ?>][0][1]" value="<?= $match[0][1] ?>" />
-                    <input type="hidden" name="matches[<?= $key ?>][1][0]" value="<?= $match[1][0] ?>" />
-                    <input type="hidden" name="matches[<?= $key ?>][1][1]" value="<?= $match[1][1] ?>" />
-                    <input type="hidden" name="matches[<?= $key ?>][2]" value="<?= $match[2] ?>" />
-                    <input type="hidden" name="matches[<?= $key ?>][3]" value="<?= $match[3] ?>" />
-                <?php }, array_keys($eventDivision->getMatches()), $eventDivision->getMatches());
-                ?>
-                <button type="submit" class="btn btn-success mr-1 mb-1">
-                    Print PDF
-                </button>
-            </form>
+                <!-- print PDF -->
+                <form method="GET" action="<?= Arshwell\Monolith\Web::url('site.matches.3rd-step-pdfy') ?>" class="d-inline" target="_blank">
+                    <input type="hidden" name="edition" value="<?= $eventDivision->getEdition() ?>" />
+                    <input type="hidden" name="partner-id" value="<?= $eventDivision->getPartnerId() ?>" />
+                    <input type="hidden" name="title" value="<?= $eventDivision->getTitle() ?>" />
+                    <input type="hidden" name="time-start" value="<?= $eventDivision->getTimeStart() ?>" />
+                    <input type="hidden" name="time-end" value="<?= $eventDivision->getTimeEnd() ?>" />
+                    <input type="hidden" name="points-per-match" value="<?= $eventDivision->getPointsPerMatch() ?>" />
+                    <input type="hidden" name="include-scores" value="<?= $_GET['include-scores'] ?? 0 ?>" />
+                    <input type="hidden" name="fixed-teams" value="<?= $_GET['fixed-teams'] ?? 0 ?>" />
+                    <?php
+                    array_map(function (int $key, array $match) { ?>
+                        <input type="hidden" name="matches[<?= $key ?>][0][0]" value="<?= $match[0][0] ?>" />
+                        <input type="hidden" name="matches[<?= $key ?>][0][1]" value="<?= $match[0][1] ?>" />
+                        <input type="hidden" name="matches[<?= $key ?>][1][0]" value="<?= $match[1][0] ?>" />
+                        <input type="hidden" name="matches[<?= $key ?>][1][1]" value="<?= $match[1][1] ?>" />
+                        <input type="hidden" name="matches[<?= $key ?>][2]" value="<?= $match[2] ?>" />
+                        <input type="hidden" name="matches[<?= $key ?>][3]" value="<?= $match[3] ?>" />
+                    <?php }, array_keys($eventDivision->getMatches()), $eventDivision->getMatches());
+                    ?>
+                    <button type="submit" class="btn btn-primary btn-sm mr-1 mb-1">
+                        PDF matches
+                        <i class="fas fa-external-link-alt fa-sm"></i>
+                    </button>
+                </form>
+            </div>
         </div>
 
         <!-- players -->

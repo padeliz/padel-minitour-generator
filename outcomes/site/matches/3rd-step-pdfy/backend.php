@@ -4,8 +4,15 @@ use Arshwell\Monolith\Web;
 use Mpdf\Mpdf;
 use Mpdf\Output\Destination;
 
-if (empty($_GET['title']) || empty($_GET['matches']) || !is_array($_GET['matches'])) {
-    die('$_GET vars [title] and [matches] are mandatory.');
+if (
+    empty($_GET['edition']) || !is_numeric($_GET['edition']) ||
+    empty($_GET['partner-id']) || !is_numeric($_GET['partner-id']) ||
+    empty($_GET['title']) || !is_string($_GET['title']) ||
+    empty($_GET['matches']) || !is_array($_GET['matches']) ||
+    empty($_GET['time-start']) || !is_string($_GET['time-start']) ||
+    empty($_GET['time-end']) || !is_string($_GET['time-end'])
+) {
+    die('$_GET vars [edition], [partner-id], [title], [time-start], [time-end] and [matches] are mandatory.');
 }
 
 ini_set('max_execution_time', ini_get('max_execution_time') + (2 * count($_GET['matches'])));
@@ -30,7 +37,7 @@ $mpdf->SetFooter([
         'L' => [
             'content' => call_user_func(function () {
                 if (!empty($_GET['include-scores'])) {
-                    return 'If someone is missing from the next match, you can take their place without receiving points for that match.';
+                    return 'If someone is missing from the next match, you can take their place <u>without receiving points</u> for that match.';
                 } else {
                     return "The score doesn't matter, but if you prefer, you can keep it during the match.";
                 }
