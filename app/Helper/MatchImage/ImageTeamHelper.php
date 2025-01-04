@@ -2,11 +2,10 @@
 
 namespace Arshavinel\PadelMiniTour\Helper\MatchImage;
 
-use Arshavinel\PadelMiniTour\DTO\Player;
+use Arshavinel\PadelMiniTour\DTO\PdfPlayer;
 use Arshavinel\PadelMiniTour\Table\Match\Team;
 use Arshwell\Monolith\Math;
 use Arshwell\Monolith\Table\Files\Image;
-use Exception;
 use Imagine\Image\Box;
 use Imagine\Image\ImageInterface;
 use Imagine\Gd\Imagine;
@@ -18,7 +17,7 @@ final class ImageTeamHelper
 {
     const SQUARE_SIZE = 200; // Square size in pixels
 
-    static function getImageUrl(Player $playerOne, Player $playerTwo): string
+    public static function getImageUrl(PdfPlayer $playerOne, PdfPlayer $playerTwo): string
     {
         $team = Team::first(
             [
@@ -32,40 +31,26 @@ final class ImageTeamHelper
         if ($team && $team->file('avatars') && $team->file('avatars')->url('medium')) {
             $last_update_at = max($team->inserted_at, $team->updated_at ?: 0);
 
-            if (filemtime(self::getPlayerAvatarPath($playerOne)) < $last_update_at && filemtime(self::getPlayerAvatarPath($playerTwo)) < $last_update_at) {
+            if (filemtime($playerOne->getStaticPhotoPath()) < $last_update_at && filemtime($playerTwo->getStaticPhotoPath()) < $last_update_at) {
                 return $team->file('avatars')->url('medium');
             }
 
             /* else, a new player image has been uploaded, so regenerate the team image */
         }
 
-        // _vd($playerOne->getName(), '$playerOne->getName()');
-        // _vd($playerTwo->getName(), '$playerTwo->getName()');
-        // _br(2);
-        // _vd($team->inserted_at, '$team->inserted_at');
-        // _vd($team->updated_at, '$team->updated_at');
-        // _vd($last_update_at, '$last_update_at');
-        // _br(2);
-        // _vd(self::getPlayerAvatarPath($playerOne), 'self::getPlayerAvatarPath($playerOne)');
-        // _vd(filemtime(self::getPlayerAvatarPath($playerOne)), 'filemtime(self::getPlayerAvatarPath($playerOne)');
-        // _br(2);
-        // _vd(self::getPlayerAvatarPath($playerTwo), 'self::getPlayerAvatarPath($playerTwo)');
-        // _vd(filemtime(self::getPlayerAvatarPath($playerTwo)), 'filemtime(self::getPlayerAvatarPath($playerTwo)');
-        // exit;
-
         return self::generateImage($playerOne, $playerTwo, ($team ? $team->id() : null));
     }
 
 
-    private static function generateImage(Player $playerOne, Player $playerTwo, int $teamId = null): string
+    private static function generateImage(PdfPlayer $playerOne, PdfPlayer $playerTwo, int $teamId = null): string
     {
         ini_set('max_execution_time', ini_get('max_execution_time') + 2);
 
         $imagine = new Imagine(); // init
 
 
-        $image1 = $imagine->open(self::getPlayerAvatarPath($playerOne));
-        $image2 = $imagine->open(self::getPlayerAvatarPath($playerTwo));
+        $image1 = $imagine->open($playerOne->getStaticPhotoPath());
+        $image2 = $imagine->open($playerTwo->getStaticPhotoPath());
 
 
         self::resizeImage($image1, self::SQUARE_SIZE);
@@ -141,21 +126,6 @@ final class ImageTeamHelper
         ]);
 
         return $avatars->url('medium');
-    }
-
-    private static function getPlayerAvatarPath(Player $player): string
-    {
-        $imageFilePath = 'statics/media/MiniTour-participants/' . $player->getSlugName();
-
-        if (is_file($imageFilePath . '.png')) {
-            return $imageFilePath . '.png';
-        } elseif (is_file($imageFilePath . '.jpg')) {
-            return $imageFilePath . '.jpg';
-        } elseif (is_file($imageFilePath . '.jpeg')) {
-            return $imageFilePath . '.jpeg';
-        }
-
-        throw new Exception('No avatar found for: ' . $player->getName() . ' (' . $player->getSlugName() . ')');
     }
 
     private static function resizeImage(ImageInterface $image, int $squareSize)

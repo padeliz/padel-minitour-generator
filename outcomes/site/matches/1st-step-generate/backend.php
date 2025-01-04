@@ -4,7 +4,8 @@ use Arshavinel\PadelMiniTour\Service\EventDivision;
 use Arshwell\Monolith\Meta;
 
 if (
-    empty($_GET['edition']) || !is_numeric($_GET['edition']) ||
+
+    empty($_GET['edition']) || is_array($_GET['edition']) ||
     empty($_GET['partner-id']) || !is_numeric($_GET['partner-id']) ||
     empty($_GET['title']) || !is_string($_GET['title']) ||
     empty($_GET['time-start']) || !is_string($_GET['time-start']) ||

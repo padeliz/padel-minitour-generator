@@ -30,11 +30,12 @@
                     <tr>
                         <td style="width: 33.33%; text-align: left;">
                             <img style="max-width: 100%; width: 400px; max-height: 100px;" src="<?= Arshwell\Monolith\Web::site() . 'statics/media/MiniTour LongDown F.png' ?>" />
-                            <b style="font-family: sans; font-size: 60px; display: block; padding-left: 10px; color: #7ab857; line-height: 90px;">
-                                #<?= $_GET['edition'] ?>
+                            <span style="font-size: 60px;">&nbsp;</span>
+                            <b style="font-family: sans; font-size: 60px; color: #a9d78b;">
+                                <?= is_numeric($_GET['edition']) ? '#' : '' ?><span style="color: #7ab857;"><?= $_GET['edition'] ?></span>
                             </b>
                         </td>
-                        <td style="width: 33.33%; text-align: left; padding-left: 150px;">
+                        <td style="width: 33.33%; text-align: left; padding-left: 180px;">
                             <h1 style="font-size: 60px;">
                                 <?= $_GET['title'] ?>
                             </h1>
@@ -56,15 +57,17 @@
             <td class="column" style="width: 50%; border-right: 1px solid gray;">
                 <img height="180px" src="<?= Arshwell\Monolith\Web::site() . 'statics/media/MiniTour-step-stretching.jpg' ?>" />
                 <br>
-                <span style="font-size: 18px;">we start with stretching</span>
+                <span style="font-size: 18px;">
+                    <?= date('H:i', strtotime($_GET['matches'][0][2] . ' -15 minutes')) ?>
+                    - we start with stretching
+                </span>
 
                 <?php
                 foreach ($_GET['matches'] as $m => $match) {
-                    $player1 = new Arshavinel\PadelMiniTour\DTO\Player($match[0][0], "https://i.pravatar.cc/200?u=1{$m}");
-                    $player2 = new Arshavinel\PadelMiniTour\DTO\Player($match[0][1], "https://i.pravatar.cc/200?u=2{$m}");
-                    $player3 = new Arshavinel\PadelMiniTour\DTO\Player($match[1][0], "https://i.pravatar.cc/200?u=3{$m}");
-                    $player4 = new Arshavinel\PadelMiniTour\DTO\Player($match[1][1], "https://i.pravatar.cc/200?u=4{$m}");
-
+                    $player1 = new Arshavinel\PadelMiniTour\DTO\PdfPlayer($match[0][0]);
+                    $player2 = new Arshavinel\PadelMiniTour\DTO\PdfPlayer($match[0][1]);
+                    $player3 = new Arshavinel\PadelMiniTour\DTO\PdfPlayer($match[1][0]);
+                    $player4 = new Arshavinel\PadelMiniTour\DTO\PdfPlayer($match[1][1]);
                 ?>
                     <table <?= ($m != (ceil($countMatches / 2)) ? 'style="margin-top: ' . $marginTop . 'px;"' : '') ?>>
                         <tr>
@@ -133,11 +136,11 @@
                 <tr>
                     <td style="width: 21%; text-align: right; padding-right: 17px;">
                         <div style="font-size: 40px; overflow: hidden;">
-                            ____________
+                            ___________
                         </div>
                         <br><br><br>
                         <div style="font-size: 40px; overflow: hidden;">
-                            ____________
+                            ___________
                         </div>
                     </td>
                     <td style="width: 18%;">
@@ -165,11 +168,11 @@
                     </td>
                     <td style="width: 21%; text-align: left; padding-left: 17px;">
                         <div style="font-size: 40px; overflow: hidden;">
-                            ____________
+                            ___________
                         </div>
                         <br><br><br>
                         <div style="font-size: 40px; overflow: hidden;">
-                            ____________
+                            ___________
                         </div>
                     </td>
                 </tr>
@@ -180,5 +183,4 @@
             </td>
         </tr>
     </table>
-
 </div>

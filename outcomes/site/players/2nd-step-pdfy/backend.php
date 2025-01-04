@@ -5,18 +5,17 @@ use Mpdf\Mpdf;
 use Mpdf\Output\Destination;
 
 if (
-
     empty($_GET['edition']) || is_array($_GET['edition']) ||
     empty($_GET['partner-id']) || !is_numeric($_GET['partner-id']) ||
     empty($_GET['title']) || !is_string($_GET['title']) ||
-    empty($_GET['matches']) || !is_array($_GET['matches']) ||
-    empty($_GET['time-start']) || !is_string($_GET['time-start']) ||
-    empty($_GET['time-end']) || !is_string($_GET['time-end'])
+    empty($_GET['players']) || !is_array($_GET['players']) ||
+    !isset($_GET['include-scores']) || !is_numeric($_GET['include-scores']) ||
+    !isset($_GET['fixed-teams']) || !is_numeric($_GET['fixed-teams'])
 ) {
-    die('$_GET vars [edition], [partner-id], [title], [time-start], [time-end] and [matches] are mandatory.');
+    die('$_GET vars [edition], [partner-id], [title], [players], [include-scores], [fixed-teams] are mandatory.');
 }
 
-ini_set('max_execution_time', ini_get('max_execution_time') + (2 * count($_GET['matches'])));
+ini_set('max_execution_time', ini_get('max_execution_time') + (2 * count($_GET['players'])));
 
 
 $mpdf = new Mpdf([
@@ -39,23 +38,18 @@ $mpdf = new Mpdf([
 $mpdf->SetMargins(0, 0, 0);
 $mpdf->SetFooter([
     'odd' => [
-        'L' => [
+        'C' => [
             'content' => call_user_func(function () {
                 if (!empty($_GET['include-scores'])) {
-                    return 'If someone is missing from the next match, you can take their place <u>without receiving points</u> for that match.';
-                } else {
-                    return "The score doesn't matter, but if you prefer, you can keep it during the match.";
+                    return 'Final is played by the 4 players with the most matches won.';
                 }
             }),
-        ],
-        'R' => [
-            'content' => 'Two serves per player/team. The team on the left serves first.',
         ],
     ]
 ]);
 
 $mpdf->WriteHTML(
-    file_get_contents(Web::url('site.matches.2nd-step-beautify', null, null, 0, $_GET))
+    file_get_contents(Web::url('site.players.1st-step-beautify', null, null, 0, $_GET))
 );
 
 $mpdf->Output('MiniTour ' . $_GET['title'] . '.pdf', Destination::INLINE);

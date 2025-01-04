@@ -17,7 +17,7 @@
 
                     <div class="col-md-3 mb-3">
                         <!-- partner -->
-                        <label for="partner-id" class="form-label">Partner</label>
+                        <label for="partner-id" class="form-label">Powered by</label>
                         <select class="form-control" name="partner-id" id="partner-id" required>
                             <option></option>
                             <option value="1">PadelMania</option>
@@ -86,7 +86,10 @@
                     </div>
                 </div>
 
-                <button type="submit" class="btn btn-info mt-1">Generate matches</button>
+                <button type="submit" class="btn btn-info mt-1">
+                    Generate matches
+                    <i class="fas fa-external-link-alt fa-sm"></i>
+                </button>
             </form>
         </div>
 

@@ -96,7 +96,7 @@
                 </tbody>
             </table>
 
-            <b class="text-primary">Matches design:</b>
+            <b class="text-primary">Matches board:</b>
             <div>
                 <!-- see beautified matches -->
                 <form method="GET" action="<?= Arshwell\Monolith\Web::url('site.matches.2nd-step-beautify') ?>" class="d-inline" target="_blank">
@@ -146,6 +146,47 @@
                     ?>
                     <button type="submit" class="btn btn-primary btn-sm mr-1 mb-1">
                         PDF matches
+                        <i class="fas fa-external-link-alt fa-sm"></i>
+                    </button>
+                </form>
+            </div>
+
+            <b class="text-success d-block margin-2nd-0">Players board:</b>
+            <div>
+                <!-- see beautified matches -->
+                <form method="GET" action="<?= Arshwell\Monolith\Web::url('site.players.1st-step-beautify') ?>" class="d-inline" target="_blank">
+                    <input type="hidden" name="edition" value="<?= $eventDivision->getEdition() ?>" />
+                    <input type="hidden" name="partner-id" value="<?= $eventDivision->getPartnerId() ?>" />
+                    <input type="hidden" name="title" value="<?= $eventDivision->getTitle() ?>" />
+                    <input type="hidden" name="matches-count" value="<?= $eventDivision->getOpponentsPerPlayer() * $eventDivision->getRepeatPartners() ?>" />
+                    <input type="hidden" name="include-scores" value="<?= $_GET['include-scores'] ?? 0 ?>" />
+                    <input type="hidden" name="fixed-teams" value="<?= $_GET['fixed-teams'] ?? 0 ?>" />
+                    <?php
+                    array_map(function (int $key, string $player) { ?>
+                        <input type="hidden" name="players[<?= $key ?>]" value="<?= $player ?>" />
+                    <?php }, array_keys($eventDivision->getPlayers()), $eventDivision->getPlayers());
+                    ?>
+                    <button type="submit" class="btn btn-outline-success btn-sm mr-1 mb-1">
+                        Preview
+                        <i class="fas fa-external-link-alt fa-sm"></i>
+                    </button>
+                </form>
+
+                <!-- print PDF -->
+                <form method="GET" action="<?= Arshwell\Monolith\Web::url('site.players.2nd-step-pdfy') ?>" class="d-inline" target="_blank">
+                    <input type="hidden" name="edition" value="<?= $eventDivision->getEdition() ?>" />
+                    <input type="hidden" name="partner-id" value="<?= $eventDivision->getPartnerId() ?>" />
+                    <input type="hidden" name="title" value="<?= $eventDivision->getTitle() ?>" />
+                    <input type="hidden" name="matches-count" value="<?= $eventDivision->getOpponentsPerPlayer() * $eventDivision->getRepeatPartners() ?>" />
+                    <input type="hidden" name="include-scores" value="<?= $_GET['include-scores'] ?? 0 ?>" />
+                    <input type="hidden" name="fixed-teams" value="<?= $_GET['fixed-teams'] ?? 0 ?>" />
+                    <?php
+                    array_map(function (int $key, string $player) { ?>
+                        <input type="hidden" name="players[<?= $key ?>]" value="<?= $player ?>" />
+                    <?php }, array_keys($eventDivision->getPlayers()), $eventDivision->getPlayers());
+                    ?>
+                    <button type="submit" class="btn btn-success btn-sm mr-1 mb-1">
+                        PDF players
                         <i class="fas fa-external-link-alt fa-sm"></i>
                     </button>
                 </form>

@@ -4,7 +4,8 @@ use Arshavinel\PadelMiniTour\Helper\PdfHtmlHelper;
 use Arshwell\Monolith\Meta;
 
 if (
-    empty($_GET['edition']) || !is_numeric($_GET['edition']) ||
+
+    empty($_GET['edition']) || is_array($_GET['edition']) ||
     empty($_GET['partner-id']) || !is_numeric($_GET['partner-id']) ||
     empty($_GET['title']) || !is_string($_GET['title']) ||
     empty($_GET['matches']) || !is_array($_GET['matches']) ||
@@ -21,5 +22,5 @@ $countMatches = count($_GET['matches']);
 $marginTop = PdfHtmlHelper::getMatchesMarginTop($countMatches);
 
 Meta::set('title', "Matches beautified | ARSH Padel MiniTour");
-Meta::set('description', "Fun short padel matches.");
-Meta::set('keywords', "padel, players, minitour");
+Meta::set('description', "Fun and short padel matches.");
+Meta::set('keywords', "padel, matches, minitour");
