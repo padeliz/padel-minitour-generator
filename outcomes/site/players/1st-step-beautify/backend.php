@@ -7,12 +7,13 @@ if (
     empty($_GET['edition']) || is_array($_GET['edition']) ||
     empty($_GET['partner-id']) || !is_numeric($_GET['partner-id']) ||
     empty($_GET['title']) || !is_string($_GET['title']) ||
+    empty($_GET['color']) || !is_string($_GET['color']) ||
     empty($_GET['matches-count']) || !is_numeric($_GET['matches-count']) ||
     empty($_GET['players']) || !is_array($_GET['players']) ||
     !isset($_GET['include-scores']) || !is_numeric($_GET['include-scores']) ||
     !isset($_GET['fixed-teams']) || !is_numeric($_GET['fixed-teams'])
 ) {
-    die('$_GET vars [edition], [partner-id], [title], [matches-count], [players], [include-scores], [fixed-teams] are mandatory.');
+    die('$_GET vars [edition], [partner-id], [title], [color], [matches-count], [players], [include-scores], [fixed-teams] are mandatory.');
 }
 
 sort($_GET['players']);

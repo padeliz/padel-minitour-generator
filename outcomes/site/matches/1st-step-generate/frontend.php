@@ -33,6 +33,11 @@
                         <td>division</td>
                         <td>
                             <?= $eventDivision->getTitle(); ?>
+                            <?php
+                            if ($eventDivision->hasDemonstrativeMatch()) { ?>
+                                <br>
+                                <small><i>has demonstrative match</i></small>
+                            <?php } ?>
                         </td>
                     </tr>
                 </tbody>
@@ -103,10 +108,12 @@
                     <input type="hidden" name="edition" value="<?= $eventDivision->getEdition() ?>" />
                     <input type="hidden" name="partner-id" value="<?= $eventDivision->getPartnerId() ?>" />
                     <input type="hidden" name="title" value="<?= $eventDivision->getTitle() ?>" />
+                    <input type="hidden" name="color" value="<?= $_GET['color'] ?>" />
                     <input type="hidden" name="time-start" value="<?= $eventDivision->getTimeStart() ?>" />
                     <input type="hidden" name="time-end" value="<?= $eventDivision->getTimeEnd() ?>" />
                     <input type="hidden" name="points-per-match" value="<?= $eventDivision->getPointsPerMatch() ?>" />
                     <input type="hidden" name="include-scores" value="<?= $_GET['include-scores'] ?? 0 ?>" />
+                    <input type="hidden" name="demonstrative-match" value="<?= $eventDivision->hasDemonstrativeMatch() ?>" />
                     <input type="hidden" name="fixed-teams" value="<?= $_GET['fixed-teams'] ?? 0 ?>" />
                     <?php
                     array_map(function (int $key, array $match) { ?>
@@ -129,10 +136,12 @@
                     <input type="hidden" name="edition" value="<?= $eventDivision->getEdition() ?>" />
                     <input type="hidden" name="partner-id" value="<?= $eventDivision->getPartnerId() ?>" />
                     <input type="hidden" name="title" value="<?= $eventDivision->getTitle() ?>" />
+                    <input type="hidden" name="color" value="<?= $_GET['color'] ?>" />
                     <input type="hidden" name="time-start" value="<?= $eventDivision->getTimeStart() ?>" />
                     <input type="hidden" name="time-end" value="<?= $eventDivision->getTimeEnd() ?>" />
                     <input type="hidden" name="points-per-match" value="<?= $eventDivision->getPointsPerMatch() ?>" />
                     <input type="hidden" name="include-scores" value="<?= $_GET['include-scores'] ?? 0 ?>" />
+                    <input type="hidden" name="demonstrative-match" value="<?= $eventDivision->hasDemonstrativeMatch() ?>" />
                     <input type="hidden" name="fixed-teams" value="<?= $_GET['fixed-teams'] ?? 0 ?>" />
                     <?php
                     array_map(function (int $key, array $match) { ?>
@@ -158,6 +167,7 @@
                     <input type="hidden" name="edition" value="<?= $eventDivision->getEdition() ?>" />
                     <input type="hidden" name="partner-id" value="<?= $eventDivision->getPartnerId() ?>" />
                     <input type="hidden" name="title" value="<?= $eventDivision->getTitle() ?>" />
+                    <input type="hidden" name="color" value="<?= $_GET['color'] ?>" />
                     <input type="hidden" name="matches-count" value="<?= $eventDivision->getOpponentsPerPlayer() * $eventDivision->getRepeatPartners() ?>" />
                     <input type="hidden" name="include-scores" value="<?= $_GET['include-scores'] ?? 0 ?>" />
                     <input type="hidden" name="fixed-teams" value="<?= $_GET['fixed-teams'] ?? 0 ?>" />
@@ -177,6 +187,7 @@
                     <input type="hidden" name="edition" value="<?= $eventDivision->getEdition() ?>" />
                     <input type="hidden" name="partner-id" value="<?= $eventDivision->getPartnerId() ?>" />
                     <input type="hidden" name="title" value="<?= $eventDivision->getTitle() ?>" />
+                    <input type="hidden" name="color" value="<?= $_GET['color'] ?>" />
                     <input type="hidden" name="matches-count" value="<?= $eventDivision->getOpponentsPerPlayer() * $eventDivision->getRepeatPartners() ?>" />
                     <input type="hidden" name="include-scores" value="<?= $_GET['include-scores'] ?? 0 ?>" />
                     <input type="hidden" name="fixed-teams" value="<?= $_GET['fixed-teams'] ?? 0 ?>" />

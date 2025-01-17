@@ -19,6 +19,7 @@ class EventDivision
     private int $playersCount;
     private int $pointsPerMatch;
     private int $pointsPerPlayer;
+    private bool $hasDemonstrativeMatch;
 
     public function __construct(
         string $edition,
@@ -30,16 +31,18 @@ class EventDivision
         string $timeStart,
         string $timeEnd,
         bool $includeFinal,
+        bool $hasDemonstrativeMatch = false,
         bool $fixedTeams = false
     )
     {
-        $matchesGenerator = new MatchesGenerator($players, $opponentsPerPlayer, $repeatPartners, $timeStart, $timeEnd, $includeFinal, $fixedTeams);
+        $matchesGenerator = new MatchesGenerator($players, $opponentsPerPlayer, $repeatPartners, $timeStart, $timeEnd, $includeFinal, $hasDemonstrativeMatch, $fixedTeams);
 
         $this->edition = $edition;
         $this->partnerId = $partnerId;
         $this->title = $title;
         $this->timeStart = $timeStart;
         $this->timeEnd = $timeEnd;
+        $this->hasDemonstrativeMatch = $hasDemonstrativeMatch;
         $this->eventDuration = DateTime::createFromFormat('H:i', $timeStart)->diff(DateTime::createFromFormat('H:i', $timeEnd))->h;
         $this->players = $players;
         $this->playersCount = count($players);
@@ -74,6 +77,11 @@ class EventDivision
     public function getTimeEnd(): string
     {
         return $this->timeEnd;
+    }
+
+    public function hasDemonstrativeMatch(): bool
+    {
+        return $this->hasDemonstrativeMatch;
     }
 
     public function getDuration(): int

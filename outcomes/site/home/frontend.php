@@ -25,10 +25,24 @@
                         </select>
                     </div>
 
-                    <div class="col-md-6 mb-3">
+                    <div class="col-md-3 mb-3">
                         <!-- title -->
                         <label for="title" class="form-label">Division name</label>
                         <input type="text" class="form-control" name="title" id="title" required>
+                    </div>
+
+                    <div class="col-md-3 mb-3">
+                        <!-- color -->
+                        <label for="color" class="form-label">Color</label>
+                        <select class="form-control" name="color" id="color" required>
+                            <option></option>
+                            <option value="#ffff00">Students Rookies</option>
+                            <option value="#ffa500">Students Beginners</option>
+                            <option value="#cb2b2b">Students Novice</option>
+                            <option value="#7ab857">Adults Explorers</option>
+                            <option value="#89bdce">Adults Learners</option>
+                            <option value="#e476a7">Adults Mixt</option>
+                        </select>
                     </div>
 
                     <div class="col-md">
@@ -65,6 +79,14 @@
                             <input type="checkbox" name="include-scores" checked value="1" id="include-scores">
                             <label class="form-check-label" for="include-scores">
                                 Include scores
+                            </label>
+                        </div>
+
+                        <!-- demonstrative matches -->
+                        <div class="padding-0-1st">
+                            <input type="checkbox" name="demonstrative-match" value="1" id="demonstrative-match">
+                            <label class="form-check-label" for="demonstrative-match">
+                                Has demonstrative matches
                             </label>
                         </div>
 

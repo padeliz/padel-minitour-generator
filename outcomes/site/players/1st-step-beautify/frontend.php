@@ -33,7 +33,7 @@
             </div>
         </td>
         <td colspan="2" style="text-align: left; padding-left: -70px;">
-            <h1 style="font-size: 40px; text-align: left;">
+            <h1 style="font-size: 40px; text-align: left; background-color: <?= $_GET['color'] ?>; color: black;">
                 <?= $_GET['title'] ?>
             </h1>
         </td>

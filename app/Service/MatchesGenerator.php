@@ -20,6 +20,7 @@ class MatchesGenerator
         string $timeStart,
         string $timeEnd,
         bool $includeFinal,
+        bool $hasDemonstrativeMatch = false,
         bool $fixedTeams = false
     )
     {
@@ -40,6 +41,10 @@ class MatchesGenerator
 
         $dateTime1 = DateTime::createFromFormat('H:i', $timeStart);
         $dateTime2 = DateTime::createFromFormat('H:i', $timeEnd);
+
+        if ($hasDemonstrativeMatch) {
+            $dateTime2->modify('-15 minutes');
+        }
 
         $totalMinutes = ($dateTime2->getTimestamp() - $dateTime1->getTimestamp()) / 60;
         $segmentDuration = $totalMinutes / $segments;

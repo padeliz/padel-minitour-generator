@@ -28,25 +28,25 @@
             <td colspan="2" style="padding-bottom: <?= $marginTop ?>px;">
                 <table cellspacing="0" style="width: 100%;" autosize="1">
                     <tr>
-                        <td style="width: 33.33%; text-align: left;">
+                        <td style="width: 30%; text-align: left;">
                             <img style="max-width: 100%; width: 400px; max-height: 100px;" src="<?= Arshwell\Monolith\Web::site() . 'statics/media/MiniTour LongDown F.png' ?>" />
                             <span style="font-size: 60px;">&nbsp;</span>
                             <b style="font-family: sans; font-size: 60px; color: #a9d78b;">
                                 <?= is_numeric($_GET['edition']) ? '#' : '' ?><span style="color: #7ab857;"><?= $_GET['edition'] ?></span>
                             </b>
                         </td>
-                        <td style="width: 33.33%; text-align: left; padding-left: 180px;">
-                            <h1 style="font-size: 60px;">
+                        <td style="width: 36%; text-align: left; padding-left: 180px;">
+                            <h1 style="font-size: 60px; background-color: <?= $_GET['color'] ?>; color: black;">
                                 <?= $_GET['title'] ?>
                             </h1>
                             <?php
                             if (!empty($_GET['include-scores'])) { ?>
-                                <span style="font-size: 24px;">
+                                <b style="font-size: 24px;">
                                     <?= $pointsPerMatch ?> points per match
-                                </span>
+                                </b>
                             <?php } ?>
                         </td>
-                        <td style="width: 33.33%; text-align: right;">
+                        <td style="width: 34%; text-align: right;">
                             <img style="max-width: 100%; max-height: 80px;" src="<?= Arshwell\Monolith\Web::site() . 'statics/media/MiniTour-partners/partner-' . $_GET['partner-id'] . '.png' ?>" />
                         </td>
                     </tr>
@@ -145,7 +145,7 @@
                     </td>
                     <td style="width: 18%;">
                         <div style="width: 100%; max-width: 100%; text-align: left;">
-                            <img width="195px" src="<?= Arshwell\Monolith\Web::site() . 'statics/media/MiniTour-final-match.jpg' ?>" />
+                            <img width="195px" src="<?= Arshwell\Monolith\Web::site() . 'statics/media/MiniTour-prints/MiniTour-finalist-team.jpg' ?>" />
                         </div>
                     </td>
 
@@ -163,7 +163,7 @@
 
                     <td style="width: 18%;">
                         <div style="width: 100%; max-width: 100%; text-align: right;">
-                            <img width="195px" src="<?= Arshwell\Monolith\Web::site() . 'statics/media/MiniTour-final-match.jpg' ?>" />
+                            <img width="195px" src="<?= Arshwell\Monolith\Web::site() . 'statics/media/MiniTour-prints/MiniTour-finalist-team.jpg' ?>" />
                         </div>
                     </td>
                     <td style="width: 21%; text-align: left; padding-left: 17px;">
@@ -178,6 +178,48 @@
                 </tr>
             </table>
             <span style="font-size: 18px;">final: total of 24 points played</span>
+        <?php } ?>
+
+        <?php
+        if ($hasDemonstrativeMatch) { ?>
+            <!-- demonstrative match -->
+            <table style="margin-top: <?= $marginTop ?>px;">
+                <tr>
+                    <td style="width: 21%; text-align: center; padding-right: 17px;">
+                        <div style="font-size: 30px;">
+                            experienced
+                            <div style="font-size: 10px;">&nbsp;</div>
+                            padel players
+                        </div>
+                    </td>
+                    <td style="width: 18%;">
+                        <div style="width: 100%; max-width: 100%; text-align: left;">
+                            <img width="195px" src="<?= Arshwell\Monolith\Web::site() . Arshwell\Monolith\File::first('statics/media/MiniTour-prints/special-guests') ?>" />
+                        </div>
+                    </td>
+
+                    <td style="width: 8%;"></td>
+                    <td style="width: 6%;">
+                        <!-- timestamp -->
+                        <span style="font-size: 22px;"><?= DateTime::createFromFormat('H:i', $_GET['time-end'])->modify('-15 minutes')->format('H:i') ?></span>
+                        <hr>
+                    </td>
+                    <td style="width: 8%;"></td>
+
+                    <td style="width: 18%;">
+                        <div style="width: 100%; max-width: 100%; text-align: right;">
+                            <img width="195px" src="<?= Arshwell\Monolith\Web::site() . 'statics/media/MiniTour-prints/MiniTour-best-teams.png' ?>" />
+                        </div>
+                    </td>
+                    <td style="width: 21%; text-align: center; padding-left: 17px;">
+                        <div style="font-size: 40px; overflow: hidden;">
+                            2nd place
+                            <hr>
+                            1st place
+                        </div>
+                    </td>
+                </tr>
+            </table>
         <?php } ?>
 
             </td>

@@ -16,6 +16,8 @@ final class PdfHtmlHelper
             $marginTop = 60;
         } elseif ($countMatches >= 20) {
             $marginTop = 67;
+        } elseif ($countMatches == 19) {
+            $marginTop = 75;
         } elseif ($countMatches >= 18) {
             $marginTop = 90;
         } elseif ($countMatches >= 16) {
