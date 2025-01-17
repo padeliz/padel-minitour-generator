@@ -16,6 +16,12 @@ if (
     die('$_GET vars [edition], [partner-id], [title], [color], [matches-count], [players], [include-scores], [fixed-teams] are mandatory.');
 }
 
+foreach ($_GET['players'] as $p => $playerName) {
+    if ($playerName == '-') {
+        unset($_GET['players'][$p]);
+    }
+}
+
 sort($_GET['players']);
 
 $countPlayers = count($_GET['players']);

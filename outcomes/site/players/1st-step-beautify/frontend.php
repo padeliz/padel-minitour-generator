@@ -32,7 +32,7 @@
                 </b>
             </div>
         </td>
-        <td colspan="2" style="text-align: left; padding-left: -70px;">
+        <td colspan="2" style="text-align: left; padding-left: 50px;">
             <h1 style="font-size: 40px; text-align: left; background-color: <?= $_GET['color'] ?>; color: black;">
                 <?= $_GET['title'] ?>
             </h1>
@@ -55,7 +55,7 @@
                 <td></td>
             <?php } ?>
             <td></td>
-            <td style="text-align: center; vertical-align: bottom;">points</td>
+            <td style="text-align: center; vertical-align: bottom;">points won</td>
             <td></td>
 
             <?php
@@ -63,7 +63,7 @@
                 <td></td>
             <?php } ?>
             <td></td>
-            <td style="text-align: center;">matches</td>
+            <td style="text-align: center;">matches won</td>
         </tr>
     </thead>
     <tbody style="border-collapse: separate; border-spacing: 0 <?= $marginTop ?>px;">

@@ -52,4 +52,4 @@ $mpdf->WriteHTML(
     file_get_contents(Web::url('site.players.1st-step-beautify', null, null, 0, $_GET))
 );
 
-$mpdf->Output('MiniTour ' . $_GET['title'] . '.pdf', Destination::INLINE);
+$mpdf->Output('A2 Hârtie Color Laminat - ' . $_GET['title'] . ' Ranking.pdf', Destination::INLINE);
