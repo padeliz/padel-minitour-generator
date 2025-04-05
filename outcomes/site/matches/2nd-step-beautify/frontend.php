@@ -55,7 +55,7 @@
         </tr>
         <tr>
             <td class="column" style="width: 50%; border-right: 1px solid gray;">
-                <img height="180px" src="<?= Arshwell\Monolith\Web::site() . 'statics/media/MiniTour-step-stretching.jpg' ?>" />
+                <img height="180px" src="<?= Arshwell\Monolith\Web::site() . 'statics/media/MiniTour-prints/MiniTour-step-stretching.jpg' ?>" />
                 <br>
                 <span style="font-size: 18px;">
                     <?= date('H:i', strtotime($_GET['matches'][0][2] . ' -15 minutes')) ?>

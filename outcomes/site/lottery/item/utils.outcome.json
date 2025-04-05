@@ -1,0 +1,21 @@
+{
+    "layout": "empty-layout",
+
+    "js": {
+        "routes": {
+            "groups": [
+                "site"
+            ],
+            "exceptions": []
+        },
+        "files": {
+            "header": {
+                "resources": [
+                    "plugins/jquery.countdown/v1",
+                    "plugins/simpletimer/v1"
+                ]
+            },
+            "footer": {}
+        }
+    }
+}

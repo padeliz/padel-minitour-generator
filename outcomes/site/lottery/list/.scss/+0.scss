@@ -1,0 +1,23 @@
+body {
+    background-color: black;
+}
+
+.lottery {
+    background-image: url('#{map-get($arshwell--web-paths, "statics")}media/MiniTour-lottery/padel-balls.jpg');
+    background-size: cover;
+    background-repeat: no-repeat;
+    @include arsh--border-radius(20px);
+    border: 2px solid white;
+    color: white;
+    text-align: center;
+
+    a {
+        background-color: #00000090;
+        color: inherit;
+        text-decoration: none;
+    }
+
+    .edition-name {
+        font-size: 100px;
+    }
+}

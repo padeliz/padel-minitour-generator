@@ -1,0 +1,9 @@
+{
+    "scss": {
+        "files": {
+            "resources": [
+                "plugins/bootstrap/v4"
+            ]
+        }
+    }
+}

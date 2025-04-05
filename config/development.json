@@ -4,9 +4,9 @@
     "ips": {
         "MyDevEnv": "%env(DEV_IPS_MINE)%",
 
-        "{{ MyAuthorName }}":     {
-            "ip-1": "aa.bbb.ccc.dd",
-            "ip-2": "aa.bbb.ccc.dd"
+        "Arșavin": {
+            "Aurel Vlaicu": "86.121.128.167",
+            "PadelOne": "86.122.8.126"
         }
     },
 
