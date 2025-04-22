@@ -1,0 +1,76 @@
+on:
+  pull_request:
+    branches: main
+
+run-name: "PR #${{ github.event.number }} | branch pushed"
+name: 🛸 Deploy on Padel MiniTour Stage
+
+jobs:
+
+  ## 1st job
+  # Consecutiveness:
+
+  #   runs-on: ubuntu-latest
+  #   steps:
+
+  #     # next job won't start if this workflow still run in another instance
+  #     - uses: mktcode/consecutive-workflow-action@eb43c6b5852dd0e33efa797a1817196d06daa4b2
+  #       with:
+  #         token: ${{ secrets.GITHUB_TOKEN }}
+
+  ## 2nd job
+  ftp-deploy:
+
+    name: 👻 FTP Deploy on Stage
+    runs-on: ubuntu-latest
+    # needs: [Consecutiveness]
+
+    environment:
+      name: padel-minitour-work
+      url: 'https://work.padeliz.ro/_wrk/stage/padel-minitour'
+
+    steps:
+      - name: ▶️ 1. Get latest code
+        uses: actions/checkout@v3
+
+      - name: ▶️ 2. Install PHP 7.4
+        uses: "shivammathur/setup-php@v2"
+        with:
+          php-version: '7.4'
+
+      - name: ▶️ 3. Run "composer install"
+        uses: "ramsey/composer-install@v2"
+
+      - name: ▶️ 4. Create .env.local file
+        run: |
+          touch .env.local
+
+          echo "# GitHub variables" >> .env.local
+          echo '${{ toJSON(vars) }}' | jq -r 'keys[] as $k | "\($k)=\(.[$k])"' >> .env.local
+
+          echo "" >> .env.local
+
+          echo "# GitHub secrets" >> .env.local
+          echo '${{ toJSON(secrets) }}' | jq -r 'keys[] as $k | "\($k)=\(.[$k])"' >> .env.local
+
+      - name: ▶️ 5. Sync files
+        uses: SamKirkland/FTP-Deploy-Action@4.3.3
+        with:
+          server: padeliz.ro
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          server-dir: ${{ secrets.FTP_SERVER_DIR }}
+          exclude: |
+            .git/*
+            **/.git*
+            **/.git*/**
+            .github/*
+            .vscode/*
+            .well-known/*
+            caches/*
+            cgi-bin/*
+            uploads/**/
+            .ftpquota
+            .gitignore
+            .gitmodules
+          log-level: standard # minimal | verbose
