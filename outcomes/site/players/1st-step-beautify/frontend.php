@@ -44,28 +44,32 @@
 </table>
 
 <table cellspacing="0" style="width: 100%; margin-top: <?= $marginTop ?>px;" autosize="1">
-    <thead style="border-spacing: 0; padding: 0;">
-        <tr>
-            <td></td>
-            <td></td>
-            <td></td>
-            <?php
-            for ($i = 1; $i < $_GET['matches-count']; $i++) { ?>
+    <?php
+    // there is not enough space on the page for 12 players
+    if (count($_GET['players']) < 12) { ?>
+        <thead style="border-spacing: 0; padding: 0;">
+            <tr>
                 <td></td>
                 <td></td>
-            <?php } ?>
-            <td></td>
-            <td style="text-align: center; vertical-align: bottom;">points won</td>
-            <td></td>
+                <td></td>
+                <?php
+                for ($i = 1; $i < $_GET['matches-count']; $i++) { ?>
+                    <td></td>
+                    <td></td>
+                <?php } ?>
+                <td></td>
+                <td style="text-align: center; vertical-align: bottom;">points won</td>
+                <td></td>
 
-            <?php
-            for ($i = 0; $i < $_GET['matches-count']; $i++) { ?>
+                <?php
+                for ($i = 0; $i < $_GET['matches-count']; $i++) { ?>
+                    <td></td>
+                <?php } ?>
                 <td></td>
-            <?php } ?>
-            <td></td>
-            <td style="text-align: center;">matches won</td>
-        </tr>
-    </thead>
+                <td style="text-align: center;">matches won</td>
+            </tr>
+        </thead>
+    <?php } ?>
     <tbody style="border-collapse: separate; border-spacing: 0 <?= $marginTop ?>px;">
         <?php
         foreach ($_GET['players'] as $playerName) {

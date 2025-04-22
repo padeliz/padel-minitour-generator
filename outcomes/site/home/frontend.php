@@ -23,6 +23,7 @@
                             <option value="1">PadelMania</option>
                             <option value="2">Padel One</option>
                             <option value="3">Padel World</option>
+                            <option value="4">Magic Padel</option>
                         </select>
                     </div>
 
@@ -40,8 +41,8 @@
                             <option value="#ffff00">Students Rookies</option>
                             <option value="#ffa500">Students Beginners</option>
                             <option value="#cb2b2b">Students Novice</option>
-                            <option value="#7ab857">Adults Explorers</option>
-                            <option value="#89bdce">Adults Learners</option>
+                            <option value="#89bdce">Adults Explorers</option>
+                            <option value="#e476a7">Adults Learners</option>
                             <option value="#e476a7">Adults Mixt</option>
                         </select>
                     </div>

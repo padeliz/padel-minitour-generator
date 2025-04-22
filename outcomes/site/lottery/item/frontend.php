@@ -27,10 +27,9 @@
         <div id="finished" class="text-center margin-8th-0">
             Felicită și tu norocoșii de azi!
             <br>
-            Ne revedem la next edition pe 05 aprilie 💚
+            Ne revedem la next edition pe 27 aprilie 💚
         </div>
-    <?php }
-    else { ?>
+    <?php } else { ?>
         <input type="hidden" name="id_edition" value="<?= $edition->id() ?>" />
         <input type="hidden" name="id_lucky_one" value="<?= $luckyOne->id() ?>" />
 
@@ -75,14 +74,13 @@
                         <div id="timer">
                             <?php
                             if ($timeLeft['days']) {
-                                ?><span id="days"><?= $timeLeft['days'] ?></span>:<?php
-                            }
-                            if ($timeLeft['hours']) {
-                                ?><span id="hours"><?= $timeLeft['hours'] ?></span>:<?php
-                            } ?><span id="minutes"><?= $timeLeft['minutes'] ?></span>:<span id="seconds"><?= $timeLeft['seconds'] ?></span>
+                            ?><span id="days"><?= $timeLeft['days'] ?></span>:<?php
+                                                                            }
+                                                                            if ($timeLeft['hours']) {
+                                                                                ?><span id="hours"><?= $timeLeft['hours'] ?></span>:<?php
+                                                                                                                                    } ?><span id="minutes"><?= $timeLeft['minutes'] ?></span>:<span id="seconds"><?= $timeLeft['seconds'] ?></span>
                         </div>
-                    <?php }
-                    else { ?>
+                    <?php } else { ?>
                         <img style="width: 50%; max-height: 100%;" src="<?= $pdfPlayer->getAvatarUrl() ?>" alt="<?= $pdfPlayer->getShortName() ?>" />
                         <div><?= $pdfPlayer->getShortName() ?></div>
                         <?php

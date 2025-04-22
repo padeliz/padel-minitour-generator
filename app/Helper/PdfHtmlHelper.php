@@ -11,7 +11,7 @@ final class PdfHtmlHelper
         } elseif ($countMatches >= 26) {
             $marginTop = 13;
         } elseif ($countMatches >= 24) {
-            $marginTop = 40;
+            $marginTop = 31;
         } elseif ($countMatches >= 22) {
             $marginTop = 60;
         } elseif ($countMatches >= 20) {
@@ -38,7 +38,7 @@ final class PdfHtmlHelper
     public static function getPlayersMarginTop(int $countPlayers): int
     {
         if ($countPlayers == 12) {
-            $marginTop = 58;
+            $marginTop = 0;
         } elseif ($countPlayers == 11) {
             $marginTop = 62;
         } elseif ($countPlayers == 10) {
