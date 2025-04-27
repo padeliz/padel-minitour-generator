@@ -4,20 +4,20 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "37dab43a00e8d064fc956182b8600d70",
+    "content-hash": "4bdddc7d8ba23d82ebfa647e7de88e2f",
     "packages": [
         {
             "name": "arshwell/monolith",
-            "version": "v0.4.15",
+            "version": "v0.5.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/arshwell/monolith.git",
-                "reference": "923d0f194efea024bde4c80243297957c342b8e3"
+                "reference": "9a344b2c96f56c057a36ee0c38553a1e99569efd"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/arshwell/monolith/zipball/923d0f194efea024bde4c80243297957c342b8e3",
-                "reference": "923d0f194efea024bde4c80243297957c342b8e3",
+                "url": "https://api.github.com/repos/arshwell/monolith/zipball/9a344b2c96f56c057a36ee0c38553a1e99569efd",
+                "reference": "9a344b2c96f56c057a36ee0c38553a1e99569efd",
                 "shasum": ""
             },
             "require": {
@@ -56,9 +56,9 @@
             ],
             "support": {
                 "issues": "https://github.com/arshwell/monolith/issues",
-                "source": "https://github.com/arshwell/monolith/tree/v0.4.15"
+                "source": "https://github.com/arshwell/monolith/tree/v0.5.0"
             },
-            "time": "2025-04-22T14:25:12+00:00"
+            "time": "2025-04-27T00:37:41+00:00"
         },
         {
             "name": "fawno/fpdf",

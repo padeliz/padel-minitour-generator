@@ -67,6 +67,12 @@
                         <td>playing per match</td>
                         <td>
                             <?= $eventDivision->getPointsPerMatch() ?> points
+                            <?php
+                            if (!empty($_GET['adjust-points-per-match'])) { ?>
+                                <div class="lh-12"><small class="text-muted">
+                                        <small><i>in PDF, adjust<br>with <?= $_GET['adjust-points-per-match'] ?> points</i></small>
+                                    </small></div>
+                            <?php } ?>
                         </td>
                     </tr>
                 </tbody>
@@ -115,6 +121,7 @@
                     <input type="hidden" name="include-scores" value="<?= $_GET['include-scores'] ?? 0 ?>" />
                     <input type="hidden" name="demonstrative-match" value="<?= $eventDivision->hasDemonstrativeMatch() ?>" />
                     <input type="hidden" name="fixed-teams" value="<?= $_GET['fixed-teams'] ?? 0 ?>" />
+                    <input type="hidden" name="adjust-points-per-match" value="<?= $_GET['adjust-points-per-match'] ?? 0 ?>" />
                     <?php
                     array_map(function (int $key, array $match) { ?>
                         <input type="hidden" name="matches[<?= $key ?>][0][0]" value="<?= $match[0][0] ?>" />
@@ -143,6 +150,7 @@
                     <input type="hidden" name="include-scores" value="<?= $_GET['include-scores'] ?? 0 ?>" />
                     <input type="hidden" name="demonstrative-match" value="<?= $eventDivision->hasDemonstrativeMatch() ?>" />
                     <input type="hidden" name="fixed-teams" value="<?= $_GET['fixed-teams'] ?? 0 ?>" />
+                    <input type="hidden" name="adjust-points-per-match" value="<?= $_GET['adjust-points-per-match'] ?? 0 ?>" />
                     <?php
                     array_map(function (int $key, array $match) { ?>
                         <input type="hidden" name="matches[<?= $key ?>][0][0]" value="<?= $match[0][0] ?>" />

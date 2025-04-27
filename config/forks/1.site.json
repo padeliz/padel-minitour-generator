@@ -1,7 +1,8 @@
 {
     "lottery": {
         "list": ["GET", ["lottery", "/"]],
-        "item": ["GET", "lottery/[id:i]"]
+        "item": ["GET", "lottery/[id:i]"],
+        "item-admin": ["GET", "lottery/[id:i]/admin"]
     },
 
     "home":	["GET",	["/generate", "/generator"]],

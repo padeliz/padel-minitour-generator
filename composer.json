@@ -5,7 +5,7 @@
     "license": "proprietary",
 
     "require": {
-        "arshwell/monolith": "0.4.*",
+        "arshwell/monolith": "0.5.*",
         "fawno/fpdf": "^1.86",
         "mpdf/mpdf": "8.*",
         "imagine/imagine": "^1.3"
