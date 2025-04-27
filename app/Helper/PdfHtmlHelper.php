@@ -4,6 +4,27 @@ namespace Arshavinel\PadelMiniTour\Helper;
 
 final class PdfHtmlHelper
 {
+    const PLAYERS_ROWS_SIZING = [
+        '1' => [
+            'img-width' => "155px",
+            'points-slot-padding' => "30px 0",
+            'total-points-padding' => "0 0 20px 10px",
+            'total-points-font-size' => "170px",
+            'match-slot-font-size' => "40px",
+            'total-matches-padding' => "0 0 20px 5px",
+            'total-matches-font-size' => "170px",
+        ],
+        '2' => [
+            'img-width' => "135px",
+            'points-slot-padding' => "0px 0",
+            'total-points-padding' => "0 0 0px 10px",
+            'total-points-font-size' => "150px",
+            'match-slot-font-size' => "35px",
+            'total-matches-padding' => "0 0 0px 5px",
+            'total-matches-font-size' => "150px",
+        ],
+    ];
+
     public static function getMatchesMarginTop(int $countMatches): int
     {
         if ($countMatches >= 28) {
@@ -11,7 +32,7 @@ final class PdfHtmlHelper
         } elseif ($countMatches >= 26) {
             $marginTop = 13;
         } elseif ($countMatches >= 24) {
-            $marginTop = 31;
+            $marginTop = 22;
         } elseif ($countMatches >= 22) {
             $marginTop = 60;
         } elseif ($countMatches >= 20) {
@@ -76,5 +97,17 @@ final class PdfHtmlHelper
         }
 
         return $max;
+    }
+
+    /**
+     * If player has more than 8 matches, split them in two rows.
+     */
+    public static function splitMatchRankingRows(int $n): array
+    {
+        if ($n > 8) {
+            $a = min(7, $n - 7);
+            return [$a, $n - $a];
+        }
+        return [8];
     }
 }

@@ -18,6 +18,13 @@ if (
 
 ini_set('max_execution_time', ini_get('max_execution_time') + (2 * count($_GET['matches'])));
 
+$countMatches = count($_GET['matches']);
+$hasDemonstrativeMatch = (bool) ($_GET['demonstrative-match'] ?? false);
+
+if ($hasDemonstrativeMatch) {
+    $countMatches++;
+}
+
 
 $mpdf = new Mpdf([
     'mode' => 'utf-8',
@@ -37,22 +44,25 @@ $mpdf = new Mpdf([
 ]);
 
 $mpdf->SetMargins(0, 0, 0);
-$mpdf->SetFooter([
-    'odd' => [
-        'L' => [
-            'content' => call_user_func(function () {
-                if (!empty($_GET['include-scores'])) {
-                    return 'If someone is missing from the next match, you can take their place <u>without receiving points</u> for that match.';
-                } else {
-                    return "The score doesn't matter, but if you prefer, you can keep it during the match.";
-                }
-            }),
-        ],
-        'R' => [
-            'content' => 'Two serves per player/team. The team on the left serves first.',
-        ],
-    ]
-]);
+
+if ($countMatches < 25) {
+    $mpdf->SetFooter([
+        'odd' => [
+            'L' => [
+                'content' => call_user_func(function () {
+                    if (!empty($_GET['include-scores'])) {
+                        return '<b>If someone is missing</b> from the next match, you can take their place <u>without receiving points</u> for that match.';
+                    } else {
+                        return "The score doesn't matter, but if you prefer, you can keep it during the match.";
+                    }
+                }),
+            ],
+            'R' => [
+                'content' => 'Two serves per player/team. The team on the left serves first.',
+            ],
+        ]
+    ]);
+}
 
 $mpdf->WriteHTML(
     file_get_contents(Web::url('site.matches.2nd-step-beautify', null, null, 0, $_GET))

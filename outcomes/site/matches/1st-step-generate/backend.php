@@ -12,9 +12,11 @@ if (
     empty($_GET['time-end']) || !is_string($_GET['time-end']) ||
     empty($_GET['opponents-per-player']) || !is_numeric($_GET['opponents-per-player']) ||
     empty($_GET['repeat-partners']) || !is_numeric($_GET['repeat-partners']) ||
-    empty($_GET['players']) || !is_string($_GET['players'])
+    empty($_GET['players']) || !is_string($_GET['players']) ||
+    (!empty($_GET['adjust-points-per-match']) && !is_numeric($_GET['adjust-points-per-match'])) // optional integer
 ) {
-    die('$_GET vars [edition], [partner-id], [title], [color], [time-start], [time-end], [opponents-per-player], [repeat-partners], [players] are mandatory.');
+    die('$_GET vars: [edition], [partner-id], [title], [color], [time-start], [time-end], [opponents-per-player], [repeat-partners], [players] are mandatory.
+    [adjust-points-per-match] is an optional integer.');
 }
 
 $eventDivision = new EventDivision(

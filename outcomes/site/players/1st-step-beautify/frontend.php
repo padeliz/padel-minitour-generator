@@ -33,7 +33,7 @@
             </div>
         </td>
         <td colspan="2" style="text-align: left; padding-left: 50px;">
-            <h1 style="font-size: 40px; text-align: left; background-color: <?= $_GET['color'] ?>; color: black;">
+            <h1 style="font-size: 40px; text-align: left; background-color: <?= $_GET['color'] ?>; color: white;">
                 <?= $_GET['title'] ?>
             </h1>
         </td>
@@ -45,7 +45,10 @@
 
 <table cellspacing="0" style="width: 100%; margin-top: <?= $marginTop ?>px;" autosize="1">
     <?php
-    // there is not enough space on the page for 12 players
+    $matchesRows = Arshavinel\PadelMiniTour\Helper\PdfHtmlHelper::splitMatchRankingRows($_GET['matches-count']);
+    $nrOfRows = count($matchesRows);
+
+    // there is not enough space on the page where there are 12 players
     if (count($_GET['players']) < 12) { ?>
         <thead style="border-spacing: 0; padding: 0;">
             <tr>
@@ -53,7 +56,7 @@
                 <td></td>
                 <td></td>
                 <?php
-                for ($i = 1; $i < $_GET['matches-count']; $i++) { ?>
+                for ($i = 1; $i < max($matchesRows); $i++) { ?>
                     <td></td>
                     <td></td>
                 <?php } ?>
@@ -74,52 +77,78 @@
         <?php
         foreach ($_GET['players'] as $playerName) {
             $player = new Arshavinel\PadelMiniTour\DTO\PdfPlayer($playerName);
-        ?>
-            <tr>
-                <td style="width: 170px; text-align: right; padding-right: 17px;">
-                    <div style="white-space: nowrap; font-size: <?= Arshavinel\PadelMiniTour\Helper\PdfHtmlHelper::getPlayerFontSize($player->getShortName()) ?>px;">
-                        <?= $player->getHtmlShortName() ?>
-                    </div>
-                </td>
-                <td style="width: 155px;">
-                    <img width="155px" src="<?= $player->getAvatarUrl() ?>" alt="<?= $player->getShortName() ?>" />
-                </td>
 
-                <td style="padding: 30px 0; width: 4.5%; color: #d9d9d9; vertical-align: bottom;">
-                    <hr style="color: #d9d9d9; border-color: #d9d9d9;">
-                </td>
-                <?php
-                for ($i = 1; $i < $_GET['matches-count']; $i++) { ?>
-                    <td style="padding: 0px; font-size: 45px; color: #d9d9d9;">
-                        +
+            foreach ($matchesRows as $mr => $matchRow) { ?>
+                <tr>
+                    <td style="width: 170px; text-align: right; padding-right: 17px;">
+                        <?php
+                        if ($mr == 0) { ?>
+                            <div style="white-space: nowrap; font-size: <?= Arshavinel\PadelMiniTour\Helper\PdfHtmlHelper::getPlayerFontSize($player->getShortName()) ?>px;">
+                                <?= $player->getHtmlShortName() ?>
+                            </div>
+                        <?php } ?>
                     </td>
-                    <td style="padding: 30px 0; width: 4.5%; vertical-align: bottom;">
+                    <td style="width: 155px;">
+                        <?php
+                        if ($mr == 0) { ?>
+                            <img
+                                width="<?= Arshavinel\PadelMiniTour\Helper\PdfHtmlHelper::PLAYERS_ROWS_SIZING[$nrOfRows]['img-width'] ?>"
+                                src="<?= $player->getAvatarUrl() ?>"
+                                alt="<?= $player->getShortName() ?>" />
+                        <?php } ?>
+                    </td>
+
+                    <td style="padding: <?= Arshavinel\PadelMiniTour\Helper\PdfHtmlHelper::PLAYERS_ROWS_SIZING[$nrOfRows]['points-slot-padding'] ?>; width: 4.5%; vertical-align: bottom;">
                         <hr style="color: #d9d9d9; border-color: #d9d9d9;">
                     </td>
-                <?php } ?>
-                <td style=" font-size: 50px; color: #d9d9d9;">
-                    =
-                </td>
-                <td style="padding: 0 0 20px 10px; font-size: 170px; font-weight: 200; color: #d9d9d9;">
-                    ▢
-                </td>
-                <td style="width: 3.5%;"></td>
-
-                <?php
-                for ($i = 0; $i < $_GET['matches-count']; $i++) { ?>
-                    <td style="font-size: 40px; color: #d9d9d9; padding: 6px 10px 0 10px;">
-                        │
-                        <div style="font-size: 20px;">&nbsp;</div>
-                        │
+                    <?php
+                    for ($i = 1; $i < $matchRow; $i++) { ?>
+                        <td style="padding: 0px; font-size: 45px; color: #d9d9d9; text-align: center;">
+                            +
+                        </td>
+                        <td style="padding: <?= Arshavinel\PadelMiniTour\Helper\PdfHtmlHelper::PLAYERS_ROWS_SIZING[$nrOfRows]['points-slot-padding'] ?>; width: 4.5%; vertical-align: bottom;">
+                            <hr style="color: #d9d9d9; border-color: #d9d9d9;">
+                        </td>
+                    <?php } ?>
+                    <td style="font-size: 50px; color: #d9d9d9;">
+                        <?php
+                        if (($mr + 1) == $nrOfRows) { ?>
+                            =
+                        <?php } ?>
                     </td>
-                <?php } ?>
-                <td style="font-size: 50px; color: #d9d9d9;">
-                    =
-                </td>
-                <td style="padding: 0 0 20px 5px; font-size: 170px; color: #d9d9d9;">
-                    □
-                </td>
-            </tr>
-        <?php } ?>
+                    <td style="padding: <?= Arshavinel\PadelMiniTour\Helper\PdfHtmlHelper::PLAYERS_ROWS_SIZING[$nrOfRows]['total-points-padding'] ?>; font-size: <?= Arshavinel\PadelMiniTour\Helper\PdfHtmlHelper::PLAYERS_ROWS_SIZING[$nrOfRows]['total-points-font-size'] ?>; font-weight: 200; color: #d9d9d9;">
+                        <?php
+                        if (($mr + 1) == $nrOfRows) { ?>
+                            ▢
+                        <?php } ?>
+                    </td>
+                    <td style="width: 3.5%;"></td>
+
+                    <?php
+                    for ($i = 0; $i < $_GET['matches-count']; $i++) { ?>
+                        <?php
+                        if (($mr + 1) == $nrOfRows) { ?>
+                            <td style="font-size: <?= Arshavinel\PadelMiniTour\Helper\PdfHtmlHelper::PLAYERS_ROWS_SIZING[$nrOfRows]['match-slot-font-size'] ?>; color: #d9d9d9; padding: 6px 10px 0 10px;">
+                                │
+                                <div style="font-size: 20px;">&nbsp;</div>
+                                │
+                            </td>
+                        <?php } ?>
+                    <?php } ?>
+                    <td style="font-size: 50px; color: #d9d9d9;">
+                        <?php
+                        if (($mr + 1) == $nrOfRows) { ?>
+                            =
+                        <?php } ?>
+                    </td>
+                    <td style="padding: <?= Arshavinel\PadelMiniTour\Helper\PdfHtmlHelper::PLAYERS_ROWS_SIZING[$nrOfRows]['total-matches-padding'] ?>; font-size: <?= Arshavinel\PadelMiniTour\Helper\PdfHtmlHelper::PLAYERS_ROWS_SIZING[$nrOfRows]['total-matches-font-size'] ?>; color: #d9d9d9;">
+                        <?php
+                        if (($mr + 1) == $nrOfRows) { ?>
+                            □
+                        <?php } ?>
+                    </td>
+                </tr>
+        <?php }
+        } ?>
     </tbody>
 </table>

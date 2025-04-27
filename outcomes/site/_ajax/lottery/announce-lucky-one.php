@@ -1,7 +1,7 @@
 <?php
 
 use Arshavinel\PadelMiniTour\Table\Edition;
-use Arshavinel\PadelMiniTour\Table\Edition\LuckyOne;
+use Arshavinel\PadelMiniTour\Table\Edition\LotteryLucky;
 use Arshavinel\PadelMiniTour\Validation\SiteValidation;
 use Arshwell\Monolith\StaticHandler;
 
@@ -10,18 +10,18 @@ if (StaticHandler::supervisor()) {
         "id_edition" => array(
             "required|int|inDB:".Edition::class
         ),
-        "id_lucky_one" => array(
-            "required|int|inDB:".LuckyOne::class
+        "id_lucky" => array(
+            "required|int|inDB:" . LotteryLucky::class
         ),
     ));
 
     if ($form->valid()) {
-        $luckyOne = LuckyOne::get($form->value('id_lucky_one'), "announced_at");
+        $luckyOne = LotteryLucky::get($form->value('id_lucky'), "announced_at");
 
         if (!$luckyOne->announced_at) {
-            LuckyOne::update([
+            LotteryLucky::update([
                 'set' => "announced_at = UNIX_TIMESTAMP()",
-                'where' => "id_lucky_one = ?",
+                'where' => "id_lucky = ?",
             ], [$luckyOne->id()]);
         }
     }

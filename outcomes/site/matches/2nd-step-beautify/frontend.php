@@ -36,13 +36,13 @@
                             </b>
                         </td>
                         <td style="width: 36%; text-align: left; padding-left: 180px;">
-                            <h1 style="font-size: 60px; background-color: <?= $_GET['color'] ?>; color: black;">
+                            <h1 style="font-size: 60px; background-color: <?= $_GET['color'] ?>; color: white;">
                                 <?= $_GET['title'] ?>
                             </h1>
                             <?php
                             if (!empty($_GET['include-scores'])) { ?>
                                 <b style="font-size: 24px;">
-                                    <?= $pointsPerMatch ?> points per match
+                                    <?= $pointsPerMatch + (int)($_GET['adjust-points-per-match'] ?? 0) ?> points per match
                                 </b>
                             <?php } ?>
                         </td>
@@ -198,13 +198,14 @@
                         </div>
                     </td>
 
-                    <td style="width: 8%;"></td>
-                    <td style="width: 6%;">
+                    <td style="width: 6%;"></td>
+                    <td style="width: 10%;">
                         <!-- timestamp -->
                         <span style="font-size: 22px;"><?= DateTime::createFromFormat('H:i', $_GET['time-end'])->modify('-15 minutes')->format('H:i') ?></span>
                         <hr>
+                        <span style="font-size: 16px; color: grey;">also 24 points to play</span>
                     </td>
-                    <td style="width: 8%;"></td>
+                    <td style="width: 6%;"></td>
 
                     <td style="width: 18%;">
                         <div style="width: 100%; max-width: 100%; text-align: right;">
@@ -213,9 +214,7 @@
                     </td>
                     <td style="width: 21%; text-align: center; padding-left: 17px;">
                         <div style="font-size: 40px; overflow: hidden;">
-                            2nd place
-                            <hr>
-                            1st place
+                            1st place only
                         </div>
                     </td>
                 </tr>

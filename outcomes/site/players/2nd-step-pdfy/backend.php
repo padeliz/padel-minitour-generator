@@ -17,6 +17,12 @@ if (
 
 ini_set('max_execution_time', ini_get('max_execution_time') + (2 * count($_GET['players'])));
 
+foreach ($_GET['players'] as $p => $playerName) {
+    if ($playerName == '-') {
+        unset($_GET['players'][$p]);
+    }
+}
+
 
 $mpdf = new Mpdf([
     'mode' => 'utf-8',
@@ -37,14 +43,17 @@ $mpdf = new Mpdf([
 
 $mpdf->SetMargins(0, 0, 0);
 
-// there is not enough space on the page for 12 players
+// there is not enough space on the page where there are 12 players
 if (count($_GET['players']) < 12) {
     $mpdf->SetFooter([
         'odd' => [
-            'C' => [
+            'L' => [
+                'content' => '<b>If replacing someone in a match</b>, instead of the score, put just a dash (-) for her/him, and nothing for yourself.',
+            ],
+            'R' => [
                 'content' => call_user_func(function () {
                     if (!empty($_GET['include-scores'])) {
-                        return 'Final is played by the 4 players with the most matches won.';
+                        return 'The final is played by the 4 players with the most matches won.';
                     }
                 }),
             ],

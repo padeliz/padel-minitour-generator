@@ -18,7 +18,7 @@
                     <div class="col-md-3 mb-3">
                         <!-- partner -->
                         <label for="partner-id" class="form-label">Powered by</label>
-                        <select class="form-control" name="partner-id" id="partner-id" required>
+                        <select class="form-select" name="partner-id" id="partner-id" required>
                             <option></option>
                             <option value="1">PadelMania</option>
                             <option value="2">Padel One</option>
@@ -28,7 +28,7 @@
                     </div>
 
                     <div class="col-md-3 mb-3">
-                        <!-- title -->
+                        <!-- division -->
                         <label for="title" class="form-label">Division name</label>
                         <input type="text" class="form-control" name="title" id="title" required>
                     </div>
@@ -36,32 +36,38 @@
                     <div class="col-md-3 mb-3">
                         <!-- color -->
                         <label for="color" class="form-label">Color</label>
-                        <select class="form-control" name="color" id="color" required>
+                        <select class="form-select" name="color" id="color" required>
                             <option></option>
-                            <option value="#ffff00">Students Rookies</option>
-                            <option value="#ffa500">Students Beginners</option>
-                            <option value="#cb2b2b">Students Novice</option>
-                            <option value="#89bdce">Adults Explorers</option>
-                            <option value="#e476a7">Adults Learners</option>
-                            <option value="#e476a7">Adults Mixt</option>
+                            <?php
+                            foreach (\Arshavinel\PadelMiniTour\Helper\DivisionHelper::DIVISION_COLORS as $division => $color) { ?>
+                                <option value="<?= $color ?>"><?= $division ?></option>
+                            <?php } ?>
                         </select>
                     </div>
 
                     <div class="col-md">
 
-                        <!-- time start -->
-                        <div class="padding-0-1st">
-                            <label for="time-start" class="form-label">Time start</label>
-                            <input type="time" class="form-control" name="time-start" id="time-start" value="12:30" aria-describedby="time-start--help" required>
-                            <div id="time-start--help" class="form-text">Starting matches...</div>
+                        <div class="row g-0 padding-0-1st">
+                            <div class="col">
+                                <!-- time start -->
+                                <div class="">
+                                    <label for="time-start" class="form-label">Time start</label>
+                                    <input type="time" class="form-control" name="time-start" id="time-start" value="12:30" aria-describedby="time-start--help" required>
+                                </div>
+                            </div>
+                            <div class="col">
+                                <!-- time end -->
+                                <div class="">
+                                    <label for="time-end" class="form-label">Time end</label>
+                                    <input type="time" class="form-control" name="time-end" id="time-end" value="16:30" aria-describedby="time-end--help" required>
+                                </div>
+                            </div>
+                            <div class="form-text">
+                                <small id="time-start--help" class="float-start">Starting matches...</small>
+                                <small id="time-end--help" class="float-end">...including also the finals.</small>
+                            </div>
                         </div>
 
-                        <!-- time end -->
-                        <div class="padding-0-1st">
-                            <label for="time-end" class="form-label">Time end</label>
-                            <input type="time" class="form-control" name="time-end" id="time-end" value="16:30" aria-describedby="time-end--help" required>
-                            <div id="time-end--help" class="form-text">...including also the finals.</div>
-                        </div>
 
                         <!-- opponents per player -->
                         <div class="padding-0-1st">
@@ -99,13 +105,29 @@
                                 Fixed teams
                             </label>
                         </div>
+
+                        <!-- adjust points per match -->
+                        <div class="row padding-0-1st align-items-center">
+                            <div class="col-6">
+                                <label for="adjust-points-per-match" class="form-label">
+                                    <small>Adjust points<br>per match...</small>
+                                </label>
+                            </div>
+                            <div class="col-6">
+                                <select class="form-select" name="adjust-points-per-match" id="adjust-points-per-match">
+                                    <option value="-2">-2</option>
+                                    <option selected value="0"></option>
+                                    <option value="+2">+2</option>
+                                </select>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="col-md">
                         <!-- player names -->
                         <div class="mb-3">
                             <label for="players" class="form-label">Players</label>
-                            <textarea class="form-control" name="players" id="players" rows="14" required></textarea>
+                            <textarea class="form-control" name="players" id="players" rows="15" required></textarea>
                         </div>
                     </div>
                 </div>

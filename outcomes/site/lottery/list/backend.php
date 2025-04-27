@@ -16,7 +16,5 @@ $editions = Edition::select([
         Edition::TABLE . '.location_id = ' . Location::TABLE . '.id_location'
     ],
     'where' => "id_edition IN (SELECT edition_id FROM edition_lotteries GROUP BY edition_id)",
+    'order' => "date DESC"
 ]);
-
-// _vd($editions);
-// exit;

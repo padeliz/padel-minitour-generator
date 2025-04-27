@@ -1,5 +1,11 @@
 {
-    "home":	["GET",	"/"],
+    "lottery": {
+        "list": ["GET", ["lottery", "/"]],
+        "item": ["GET", "lottery/[id:i]"],
+        "item-admin": ["GET", "lottery/[id:i]/admin"]
+    },
+
+    "home":	["GET",	["/generate", "/generator"]],
 
     "matches": {
         "1st-step-generate": ["GET", "matches/generated"],
@@ -10,11 +16,6 @@
     "players": {
         "1st-step-beautify": ["GET", "players/beautified"],
         "2nd-step-pdfy": ["GET", "players/pdfy"]
-    },
-
-    "lottery": {
-        "list": ["GET", "lottery"],
-        "item": ["GET", "lottery/[id:i]"]
     },
 
     "_ajax": {
