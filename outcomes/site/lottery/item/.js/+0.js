@@ -1,7 +1,7 @@
 // keep the session alive
 setInterval(() => {
     location.reload(); // Refresh the page
-}, 600000); // 600,000 ms = 10 minutes
+}, 300000); // 300,000 ms = 5 minutes
 
 $(function () {
     if ($('#timer').length) {

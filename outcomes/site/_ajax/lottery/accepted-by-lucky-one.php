@@ -115,20 +115,36 @@ if (StaticHandler::supervisor()) {
                     // total draws for all divisions that already started
                     $sum_of_prize_quantity = LotteryRule::field(
                         "SUM(rule_prize_quantity)",
-                        "lottery_id IN (SELECT id_lottery FROM edition_lotteries WHERE edition_id = ?) AND (edition_division_id IS NULL OR edition_division_id IN (SELECT id_edition_division FROM edition_divisions WHERE playing_start_time <= ?))",
-                        [$form->value('id_edition'), $current_time]
+                        "lottery_id IN (SELECT id_lottery FROM edition_lotteries WHERE edition_id = ?) AND (edition_division_id IS NULL OR edition_division_id IN (SELECT id_edition_division FROM edition_divisions WHERE playing_start_time <= ? OR playing_start_time = ?))",
+                        [$form->value('id_edition'), $current_time, $drawn_participation->playing_start_time]
                     );
 
                     // remaining draws for all divisions that already started
-                    $remaining_draws_nr = $sum_of_prize_quantity - LotteryLucky::countWhere(
-                        "rejected_at IS NULL AND lottery_rule_id IN (
-                            SELECT lottery_rule_id FROM edition_lottery_rules WHERE lottery_id IN (
-                                SELECT id_lottery FROM edition_lotteries WHERE edition_id = ? AND edition_division_id IN (
-                                    SELECT id_edition_division FROM edition_divisions WHERE playing_start_time <= ?
-                                )
-                            )
-                        )",
-                        [$form->value('id_edition'), $current_time]
+                    $remaining_draws_nr = $sum_of_prize_quantity - LotteryLucky::count(
+                        [
+                            'joins' => [
+                                [
+                                    'type' => 'INNER',
+                                    'table' => LotteryRule::TABLE,
+                                    'on' => LotteryLucky::TABLE . '.lottery_rule_id = ' . LotteryRule::TABLE . '.' . LotteryRule::PRIMARY_KEY
+                                ],
+                                [
+                                    'type' => 'INNER',
+                                    'table' => Lottery::TABLE,
+                                    'on' => LotteryRule::TABLE . '.lottery_id = ' . Lottery::TABLE . '.' . Lottery::PRIMARY_KEY
+                                ],
+                                [
+                                    'type' => 'INNER',
+                                    'table' => EditionDivision::TABLE,
+                                    'on' => LotteryRule::TABLE . '.edition_division_id = ' . EditionDivision::TABLE . '.' . EditionDivision::PRIMARY_KEY
+                                ],
+                            ],
+                            'where' => LotteryLucky::TABLE . ".rejected_at IS NULL
+                            AND " . Lottery::TABLE . ".edition_id = ?
+                            AND " . EditionDivision::TABLE . ".edition_id = ?
+                            AND (" . EditionDivision::TABLE . ".playing_start_time <= ? OR " . EditionDivision::TABLE . ".playing_start_time = ?)"
+                        ],
+                        [$form->value('id_edition'), $form->value('id_edition'), $current_time, $drawn_participation->playing_start_time]
                     );
 
                     $adjustedNow = max( // in case you run this script before the edition started
@@ -139,22 +155,25 @@ if (StaticHandler::supervisor()) {
                     $editionDivisionsEndingTimes = DB::column(
                         EditionDivision::class,
                         "playing_end_time",
-                        "edition_id = ? AND playing_start_time <= ?",
-                        [$form->value('id_edition'), $current_time]
+                        "edition_id = ? AND (playing_start_time <= ? OR playing_start_time = ?)",
+                        [$form->value('id_edition'), $current_time, $drawn_participation->playing_start_time]
                     );
 
                     if ($editionDivisionsEndingTimes) {
+                        $soonestDivisionFinish = min(
+                            array_filter($editionDivisionsEndingTimes, fn($v) => $v >= $drawn_participation->playing_start_time)
+                        );
                         $adjustedEnd = max(
                             $current_time, // in case edition almost finished
-                            date("H:i:s", strtotime(min($editionDivisionsEndingTimes) . " -30 minutes")) // some buffer at the end
+                            date("H:i:s", strtotime($soonestDivisionFinish . " -30 minutes")) // some buffer at the end
                         );
-                        $lotteryRuleTimeMinutesLeft = (strtotime($adjustedEnd) - $adjustedNow) / 60;
+                        $lotteryRuleSecondsLeft = (strtotime($adjustedEnd) - $adjustedNow);
 
-                        $counting = round($lotteryRuleTimeMinutesLeft / $remaining_draws_nr) . " minutes";
+                        $secondsToCount = round($lotteryRuleSecondsLeft / $remaining_draws_nr);
                     } else {
                         // all divisions already finished
 
-                        $counting = "+10 seconds";
+                        $secondsToCount = 10;
                     }
 
                     $luckyOne->lottery_rule_id = $lotteryRule->id();
@@ -162,7 +181,7 @@ if (StaticHandler::supervisor()) {
                     $luckyOne->drawn_at = time();
                     $luckyOne->available_at = max(
                         strtotime("now +10 seconds"), // in case edition already finished
-                        strtotime($edition->date . " " . $drawn_participation->playing_start_time . " + " . $counting)
+                        $adjustedNow + $secondsToCount
                     );
 
                     $luckyOne->add();

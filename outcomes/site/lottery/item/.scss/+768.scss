@@ -1,0 +1,14 @@
+html, body:not([mobile="1"]):not([tablet="1"]) {
+    overflow: hidden;
+    overflow-y: hidden;
+    overflow-x: hidden;
+    background-repeat: no-repeat;
+
+    #app {
+        font-size: 45px;
+
+        #timer {
+            font-size: 190px;
+        }
+    }
+}

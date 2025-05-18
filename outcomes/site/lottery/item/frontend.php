@@ -1,4 +1,4 @@
-<div class="container padding-0-8th">
+<div class="container padding-0-4th">
     <div class="row align-items-end justify-content-center">
         <div class="col-6">
             <a href="<?= \Arshwell\Monolith\Web::url('site.lottery.list') ?>">
@@ -54,7 +54,7 @@
         <div class="row align-items-center justify-content-center">
             <?php
             if ($timeLeft['hours'] <= 0) { ?>
-                <div class="col-md-6 text-center">
+                <div class="col-md-6 order-md-1 text-center padding-4th-4th">
                     <div id="prize">
                         <?php
                         if ($luckyOne->lottery->prize_quantity > 1) { ?>
@@ -67,7 +67,7 @@
                             <?php
                             // IMAGE LEFT
                             if ($luckyOne->lottery->image && $luckyOne->lottery->template == 'IMAGE_LEFT') { ?>
-                                <div class="col ps-3">
+                                <div class="col pe-3">
                                     <img src="<?= \Arshwell\Monolith\Web::site() ?>statics/media/MiniTour-lottery/prizes/<?= $luckyOne->lottery->image ?>" ?>
                                 </div>
                             <?php } ?>
@@ -97,8 +97,15 @@
                         <?php
                         // IMAGE MIDDLE
                         if ($luckyOne->lottery->image && $luckyOne->lottery->template == 'IMAGE_MIDDLE') { ?>
-                            <div class="col ps-3 mb-4">
-                                <img style="max-height: 35vh;" src="<?= \Arshwell\Monolith\Web::site() ?>statics/media/MiniTour-lottery/prizes/<?= $luckyOne->lottery->image ?>" ?>
+                            <div class="col mb-4">
+                                <?php
+                                if (\Arshwell\Monolith\File::extension($luckyOne->lottery->image) == 'mp4') { ?>
+                                    <video style="max-height: 35vh;" width="90%" autoplay loop muted>
+                                        <source src="<?= \Arshwell\Monolith\Web::site() ?>statics/media/MiniTour-lottery/prizes/<?= $luckyOne->lottery->image ?>" type="video/mp4" />
+                                    </video>
+                                <?php } else { ?>
+                                    <img style="max-height: 35vh;" src="<?= \Arshwell\Monolith\Web::site() ?>statics/media/MiniTour-lottery/prizes/<?= $luckyOne->lottery->image ?>" ?>
+                                <?php } ?>
                             </div>
                         <?php } ?>
 
@@ -120,7 +127,7 @@
                     </div>
                 </div>
             <?php } ?>
-            <div class="col-md-6 text-center">
+            <div class="col-md-6 order-first order-md-2 text-center padding-4th-4th">
                 <?php
                 if ($luckyOne) { ?>
                     <?php

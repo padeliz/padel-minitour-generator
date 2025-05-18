@@ -108,6 +108,6 @@ final class PdfHtmlHelper
             $a = min(7, $n - 7);
             return [$a, $n - $a];
         }
-        return [8];
+        return [$n];
     }
 }
