@@ -2,7 +2,7 @@ RewriteEngine On
 
 # 1st scenario: Write requested file (you can change the allowed extensions)
 RewriteCond %{REQUEST_FILENAME} -f
-RewriteRule ^.*\.(css|js|ico|png|jpg|jpeg|gif|otf|eot|svg|ttf|woff|woff2|mp3|wav) - [END,L]
+RewriteRule ^.*\.(css|js|ico|png|jpg|jpeg|gif|otf|eot|svg|ttf|woff|woff2|mp3|wav|mp4) - [END,L]
 
 # 2nd scenario: If non-existent file, serve a 404 otherwise...
 RewriteCond %{ENV:REDIRECT_STATUS} ^$
