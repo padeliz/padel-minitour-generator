@@ -72,6 +72,8 @@ final class PdfHtmlHelper
             $marginTop = 78;
         } elseif ($countPlayers == 6) {
             $marginTop = 82;
+        } else {
+            $marginTop = 90;
         }
 
         return $marginTop;
