@@ -224,6 +224,7 @@
                             <th scope="col">Partners</th>
                         <?php } ?>
                         <th scope="col">Meeting players</th>
+                        <th scope="col">Playing distribution</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -237,6 +238,9 @@
                                 <td><?= $eventDivision->countPartners($player) ?></td>
                             <?php } ?>
                             <td><?= $eventDivision->countPlayersMet($player) ?> players</td>
+                            <td class="distribution-index" data-player="<?= $player ?>">
+                                <span class="loading-dots"></span>
+                            </td>
                         </tr>
                     <?php } ?>
                 </tbody>
@@ -264,7 +268,7 @@
                 <tbody>
                     <?php
                     foreach ($eventDivision->getMatches() as $m => $match) { ?>
-                        <tr>
+                        <tr data-match-index="<?= $m ?>">
                             <th scope="row"><?= ($m + 1) ?></th>
                             <td>
                                 <span data-player-name="<?= $match[0][0] ?>">
@@ -284,6 +288,9 @@
                                 <span data-player-name="<?= $match[1][1] ?>">
                                     <?= $match[1][1] ?>
                                 </span>
+                            </td>
+                            <td>
+                                <i class="fas fa-fw fa-grip-vertical"></i>
                             </td>
                         </tr>
                     <?php } ?>

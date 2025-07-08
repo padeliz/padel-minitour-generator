@@ -5,3 +5,114 @@
         }
     }
 }
+
+// SCSS variables for colors
+$color-excellent: #0d6efd;
+$color-good: #28a745;
+$color-fair: #ffa500;
+$color-poor: #dc3545;
+
+// Drag and drop styles for matches table
+#matches {
+    tbody {
+        tr {
+            cursor: grab;
+
+            &:active {
+                cursor: grabbing;
+            }
+
+            &.dragging {
+                opacity: 0.8;
+                transform: rotate(2deg);
+                box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+                z-index: 1000;
+            }
+
+            &.moved th {
+                background-color: gray !important;
+                transition: background-color 0.3s ease;
+            }
+
+            &.original-position-above {
+                border-top: 3px solid #007bff !important;
+            }
+
+            &.original-position-below {
+                border-bottom: 3px solid #007bff !important;
+            }
+        }
+
+        .drop-placeholder {
+            background-color: #e3f2fd;
+            border: 2px dashed #2196f3;
+            height: 50px;
+            opacity: 0.7;
+        }
+    }
+}
+
+// Loading dots animation
+.loading-dots {
+    display: inline-block;
+
+    &::after {
+        content: '';
+        animation: loading-dots 1.5s infinite;
+    }
+}
+
+@keyframes loading-dots {
+    0%, 25% {
+        content: '.';
+    }
+    25%, 50% {
+        content: '..';
+    }
+    50%, 75% {
+        content: '...';
+    }
+    75%, 100% {
+        content: '....';
+    }
+}
+
+// Distribution index styling with SCSS variables
+.distribution-index {
+    &.excellent {
+        color: $color-excellent;
+        font-weight: bold;
+    }
+
+    &.good {
+        color: $color-good;
+        font-weight: bold;
+    }
+
+    &.fair {
+        color: $color-fair;
+        font-weight: bold;
+    }
+
+    &.poor {
+        color: $color-poor;
+        font-weight: bold;
+    }
+}
+
+// Hover highlight styles using SCSS variables with transparency
+.player-hover-excellent {
+    background-color: rgba($color-excellent, 0.2) !important;
+}
+
+.player-hover-good {
+    background-color: rgba($color-good, 0.2) !important;
+}
+
+.player-hover-fair {
+    background-color: rgba($color-fair, 0.2) !important;
+}
+
+.player-hover-poor {
+    background-color: rgba($color-poor, 0.2) !important;
+}
