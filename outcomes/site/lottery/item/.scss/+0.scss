@@ -27,6 +27,10 @@ body {
             white-space: nowrap;
         }
 
+        #button--refresh-page {
+            display: none;
+        }
+
         .lucky {
             .thumb {
                 @include arsh--border-radius(10px);

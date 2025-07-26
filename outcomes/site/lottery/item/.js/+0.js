@@ -4,6 +4,18 @@ setInterval(() => {
 }, 300000); // 300,000 ms = 5 minutes
 
 $(function () {
+    // Hide refresh button initially and fade it in after 30 seconds
+    if ($('#button--refresh-page').length) {
+        setTimeout(() => {
+            $('#button--refresh-page').fadeIn(1000);
+        }, 30000); // 30 seconds
+
+        // Make refresh button reload the page
+        $('#button--refresh-page').on('click', function() {
+            window.location.reload();
+        });
+    }
+
     if ($('#timer').length) {
         $("body").simpletimer({
             day: $("#days").html(),

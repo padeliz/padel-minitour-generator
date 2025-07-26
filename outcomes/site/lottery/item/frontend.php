@@ -81,7 +81,7 @@
                                 <?php } ?>
 
                                 <!-- box_1_text -->
-                                <div class="d-inline-block p-3 rounded" style="font-size: <?= Arshavinel\PadelMiniTour\Helper\LotteryHtmlHelper::getFirstTextSize($luckyOne->lottery->box_1_text, !empty($luckyOne->lottery->image)) ?>px; background-color: <?= $luckyOne->lottery->box_1_bg_color ?>; color: <?= $luckyOne->lottery->box_1_text_color ?>;">
+                                <div class="d-inline-block p-3 rounded box-text" style="font-size: <?= Arshavinel\PadelMiniTour\Helper\LotteryHtmlHelper::getFirstTextSize($luckyOne->lottery->box_1_text, !empty($luckyOne->lottery->image)) ?>px; background-color: <?= $luckyOne->lottery->box_1_bg_color ?>; color: <?= $luckyOne->lottery->box_1_text_color ?>;">
                                     <?= $luckyOne->lottery->box_1_text ?>
                                 </div>
                             </div>
@@ -112,7 +112,7 @@
                         <?php
                         // box_2_text
                         if ($luckyOne->lottery->box_2_text) { ?>
-                            <div class="d-inline-flex p-3 rounded" style="font-size: <?= Arshavinel\PadelMiniTour\Helper\LotteryHtmlHelper::getSecondTextSize($luckyOne->lottery->box_1_text, $luckyOne->lottery->box_2_text) ?>px; background-color: <?= $luckyOne->lottery->box_2_bg_color ?>; color: <?= $luckyOne->lottery->box_2_text_color ?>;">
+                            <div class="d-inline-flex p-3 rounded box-text" style="font-size: <?= Arshavinel\PadelMiniTour\Helper\LotteryHtmlHelper::getSecondTextSize($luckyOne->lottery->box_1_text, $luckyOne->lottery->box_2_text) ?>px; background-color: <?= $luckyOne->lottery->box_2_bg_color ?>; color: <?= $luckyOne->lottery->box_2_text_color ?>;">
                                 <small><?= $luckyOne->lottery->box_2_text ?></small>
                             </div>
                         <?php } ?>
@@ -153,27 +153,39 @@
                         </div>
 
                         <div><?= $pdfPlayer->getShortName() ?></div>
-                        <?php
-                        if (substr(Arshwell\Monolith\Web::path(), -6) == '/admin' && Arshwell\Monolith\StaticHandler::supervisor()) { ?>
-                            <div>
-                                <button data-confirmation="true" id="button--rejected-by-lucky-one" class="btn btn-outline-light">
+
+                        <div class="padding-4th-1st padding-md-2nd-1st">
+                            <?php
+                            if (substr(Arshwell\Monolith\Web::path(), -6) != '/admin' || !Arshwell\Monolith\StaticHandler::supervisor()) { ?>
+                                <button id="button--refresh-page" class="btn btn-outline-light">
                                     <small>
                                         <b>
-                                            <i class="far fa-frown"></i>
-                                            draw someone else
+                                            <i class="fas fa-retweet"></i>
+                                            check if any updates
                                             <b>
                                     </small>
                                 </button>
-                                <button id="button--accepted-by-lucky-one" class="btn btn-outline-light">
-                                    <small><b>
-                                            great, I'll keep it
-                                            <i class="far fa-heart"></i>
+                            <?php } else { ?>
+                                <div>
+                                    <button data-confirmation="true" id="button--rejected-by-lucky-one" class="btn btn-outline-light">
+                                        <small>
                                             <b>
+                                                <i class="far fa-frown"></i>
+                                                draw someone else
+                                                <b>
+                                        </small>
+                                    </button>
+                                    <button id="button--accepted-by-lucky-one" class="btn btn-outline-light">
+                                        <small><b>
+                                                great, I'll keep it
+                                                <i class="far fa-heart"></i>
+                                                <b>
 
-                                    </small>
-                                </button>
-                            </div>
-                        <?php } ?>
+                                        </small>
+                                    </button>
+                                </div>
+                            <?php } ?>
+                        </div>
                     <?php } ?>
                 <?php } ?>
             </div>
