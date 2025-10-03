@@ -5,12 +5,12 @@ namespace Arshavinel\PadelMiniTour\Helper;
 final class DivisionHelper
 {
     const DIVISION_COLORS = [
-        'Student Rookies' => "#c2c21b",
-        'Student Beginners' => "#e42844",
-        'Student Novice' => "#2b5dcb",
-        'Adult Explorers' => "#db9006",
-        'Adult Learners' => "#db6a9d",
-        'Adult Advancers' => "#955443",
-        'Adult Challengers' => "#000000",
+        'Yellow (e.g. Rookies)' => "#c2c21b",
+        'Red (e.g. Beginners)' => "#e42844",
+        'Orange (e.g. Explorers)' => "#db9006",
+        'Pink (e.g. Learners)' => "#db6a9d",
+        'Blue (e.g. Novice)' => "#2b5dcb",
+        'Brown (e.g. Advancers)' => "#955443",
+        'Black (e.g. Challengers)' => "#000000",
     ];
 }
