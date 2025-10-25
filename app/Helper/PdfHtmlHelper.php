@@ -2,6 +2,8 @@
 
 namespace Arshavinel\PadelMiniTour\Helper;
 
+use Arshavinel\PadelMiniTour\DTO\PdfPlayer;
+
 final class PdfHtmlHelper
 {
     const PLAYERS_ROWS_SIZING = [
@@ -79,12 +81,16 @@ final class PdfHtmlHelper
         return $marginTop;
     }
 
-    public static function getFontSize(string $name): int
+    public static function getFontSize(PdfPlayer $pdfPlayer): int
     {
         $max = 43;
 
-        if (strlen($name) > 9) {
-            return $max - (3 * (strlen($name) - 9.5));
+        if (strlen($pdfPlayer->getShortName()) > 9) {
+            $max = $max - (3 * (strlen($pdfPlayer->getShortName()) - 9.5));
+        }
+
+        if (!$pdfPlayer->isCollectingPoints()) {
+            return min($max, 32);
         }
 
         return $max;

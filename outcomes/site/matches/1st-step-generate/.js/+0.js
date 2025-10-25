@@ -7,9 +7,9 @@ $(document).ready(function () {
     $("#players tr").hover(
         // mouseenter
         function (event) {
-            const playerName = $(this).find("[data-player-name]").text();
-            const $playerCell = $(this).find("[data-player-name]");
-            const $matchCells = $("#matches [data-player-name='"+playerName+"']");
+            const playerId = $(this).find("[data-player-id]").data('player-id');
+            const $playerCell = $(this).find("[data-player-id]");
+            const $matchCells = $("#matches [data-player-id='"+playerId+"']");
 
             // Only mark user interaction if it's a real user event (not programmatic)
             if (!event.isTrigger) {
@@ -17,7 +17,7 @@ $(document).ready(function () {
             }
 
             // Get the player's distribution class and apply corresponding hover class
-            const $distributionCell = $(".distribution-index[data-player='" + playerName + "']");
+            const $distributionCell = $(".distribution-index[data-player-id='" + playerId + "']");
             let hoverClass = null;
 
             if ($distributionCell.hasClass('excellent')) {
@@ -38,9 +38,9 @@ $(document).ready(function () {
         },
         // mouseleave
         function (event) {
-            const playerName = $(this).find("[data-player-name]").text();
-            const $playerCell = $(this).find("[data-player-name]");
-            const $matchCells = $("#matches [data-player-name='"+playerName+"']");
+            const playerId = $(this).find("[data-player-id]").data('player-id');
+            const $playerCell = $(this).find("[data-player-id]");
+            const $matchCells = $("#matches [data-player-id='"+playerId+"']");
 
             // Remove all hover classes
             $playerCell.removeClass('player-hover-excellent player-hover-good player-hover-fair player-hover-poor');
@@ -128,7 +128,7 @@ $(document).ready(function () {
             } else if (interval.type === 'interval') {
                 clearInterval(interval.id);
 
-                $(`#players tbody tr:has([data-player-name])`).trigger('mouseleave');
+                $(`#players tbody tr:has([data-player-id])`).trigger('mouseleave');
             }
         });
         allIntervals = [];
@@ -158,16 +158,16 @@ $(document).ready(function () {
             // Calculate distribution for each player
             const players = [];
             $("#players tbody tr").each(function() {
-                const playerName = $(this).find("[data-player-name]").text();
-                players.push(playerName);
+                const playerId = $(this).find("[data-player-id]").data('player-id');
+                players.push(playerId);
             });
 
             // Display results one by one with staggered delay
-            players.forEach(function(player, index) {
+            players.forEach(function(playerId, index) {
                 const playerTimeout = setTimeout(() => {
-                    const distributionScore = calculatePlayerDistribution(player, currentMatches);
+                    const distributionScore = calculatePlayerDistribution(playerId, currentMatches);
 
-                    updatePlayerDistributionIndex(player, distributionScore);
+                    updatePlayerDistributionIndex(playerId, distributionScore);
 
                     // After all players are calculated, demo the hover feature on the worst player
                     if (index === players.length - 1) {
@@ -197,17 +197,17 @@ $(document).ready(function () {
 
         $(".distribution-index").each(function() {
             const $cell = $(this);
-            const playerName = $cell.data('player');
+            const playerId = $cell.data('player-id');
             const score = parseFloat($cell.text()) / 100; // Convert percentage back to decimal
 
             if (score < worstScore) {
                 worstScore = score;
-                worstPlayer = playerName;
+                worstPlayer = playerId;
             }
         });
 
         if (worstPlayer) {
-            const $worstPlayerRow = $(`#players tbody tr:has([data-player-name="${worstPlayer}"])`);
+            const $worstPlayerRow = $(`#players tbody tr:has([data-player-id="${worstPlayer}"])`);
 
             // Demo hover effect (blink 3 times)
             let blinkCount = 0;
@@ -234,14 +234,14 @@ $(document).ready(function () {
         }
     }
 
-    function calculatePlayerDistribution(player, matches) {
+    function calculatePlayerDistribution(playerId, matches) {
         // Find all matches where this player participates
         const playerMatches = [];
         matches.forEach(function(match, index) {
             const matchData = match.data;
 
-            if (matchData[0][0] === player || matchData[0][1] === player ||
-                matchData[1][0] === player || matchData[1][1] === player) {
+            if (matchData[0][0] == playerId || matchData[0][1] == playerId ||
+                matchData[1][0] == playerId || matchData[1][1] == playerId) {
                 playerMatches.push(index);
             }
         });
@@ -331,8 +331,8 @@ $(document).ready(function () {
         return Math.max(0, Math.min(1, finalScore));
     }
 
-    function updatePlayerDistributionIndex(player, score) {
-        const $cell = $(".distribution-index[data-player='" + player + "']");
+    function updatePlayerDistributionIndex(playerId, score) {
+        const $cell = $(".distribution-index[data-player-id='" + playerId + "']");
         const percentage = Math.round(score * 100);
         let colorClass;
 

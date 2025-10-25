@@ -121,21 +121,39 @@
                                 </select>
                             </div>
                         </div>
+
+                        <button type="submit" class="btn btn-info mt-1">
+                            Generate matches
+                            <i class="fas fa-external-link-alt fa-sm"></i>
+                        </button>
                     </div>
 
                     <div class="col-md">
-                        <!-- player names -->
+                        <!-- player search -->
                         <div class="mb-3">
-                            <label for="players" class="form-label">Players</label>
-                            <textarea class="form-control" name="players" id="players" rows="15" required></textarea>
+                            <label for="player-search" class="form-label">Players</label>
+                            <input type="text"
+                                class="form-control"
+                                id="player-search"
+                                placeholder="Search players by name..."
+                                autocomplete="off">
+
+                            <!-- Dropdown results -->
+                            <div id="player-search-results"
+                                class="list-group position-absolute"
+                                style="display: none; max-height: 300px; overflow-y: auto; z-index: 1000;">
+                            </div>
+                        </div>
+
+                        <!-- Selected players -->
+                        <div class="mb-3">
+                            <div id="selected-players">
+                                <small class="text-muted">No players selected</small>
+                                <!-- Hidden inputs for form submission will be created dynamically -->
+                            </div>
                         </div>
                     </div>
                 </div>
-
-                <button type="submit" class="btn btn-info mt-1">
-                    Generate matches
-                    <i class="fas fa-external-link-alt fa-sm"></i>
-                </button>
             </form>
         </div>
 
@@ -165,3 +183,7 @@
         </div>
     </div>
 </div>
+
+<script>
+    window.PLAYERS_DATA = <?= json_encode($playersData) ?>;
+</script>

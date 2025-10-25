@@ -22,10 +22,10 @@ final class ImageTeamHelper
         $team = Team::first(
             [
                 'columns' => "inserted_at, updated_at",
-                'where' => "player_1 LIKE ? AND player_2 LIKE ?",
+                'where' => "player_1 LIKE ? AND player_2 LIKE ? AND player_1_is_collecting_points = ? AND player_2_is_collecting_points = ?",
                 'files' => true
             ],
-            [$playerOne->getName(), $playerTwo->getName()]
+            [$playerOne->getName(), $playerTwo->getName(), $playerOne->isCollectingPoints(), $playerTwo->isCollectingPoints()]
         );
 
         if ($team && $team->file('avatars') && $team->file('avatars')->url('medium')) {
@@ -55,6 +55,14 @@ final class ImageTeamHelper
 
         self::resizeImage($image1, self::SQUARE_SIZE);
         self::resizeImage($image2, self::SQUARE_SIZE);
+
+        if (!$playerOne->isCollectingPoints()) {
+            $image1 = self::applyOpacity($image1, 0.5);
+        }
+        if (!$playerTwo->isCollectingPoints()) {
+            $image2 = self::applyOpacity($image2, 0.5);
+        }
+
 
         // Get dimensions
         $size1 = $image1->getSize();
@@ -93,9 +101,9 @@ final class ImageTeamHelper
 
         if (empty($teamId)) {
             $teamId = Team::insert(
-                "player_1, player_2, inserted_at",
-                "?, ?, UNIX_TIMESTAMP()",
-                [$playerOne->getName(), $playerTwo->getName()]
+                "player_1, player_2, player_1_is_collecting_points, player_2_is_collecting_points, inserted_at",
+                "?, ?, ?, ?, UNIX_TIMESTAMP()",
+                [$playerOne->getName(), $playerTwo->getName(), $playerOne->isCollectingPoints(), $playerTwo->isCollectingPoints()]
             );
         } else {
             Team::update([
@@ -168,5 +176,42 @@ final class ImageTeamHelper
             );
 
         return $mask;
+    }
+
+    /**
+     * Apply opacity to an image by blending it with a semi-transparent overlay.
+     *
+     * @param ImageInterface $image The image to apply opacity to
+     * @param float $opacity Opacity value between 0.0 (fully transparent) and 1.0 (fully opaque)
+     * @return ImageInterface The image with applied opacity
+     */
+    private static function applyOpacity(ImageInterface $image, float $opacity): ImageInterface
+    {
+        if ($opacity >= 1.0) {
+            return $image;
+        }
+
+        $size = $image->getSize();
+        $palette = new RGB();
+
+        // Create a copy of the image to work with
+        $result = $image->copy();
+
+        // Calculate alpha value (0-127, where 127 is fully opaque)
+        $alpha = (int)(127 * (1 - $opacity));
+
+        // Create a semi-transparent white overlay
+        $overlay = $result->copy();
+        $overlay->draw()->rectangle(
+            new Point(0, 0),
+            new Point($size->getWidth(), $size->getHeight()),
+            $palette->color('#FFFFFF', $alpha),
+            true
+        );
+
+        // Blend the original image with the overlay
+        $result->paste($overlay, new Point(0, 0));
+
+        return $result;
     }
 }

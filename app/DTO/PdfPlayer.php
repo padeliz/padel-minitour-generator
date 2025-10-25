@@ -14,26 +14,39 @@ use Imagine\Image\PointSigned;
 
 final class PdfPlayer
 {
-    private string $name;
+    private Player $player;
+    private bool $isCollectingPoints;
     private string $shortName;
     private string $htmlShortName;
     private string $slugName;
     private string $staticPhotoPath;
     private string $avatarUrl;
 
-    public function __construct(string $name)
+    public function __construct(int $id, bool $isCollectingPoints = true)
     {
-        $player = Player::findOrFailByName($name);
+        $this->player = Player::findOrFailById($id);
 
-        $this->setName($player);
+        $this->isCollectingPoints = $isCollectingPoints;
+
+        $this->setAlternativeNames();
         $this->staticPhotoPath = $this->findStaticPhotoPath();
-        $this->avatarUrl = $this->generateAvatar($player);
+        $this->avatarUrl = $this->generateAvatar();
     }
 
+    public function getId(): int
+    {
+        return $this->player->id();
+    }
     public function getName(): string
     {
-        return $this->name;
+        return $this->player->name;
     }
+
+    public function isCollectingPoints(): bool
+    {
+        return $this->isCollectingPoints;
+    }
+
     public function getSlugName(): string
     {
         return $this->slugName;
@@ -58,29 +71,35 @@ final class PdfPlayer
     }
 
 
-    private function setName(Player $player)
+    private function setAlternativeNames()
     {
-        $this->name = $player->name;
         $this->shortName = preg_replace(
             '/(\b.+?\b)([a-zA-ZăâșşȘțȚî])[a-zA-ZăâșşȘțȚî]+\b/u',
             '$1$2.',
-            $this->name
+            $this->player->name
         );
-        $this->htmlShortName = preg_replace(
-            '/([a-zA-ZăâșşȘțȚî]\.)/u',
-            '<small style="font-weight: 400; color: #444;"><small>$1</small></small>',
-            $this->shortName
+
+        $color = $this->isCollectingPoints ? '#000' : '#444';
+
+        $this->htmlShortName = (
+            '<span style="color: ' . $color . ';">' .
+            preg_replace(
+                '/([a-zA-ZăâșşȘțȚî]\.)/u',
+                '<small style="font-weight: 400; color: #444;"><small>$1</small></small>',
+                $this->shortName
+        ) .
+            '</span>'
         );
-        $this->slugName = Text::slug($this->name);
+        $this->slugName = Text::slug($this->player->name);
     }
 
-    private function generateAvatar(Player $player): string
+    private function generateAvatar(): string
     {
-        if ($player->file('avatar') && $player->file('avatar')->url('medium')) {
-            $last_update_at = max($player->inserted_at, $player->updated_at ?: 0);
+        if ($this->player->file('avatar') && $this->player->file('avatar')->url('medium')) {
+            $last_update_at = max($this->player->inserted_at, $this->player->updated_at ?: 0);
 
             if (filemtime($this->getStaticPhotoPath()) < $last_update_at) {
-                return $player->file('avatar')->url('medium');
+                return $this->player->file('avatar')->url('medium');
             }
 
             /* else, a new player photo has been uploaded, so regenerate the avatar image */
@@ -110,7 +129,7 @@ final class PdfPlayer
         Player::update([
             'set' => "updated_at = UNIX_TIMESTAMP()",
             'where' => "id_player = ?"
-        ], [$player->id()]);
+        ], [$this->player->id()]);
 
         $tempDirPath = sys_get_temp_dir() . '/arshpadelminitour';
         $tempFilePath = $tempDirPath . '/avatar-' . $this->getSlugName() . '.png';
@@ -121,7 +140,7 @@ final class PdfPlayer
 
         $canvas->save($tempFilePath);
 
-        $avatar = new Image(Player::class, $player->id(), 'avatar');
+        $avatar = new Image(Player::class, $this->player->id(), 'avatar');
 
         $avatar->update([
             'name' => basename($tempFilePath),
@@ -146,6 +165,6 @@ final class PdfPlayer
             return $imageFilePath . '.jpeg';
         }
 
-        throw new Exception('No static photo found for: ' . $this->name . ' (' . $this->slugName . ')');
+        throw new Exception('No static photo found for: ' . $this->player->name . ' (' . $this->slugName . ')');
     }
 }

@@ -131,7 +131,11 @@
                         <input type="hidden" name="matches[<?= $key ?>][2]" value="<?= $match[2] ?>" />
                         <input type="hidden" name="matches[<?= $key ?>][3]" value="<?= $match[3] ?>" />
                     <?php }, array_keys($eventDivision->getMatches()), $eventDivision->getMatches());
-                    ?>
+
+                    /** @var int[] $_GET['players-collecting-points'] */
+                    foreach ($_GET['players-collecting-points'] as $playerId) { ?>
+                        <input type="hidden" name="players-collecting-points[]" value="<?= $playerId ?>" />
+                    <?php } ?>
                     <button type="submit" class="btn btn-outline-primary btn-sm mr-1 mb-1">
                         Preview
                         <i class="fas fa-external-link-alt fa-sm"></i>
@@ -160,7 +164,11 @@
                         <input type="hidden" name="matches[<?= $key ?>][2]" value="<?= $match[2] ?>" />
                         <input type="hidden" name="matches[<?= $key ?>][3]" value="<?= $match[3] ?>" />
                     <?php }, array_keys($eventDivision->getMatches()), $eventDivision->getMatches());
-                    ?>
+
+                    /** @var int[] $_GET['players-collecting-points'] */
+                    foreach ($_GET['players-collecting-points'] as $playerId) { ?>
+                        <input type="hidden" name="players-collecting-points[]" value="<?= $playerId ?>" />
+                    <?php } ?>
                     <button type="submit" class="btn btn-primary btn-sm mr-1 mb-1">
                         PDF matches
                         <i class="fas fa-external-link-alt fa-sm"></i>
@@ -170,7 +178,7 @@
 
             <b class="text-success d-block margin-2nd-0">Players board:</b>
             <div>
-                <!-- see beautified matches -->
+                <!-- see beautified players -->
                 <form method="GET" action="<?= Arshwell\Monolith\Web::url('site.players.1st-step-beautify') ?>" class="d-inline" target="_blank">
                     <input type="hidden" name="edition" value="<?= $eventDivision->getEdition() ?>" />
                     <input type="hidden" name="partner-id" value="<?= $eventDivision->getPartnerId() ?>" />
@@ -180,10 +188,15 @@
                     <input type="hidden" name="include-scores" value="<?= $_GET['include-scores'] ?? 0 ?>" />
                     <input type="hidden" name="fixed-teams" value="<?= $_GET['fixed-teams'] ?? 0 ?>" />
                     <?php
-                    array_map(function (int $key, string $player) { ?>
-                        <input type="hidden" name="players[<?= $key ?>]" value="<?= $player ?>" />
+                    /** @var \Arshavinel\PadelMiniTour\Service\EventDivision $eventDivision */
+                    array_map(function (int $key, \Arshavinel\PadelMiniTour\Table\Player $player) { ?>
+                        <input type="hidden" name="player-ids[<?= $key ?>]" value="<?= $player->id() ?>" />
                     <?php }, array_keys($eventDivision->getPlayers()), $eventDivision->getPlayers());
-                    ?>
+
+                    /** @var int[] $_GET['players-collecting-points'] */
+                    foreach ($_GET['players-collecting-points'] as $playerId) { ?>
+                        <input type="hidden" name="players-collecting-points[]" value="<?= $playerId ?>" />
+                    <?php } ?>
                     <button type="submit" class="btn btn-outline-success btn-sm mr-1 mb-1">
                         Preview
                         <i class="fas fa-external-link-alt fa-sm"></i>
@@ -200,10 +213,15 @@
                     <input type="hidden" name="include-scores" value="<?= $_GET['include-scores'] ?? 0 ?>" />
                     <input type="hidden" name="fixed-teams" value="<?= $_GET['fixed-teams'] ?? 0 ?>" />
                     <?php
-                    array_map(function (int $key, string $player) { ?>
-                        <input type="hidden" name="players[<?= $key ?>]" value="<?= $player ?>" />
+                    /** @var \Arshavinel\PadelMiniTour\Service\EventDivision $eventDivision */
+                    array_map(function (int $key, \Arshavinel\PadelMiniTour\Table\Player $player) { ?>
+                        <input type="hidden" name="player-ids[<?= $key ?>]" value="<?= $player->id() ?>" />
                     <?php }, array_keys($eventDivision->getPlayers()), $eventDivision->getPlayers());
-                    ?>
+
+                    /** @var int[] $_GET['players-collecting-points'] */
+                    foreach ($_GET['players-collecting-points'] as $playerId) { ?>
+                        <input type="hidden" name="players-collecting-points[]" value="<?= $playerId ?>" />
+                    <?php } ?>
                     <button type="submit" class="btn btn-success btn-sm mr-1 mb-1">
                         PDF players
                         <i class="fas fa-external-link-alt fa-sm"></i>
@@ -229,16 +247,22 @@
                 </thead>
                 <tbody>
                     <?php
+                    /** @var \Arshavinel\PadelMiniTour\Service\EventDivision $eventDivision */
                     foreach ($eventDivision->getPlayers() as $i => $player) { ?>
                         <tr>
                             <th scope="row"><?= ($i + 1) ?></th>
-                            <td data-player-name="<?= $player ?>"><?= $player ?></td>
+                            <td data-player-id="<?= $player->id() ?>">
+                                <?php if ($player->file('avatar')->url('small')) { ?>
+                                    <img src="<?= $player->file('avatar')->url('small') ?>" alt="<?= $player->name ?>" style="width: 20px; height: 20px;">
+                                <?php } ?>
+                                <?= $player->name ?>
+                            </td>
                             <?php
                             if ($eventDivision->hasDifferentPartnersNumber()) { ?>
-                                <td><?= $eventDivision->countPartners($player) ?></td>
+                                <td><?= $eventDivision->countPartners($player->id()) ?></td>
                             <?php } ?>
-                            <td><?= $eventDivision->countPlayersMet($player) ?> players</td>
-                            <td class="distribution-index" data-player="<?= $player ?>">
+                            <td><?= $eventDivision->countPlayersMet($player->id()) ?> players</td>
+                            <td class="distribution-index" data-player-id="<?= $player->id() ?>">
                                 <span class="loading-dots"></span>
                             </td>
                         </tr>
@@ -267,26 +291,27 @@
                 </thead>
                 <tbody>
                     <?php
+                    /** @var \Arshavinel\PadelMiniTour\Service\EventDivision $eventDivision */
                     foreach ($eventDivision->getMatches() as $m => $match) { ?>
                         <tr data-match-index="<?= $m ?>">
                             <th scope="row"><?= ($m + 1) ?></th>
                             <td>
-                                <span data-player-name="<?= $match[0][0] ?>">
-                                    <?= $match[0][0] ?>
+                                <span data-player-id="<?= $match[0][0] ?>">
+                                    <?= $eventDivision->getPlayerNameById($match[0][0]) ?>
                                 </span>
                                 /
-                                <span data-player-name="<?= $match[0][1] ?>">
-                                    <?= $match[0][1] ?>
+                                <span data-player-id="<?= $match[0][1] ?>">
+                                    <?= $eventDivision->getPlayerNameById($match[0][1]) ?>
                                 </span>
                             </td>
                             <td><?= $match[2] ?></td>
                             <td>
-                                <span data-player-name="<?= $match[1][0] ?>">
-                                    <?= $match[1][0] ?>
+                                <span data-player-id="<?= $match[1][0] ?>">
+                                    <?= $eventDivision->getPlayerNameById($match[1][0]) ?>
                                 </span>
                                 /
-                                <span data-player-name="<?= $match[1][1] ?>">
-                                    <?= $match[1][1] ?>
+                                <span data-player-id="<?= $match[1][1] ?>">
+                                    <?= $eventDivision->getPlayerNameById($match[1][1]) ?>
                                 </span>
                             </td>
                             <td>

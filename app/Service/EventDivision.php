@@ -2,6 +2,7 @@
 
 namespace Arshavinel\PadelMiniTour\Service;
 
+use Arshavinel\PadelMiniTour\Table\Player;
 use DateTime;
 
 class EventDivision
@@ -13,10 +14,14 @@ class EventDivision
     private string $timeStart;
     private string $timeEnd;
     private int $eventDuration;
+
+    /** @var Player[] */
     private array $players;
+    private int $playersCount;
+    private array $playerNamesById;
+
     private int $opponentsPerPlayer;
     private int $repeatPartners;
-    private int $playersCount;
     private int $pointsPerMatch;
     private int $pointsPerPlayer;
     private bool $hasDemonstrativeMatch;
@@ -25,7 +30,7 @@ class EventDivision
         string $edition,
         string $partnerId,
         string $title,
-        array $players,
+        array $playerIds,
         int $opponentsPerPlayer,
         int $repeatPartners,
         string $timeStart,
@@ -35,7 +40,29 @@ class EventDivision
         bool $fixedTeams = false
     )
     {
-        $matchesGenerator = new MatchesGenerator($players, $opponentsPerPlayer, $repeatPartners, $timeStart, $timeEnd, $includeFinal, $hasDemonstrativeMatch, $fixedTeams);
+        $this->playersCount = count($playerIds);
+        $this->players = Player::select([
+            'columns' => 'name',
+            'where' => 'id_player IN (' . implode(',', $playerIds) . ')',
+            'files' => true,
+        ]);
+
+        // Create mapping of player ID to name
+        $this->playerNamesById = [];
+        foreach ($this->players as $player) {
+            $this->playerNamesById[$player->id()] = $player->name;
+        }
+
+        $matchesGenerator = new MatchesGenerator(
+            $playerIds,
+            $opponentsPerPlayer,
+            $repeatPartners,
+            $timeStart,
+            $timeEnd,
+            $includeFinal,
+            $hasDemonstrativeMatch,
+            $fixedTeams
+        );
 
         $this->edition = $edition;
         $this->partnerId = $partnerId;
@@ -44,8 +71,10 @@ class EventDivision
         $this->timeEnd = $timeEnd;
         $this->hasDemonstrativeMatch = $hasDemonstrativeMatch;
         $this->eventDuration = DateTime::createFromFormat('H:i', $timeStart)->diff(DateTime::createFromFormat('H:i', $timeEnd))->h;
-        $this->players = $players;
-        $this->playersCount = count($players);
+
+        if ($this->playersCount != count($this->players)) {
+            throw new \Exception('Players count mismatch: ' . $this->playersCount . ' != ' . count($this->players));
+        }
 
         $this->pointsPerMatch = floor(ceil(110 * $this->eventDuration - 1 + (20 / 60)) / $matchesGenerator->getMatchesCount());
         $this->pointsPerPlayer = $this->pointsPerMatch * $opponentsPerPlayer * $repeatPartners;
@@ -99,6 +128,7 @@ class EventDivision
         return $this->repeatPartners;
     }
 
+    /** @return Player[] */
     public function getPlayers(): array
     {
         return $this->players;
@@ -119,14 +149,14 @@ class EventDivision
         return $this->matchesGenerator->getMatchesCount();
     }
 
-    public function countPartners(string $player): int
+    public function countPartners(int $playerId): int
     {
-        return $this->matchesGenerator->getPartnersCountBy($player);
+        return $this->matchesGenerator->getPartnersCountBy($playerId);
     }
 
-    public function countPlayersMet(string $player): int
+    public function countPlayersMet(int $playerId): int
     {
-        return count($this->matchesGenerator->getPlayersMetBy($player));
+        return count($this->matchesGenerator->getPlayersMetBy($playerId));
     }
 
     public function hasDifferentPartnersNumber(): bool
@@ -142,5 +172,10 @@ class EventDivision
     public function getPointsPerPlayer(): int
     {
         return $this->pointsPerPlayer;
+    }
+
+    public function getPlayerNameById(int $playerId): string
+    {
+        return $this->playerNamesById[$playerId];
     }
 }

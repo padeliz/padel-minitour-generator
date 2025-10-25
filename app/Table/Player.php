@@ -29,15 +29,15 @@ final class Player extends Table
         ]
     ];
 
-    public static function findOrFailByName(string $name): Player
+    public static function findOrFailById(int $id): Player
     {
         return Player::first(
             [
                 'columns' => "name, inserted_at, updated_at",
-                'where' => "name LIKE ?",
+                'where' => "id_player = ?",
                 'files' => true,
             ],
-            [$name]
+            [$id]
         );
     }
 }

@@ -3,3 +3,48 @@
             margin-bottom: 0;
     }
 }
+
+#player-search-results {
+    border: 1px solid #dee2e6;
+    border-radius: 0.25rem;
+    background: white;
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+
+    .list-group-item {
+        border-left: 0;
+        border-right: 0;
+
+        &:first-child {
+            border-top: 0;
+        }
+
+        &:last-child {
+            border-bottom: 0;
+        }
+    }
+}
+
+.selected-player-card {
+    transition: all 0.2s;
+
+    &:hover {
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    }
+
+    .remove-player {
+        opacity: 0.7;
+        transition: opacity 0.2s;
+
+        &:hover {
+            opacity: 1;
+        }
+    }
+}
+
+#selected-players {
+    &:empty::after {
+        content: 'No players selected';
+        color: #6c757d;
+        font-size: 14px;
+    }
+}

@@ -64,24 +64,24 @@
 
                 <?php
                 foreach ($_GET['matches'] as $m => $match) {
-                    $player1 = new Arshavinel\PadelMiniTour\DTO\PdfPlayer($match[0][0]);
-                    $player2 = new Arshavinel\PadelMiniTour\DTO\PdfPlayer($match[0][1]);
-                    $player3 = new Arshavinel\PadelMiniTour\DTO\PdfPlayer($match[1][0]);
-                    $player4 = new Arshavinel\PadelMiniTour\DTO\PdfPlayer($match[1][1]);
+                    $pdfPlayer1 = new Arshavinel\PadelMiniTour\DTO\PdfPlayer($match[0][0], in_array($match[0][0], $_GET['players-collecting-points']));
+                    $pdfPlayer2 = new Arshavinel\PadelMiniTour\DTO\PdfPlayer($match[0][1], in_array($match[0][1], $_GET['players-collecting-points']));
+                    $pdfPlayer3 = new Arshavinel\PadelMiniTour\DTO\PdfPlayer($match[1][0], in_array($match[1][0], $_GET['players-collecting-points']));
+                    $pdfPlayer4 = new Arshavinel\PadelMiniTour\DTO\PdfPlayer($match[1][1], in_array($match[1][1], $_GET['players-collecting-points']));
                 ?>
                     <table <?= ($m != (ceil($countMatches / 2)) ? 'style="margin-top: ' . $marginTop . 'px;"' : '') ?>>
                         <tr>
                             <td style="width: 21%; text-align: right; padding-right: 17px;">
-                                <div style="font-size: <?= Arshavinel\PadelMiniTour\Helper\PdfHtmlHelper::getFontSize($player1->getShortName()) ?>px;">
-                                    <?= $player1->getHtmlShortName() ?>
+                                <div style="font-size: <?= Arshavinel\PadelMiniTour\Helper\PdfHtmlHelper::getFontSize($pdfPlayer1) ?>px;">
+                                    <?= $pdfPlayer1->getHtmlShortName() ?>
                                 </div>
-                                <div style="font-size: <?= Arshavinel\PadelMiniTour\Helper\PdfHtmlHelper::getFontSize($player2->getShortName()) ?>px;">
-                                    <?= $player2->getHtmlShortName() ?>
+                                <div style="font-size: <?= Arshavinel\PadelMiniTour\Helper\PdfHtmlHelper::getFontSize($pdfPlayer2) ?>px;">
+                                    <?= $pdfPlayer2->getHtmlShortName() ?>
                                 </div>
                             </td>
                             <td style="width: 18%;">
                                 <div style="width: 100%; max-width: 100%; text-align: left;">
-                                    <img width="195px" src="<?= Arshavinel\PadelMiniTour\Helper\MatchImage\ImageTeamHelper::getImageUrl($player1, $player2) ?>" ?>
+                                    <img width="195px" src="<?= Arshavinel\PadelMiniTour\Helper\MatchImage\ImageTeamHelper::getImageUrl($pdfPlayer1, $pdfPlayer2) ?>" ?>
                                 </div>
                             </td>
 
@@ -108,15 +108,15 @@
 
                             <td style="width: 18%;">
                                 <div style="width: 100%; max-width: 100%; text-align: right;">
-                                    <img width="195px" src="<?= Arshavinel\PadelMiniTour\Helper\MatchImage\ImageTeamHelper::getImageUrl($player3, $player4) ?>" ?>
+                                    <img width="195px" src="<?= Arshavinel\PadelMiniTour\Helper\MatchImage\ImageTeamHelper::getImageUrl($pdfPlayer3, $pdfPlayer4) ?>" ?>
                                 </div>
                             </td>
                             <td style="width: 21%; text-align: left; padding-left: 17px;">
-                                <div style="font-size: <?= Arshavinel\PadelMiniTour\Helper\PdfHtmlHelper::getFontSize($player3->getShortName()) ?>px;">
-                                    <?= $player3->getHtmlShortName() ?>
+                                <div style="font-size: <?= Arshavinel\PadelMiniTour\Helper\PdfHtmlHelper::getFontSize($pdfPlayer3) ?>px;">
+                                    <?= $pdfPlayer3->getHtmlShortName() ?>
                                 </div>
-                                <div style="font-size: <?= Arshavinel\PadelMiniTour\Helper\PdfHtmlHelper::getFontSize($player4->getShortName()) ?>px;">
-                                    <?= $player4->getHtmlShortName() ?>
+                                <div style="font-size: <?= Arshavinel\PadelMiniTour\Helper\PdfHtmlHelper::getFontSize($pdfPlayer4) ?>px;">
+                                    <?= $pdfPlayer4->getHtmlShortName() ?>
                                 </div>
                             </td>
                         </tr>

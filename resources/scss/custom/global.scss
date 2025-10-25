@@ -61,7 +61,7 @@ img {
     max-width: 100%;
 }
 
-input[type="checkbox"] {
+input[type="checkbox"]:not(.form-check-input) {
     width: 16px;
     height: 16px;
     cursor: pointer;
@@ -76,7 +76,7 @@ input[type="checkbox"] {
         background-position: right;
     }
 }
-input[type="radio"] {
+input[type="radio"]:not(.form-check-input) {
     width: 16px;
     height: 16px;
     cursor: pointer;

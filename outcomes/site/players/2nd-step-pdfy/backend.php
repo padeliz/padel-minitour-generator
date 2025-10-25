@@ -8,18 +8,18 @@ if (
     empty($_GET['edition']) || is_array($_GET['edition']) ||
     empty($_GET['partner-id']) || !is_numeric($_GET['partner-id']) ||
     empty($_GET['title']) || !is_string($_GET['title']) ||
-    empty($_GET['players']) || !is_array($_GET['players']) ||
+    empty($_GET['player-ids']) || !is_array($_GET['player-ids']) ||
     !isset($_GET['include-scores']) || !is_numeric($_GET['include-scores']) ||
     !isset($_GET['fixed-teams']) || !is_numeric($_GET['fixed-teams'])
 ) {
     die('$_GET vars [edition], [partner-id], [title], [players], [include-scores], [fixed-teams] are mandatory.');
 }
 
-ini_set('max_execution_time', ini_get('max_execution_time') + (2 * count($_GET['players'])));
+ini_set('max_execution_time', ini_get('max_execution_time') + (2 * count($_GET['player-ids'])));
 
-foreach ($_GET['players'] as $p => $playerName) {
+foreach ($_GET['player-ids'] as $p => $playerName) {
     if ($playerName == '-') {
-        unset($_GET['players'][$p]);
+        unset($_GET['player-ids'][$p]);
     }
 }
 
@@ -44,7 +44,7 @@ $mpdf = new Mpdf([
 $mpdf->SetMargins(0, 0, 0);
 
 // there is not enough space on the page where there are 12 players
-if (count($_GET['players']) < 12) {
+if (count($_GET['player-ids']) < 12) {
     $mpdf->SetFooter([
         'odd' => [
             'L' => [

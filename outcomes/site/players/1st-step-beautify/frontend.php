@@ -49,7 +49,7 @@
     $nrOfRows = count($matchesRows);
 
     // there is not enough space on the page where there are 12 players
-    if (count($_GET['players']) < 12) { ?>
+    if (count($_GET['player-ids']) < 12) { ?>
         <thead style="border-spacing: 0; padding: 0;">
             <tr>
                 <td></td>
@@ -75,16 +75,15 @@
     <?php } ?>
     <tbody style="border-collapse: separate; border-spacing: 0 <?= $marginTop ?>px;">
         <?php
-        foreach ($_GET['players'] as $playerName) {
-            $player = new Arshavinel\PadelMiniTour\DTO\PdfPlayer($playerName);
-
+        /** @var \Arshavinel\PadelMiniTour\DTO\PdfPlayer[] $pdfPlayers */
+        foreach ($pdfPlayers as $pdfPlayer) {
             foreach ($matchesRows as $mr => $matchRow) { ?>
                 <tr>
                     <td style="width: 170px; text-align: right; padding-right: 17px;">
                         <?php
                         if ($mr == 0) { ?>
-                            <div style="white-space: nowrap; font-size: <?= Arshavinel\PadelMiniTour\Helper\PdfHtmlHelper::getPlayerFontSize($player->getShortName()) ?>px;">
-                                <?= $player->getHtmlShortName() ?>
+                            <div style="white-space: nowrap; font-size: <?= Arshavinel\PadelMiniTour\Helper\PdfHtmlHelper::getPlayerFontSize($pdfPlayer->getShortName()) ?>px;">
+                                <?= $pdfPlayer->getHtmlShortName() ?>
                             </div>
                         <?php } ?>
                     </td>
@@ -93,8 +92,8 @@
                         if ($mr == 0) { ?>
                             <img
                                 width="<?= Arshavinel\PadelMiniTour\Helper\PdfHtmlHelper::PLAYERS_ROWS_SIZING[$nrOfRows]['img-width'] ?>"
-                                src="<?= $player->getAvatarUrl() ?>"
-                                alt="<?= $player->getShortName() ?>" />
+                                src="<?= $pdfPlayer->getAvatarUrl() ?>"
+                                alt="<?= $pdfPlayer->getShortName() ?>" />
                         <?php } ?>
                     </td>
 
