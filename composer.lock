@@ -8,16 +8,16 @@
     "packages": [
         {
             "name": "arshwell/monolith",
-            "version": "v0.5.0",
+            "version": "v0.5.1",
             "source": {
                 "type": "git",
                 "url": "https://github.com/arshwell/monolith.git",
-                "reference": "9a344b2c96f56c057a36ee0c38553a1e99569efd"
+                "reference": "ed4f56bf138aced0ccffab3eb4395bba32e9adfa"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/arshwell/monolith/zipball/9a344b2c96f56c057a36ee0c38553a1e99569efd",
-                "reference": "9a344b2c96f56c057a36ee0c38553a1e99569efd",
+                "url": "https://api.github.com/repos/arshwell/monolith/zipball/ed4f56bf138aced0ccffab3eb4395bba32e9adfa",
+                "reference": "ed4f56bf138aced0ccffab3eb4395bba32e9adfa",
                 "shasum": ""
             },
             "require": {
@@ -56,9 +56,9 @@
             ],
             "support": {
                 "issues": "https://github.com/arshwell/monolith/issues",
-                "source": "https://github.com/arshwell/monolith/tree/v0.5.0"
+                "source": "https://github.com/arshwell/monolith/tree/v0.5.1"
             },
-            "time": "2025-04-27T00:37:41+00:00"
+            "time": "2025-10-25T09:14:24+00:00"
         },
         {
             "name": "fawno/fpdf",
