@@ -44,6 +44,7 @@ class EventDivision
         $this->players = Player::select([
             'columns' => 'name',
             'where' => 'id_player IN (' . implode(',', $playerIds) . ')',
+            'order' => 'FIELD(id_player, ' . implode(',', $playerIds) . ')',
             'files' => true,
         ]);
 

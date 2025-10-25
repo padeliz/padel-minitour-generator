@@ -110,12 +110,18 @@ final class PdfHtmlHelper
     /**
      * If player has more than 8 matches, split them in two rows.
      */
-    public static function splitMatchRankingRows(int $n): array
+    public static function splitMatchRankingRows(int $countPlayers, int $playerMatchesCount): array
     {
-        if ($n > 8) {
-            $a = min(7, $n - 7);
-            return [$a, $n - $a];
+        if ($playerMatchesCount > 8) {
+            $a = min(7, $playerMatchesCount - 7);
+            return [$a, $playerMatchesCount - $a];
         }
-        return [$n];
+
+        if ($countPlayers <= 5) {
+            $a = min(4, $playerMatchesCount - 3);
+            return [$a, $playerMatchesCount - $a];
+        }
+
+        return [$playerMatchesCount];
     }
 }

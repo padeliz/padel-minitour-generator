@@ -184,7 +184,7 @@
                     <input type="hidden" name="partner-id" value="<?= $eventDivision->getPartnerId() ?>" />
                     <input type="hidden" name="title" value="<?= $eventDivision->getTitle() ?>" />
                     <input type="hidden" name="color" value="<?= $_GET['color'] ?>" />
-                    <input type="hidden" name="matches-count" value="<?= $eventDivision->getOpponentsPerPlayer() * $eventDivision->getRepeatPartners() ?>" />
+                    <input type="hidden" name="player-matches-count" value="<?= $eventDivision->getOpponentsPerPlayer() * $eventDivision->getRepeatPartners() ?>" />
                     <input type="hidden" name="include-scores" value="<?= $_GET['include-scores'] ?? 0 ?>" />
                     <input type="hidden" name="fixed-teams" value="<?= $_GET['fixed-teams'] ?? 0 ?>" />
                     <?php
@@ -209,7 +209,7 @@
                     <input type="hidden" name="partner-id" value="<?= $eventDivision->getPartnerId() ?>" />
                     <input type="hidden" name="title" value="<?= $eventDivision->getTitle() ?>" />
                     <input type="hidden" name="color" value="<?= $_GET['color'] ?>" />
-                    <input type="hidden" name="matches-count" value="<?= $eventDivision->getOpponentsPerPlayer() * $eventDivision->getRepeatPartners() ?>" />
+                    <input type="hidden" name="player-matches-count" value="<?= $eventDivision->getOpponentsPerPlayer() * $eventDivision->getRepeatPartners() ?>" />
                     <input type="hidden" name="include-scores" value="<?= $_GET['include-scores'] ?? 0 ?>" />
                     <input type="hidden" name="fixed-teams" value="<?= $_GET['fixed-teams'] ?? 0 ?>" />
                     <?php
@@ -250,8 +250,10 @@
                     /** @var \Arshavinel\PadelMiniTour\Service\EventDivision $eventDivision */
                     foreach ($eventDivision->getPlayers() as $i => $player) { ?>
                         <tr>
-                            <th scope="row"><?= ($i + 1) ?></th>
-                            <td data-player-id="<?= $player->id() ?>">
+                            <th scope="row" style="color: <?= (in_array($player->id(), $_GET['players-collecting-points'])) ? '#000' : '#444' ?>;">
+                                <?= ($i + 1) ?>
+                            </th>
+                            <td data-player-id="<?= $player->id() ?>" style="color: <?= (in_array($player->id(), $_GET['players-collecting-points'])) ? '#000' : '#444' ?>;">
                                 <?php if ($player->file('avatar')->url('small')) { ?>
                                     <img src="<?= $player->file('avatar')->url('small') ?>" alt="<?= $player->name ?>" style="width: 20px; height: 20px;">
                                 <?php } ?>
@@ -261,7 +263,9 @@
                             if ($eventDivision->hasDifferentPartnersNumber()) { ?>
                                 <td><?= $eventDivision->countPartners($player->id()) ?></td>
                             <?php } ?>
-                            <td><?= $eventDivision->countPlayersMet($player->id()) ?> players</td>
+                            <td style="color: <?= (in_array($player->id(), $_GET['players-collecting-points'])) ? '#000' : '#444' ?>;">
+                                <?= $eventDivision->countPlayersMet($player->id()) ?> players
+                            </td>
                             <td class="distribution-index" data-player-id="<?= $player->id() ?>">
                                 <span class="loading-dots"></span>
                             </td>

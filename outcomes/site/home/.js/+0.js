@@ -39,6 +39,22 @@ $(document).ready(function () {
         }
     }
 
+    // Update selectedPlayers Set based on current DOM order
+    function updateSelectedPlayersOrder() {
+        const newOrder = [];
+        $selectedPlayersContainer.find('.selected-player-card').each(function() {
+            const playerName = $(this).data('player-name');
+            const playerData = playersData.find(p => p.name === playerName);
+            if (playerData) {
+                newOrder.push(playerData.id);
+            }
+        });
+
+        // Clear and rebuild the Set with new order
+        selectedPlayers.clear();
+        newOrder.forEach(playerId => selectedPlayers.add(playerId));
+    }
+
     // Render selected player card
     function renderSelectedPlayer(playerData) {
         const isChecked = selectedPlayersWithPoints.has(playerData.id);
@@ -109,6 +125,11 @@ $(document).ready(function () {
 
         // Add player card
         $selectedPlayersContainer.append(renderSelectedPlayer(playerData));
+
+        // Reinitialize sortable if it's the first player
+        if (selectedPlayers.size === 1) {
+            initializeSortable();
+        }
 
         updateHiddenInputs();
     }
@@ -228,4 +249,29 @@ $(document).ready(function () {
             searchPlayers($(this).val());
         }
     });
+
+    // Initialize sortable functionality
+    function initializeSortable() {
+        $selectedPlayersContainer.sortable({
+            items: '.selected-player-card',
+            handle: '.card-body', // Make the entire card draggable
+            placeholder: 'selected-player-card placeholder',
+            forcePlaceholderSize: true,
+            tolerance: 'pointer',
+            cursor: 'move',
+            opacity: 0.8,
+            start: function(event, ui) {
+                ui.placeholder.height(ui.item.height());
+                ui.placeholder.addClass('border border-primary bg-light');
+            },
+            stop: function(event, ui) {
+                // Update the selectedPlayers Set order when sorting stops
+                updateSelectedPlayersOrder();
+                updateHiddenInputs();
+            }
+        });
+    }
+
+    // Initialize sortable when document is ready
+    initializeSortable();
 });

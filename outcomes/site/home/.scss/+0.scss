@@ -47,4 +47,34 @@
         color: #6c757d;
         font-size: 14px;
     }
+
+    // Sortable styles
+    &.ui-sortable {
+        .selected-player-card {
+            cursor: move;
+
+            &.ui-sortable-helper {
+                transform: rotate(2deg);
+                box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+            }
+        }
+
+        .placeholder {
+            border: 2px dashed #007bff !important;
+            background-color: rgba(0, 123, 255, 0.1) !important;
+            border-radius: 0.375rem;
+            margin-bottom: 0.5rem;
+            min-height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            &::before {
+                content: 'Drop here';
+                color: #007bff;
+                font-size: 0.875rem;
+                font-weight: 500;
+            }
+        }
+    }
 }
