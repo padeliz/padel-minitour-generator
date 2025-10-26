@@ -47,7 +47,7 @@ Meta::set('keywords', "padel, lottery, minitour");
 
 
 $luckyOne = LotteryLucky::first([
-    'columns' => "edition_lottery_luckies.lottery_rule_id, edition_lottery_rules.lottery_id, players.name AS player_name, available_at",
+    'columns' => "edition_lottery_luckies.lottery_rule_id, edition_lottery_rules.lottery_id, players.id_player, players.name AS player_name, available_at",
     'joins' => [
         [
             'type' => 'INNER',
@@ -128,7 +128,7 @@ if (!$luckyOne) {
         $luckyOne->lottery_rule_id = $first_lottery_rule->id();
 
         $drawn_participation = Participation::first([
-            'columns' => "players.name AS player_name",
+            'columns' => "players.id_player, players.name AS player_name",
             'join' => [
                 'INNER',
                 Player::TABLE,
@@ -143,7 +143,7 @@ if (!$luckyOne) {
         ], [Web::param('id'), $first_lottery_rule->edition_division_id]);
 
         $luckyOne->drawn_participation_id = $drawn_participation->id();
-        $luckyOne->player_name = $drawn_participation->player_name;
+        $luckyOne->id_player = $drawn_participation->id_player;
         $luckyOne->drawn_at = time();
 
         // 20 minutes after all divisions started playing
@@ -221,7 +221,7 @@ if ($luckyOne) {
         'where' => LotteryRule::TABLE . ".lottery_id = ? AND " . LotteryLucky::TABLE . ".accepted_at IS NOT NULL"
     ], [$luckyOne->lottery->id()]);
 
-    $pdfPlayer = new PdfPlayer($luckyOne->player_name);
+    $pdfPlayer = new PdfPlayer($luckyOne->id_player);
 
     function secondsToTime($seconds) {
         $days = floor($seconds / 86400); // 1 day = 86400 seconds
@@ -247,7 +247,7 @@ if ($luckyOne) {
 
 if (!$luckyOne) {
     $allLotteryLuckies = LotteryLucky::select([
-        'columns' => LotteryRule::TABLE . ".lottery_id, players.name AS player_name, available_at, " . Division::TABLE . '.name AS division_name, ' . Division::TABLE . '.color AS division_color',
+        'columns' => LotteryRule::TABLE . ".lottery_id, players.id_player, players.name AS player_name, available_at, " . Division::TABLE . '.name AS division_name, ' . Division::TABLE . '.color AS division_color',
         'joins' => [
             [
                 'type' => 'INNER',
@@ -285,6 +285,6 @@ if (!$luckyOne) {
     ], [Web::param('id')]);
 
     foreach ($allLotteryLuckies as $allLotteryLucky) {
-        $allLotteryLucky->pdfPlayer = new PdfPlayer($allLotteryLucky->player_name);
+        $allLotteryLucky->pdfPlayer = new PdfPlayer($allLotteryLucky->id_player);
     }
 }
