@@ -12,7 +12,7 @@
                     <div class="col-md-3 mb-3">
                         <!-- edition -->
                         <label for="edition" class="form-label">Edition</label>
-                        <input type="number" class="form-control" min="1" max="100" name="edition" id="edition" required>
+                        <input type="text" class="form-control" name="edition" id="edition" required>
                     </div>
 
                     <div class="col-md-3 mb-3">
@@ -47,6 +47,12 @@
 
                     <div class="col-md">
 
+                        <!-- court -->
+                        <div class="padding-0-1st">
+                            <label for="court" class="form-label">Court</label>
+                            <input type="text" class="form-control" name="court" id="court" placeholder="e.g: Court 1, etc." required>
+                        </div>
+
                         <div class="row g-0 padding-0-1st">
                             <div class="col">
                                 <!-- time start -->
@@ -67,7 +73,6 @@
                                 <small id="time-end--help" class="float-end">...including also the finals.</small>
                             </div>
                         </div>
-
 
                         <!-- opponents per player -->
                         <div class="padding-0-1st">
@@ -118,6 +123,8 @@
                                     <option value="-2">-2</option>
                                     <option selected value="0"></option>
                                     <option value="+2">+2</option>
+                                    <option value="+4">+4</option>
+                                    <option value="+6">+6</option>
                                 </select>
                             </div>
                         </div>
@@ -131,7 +138,7 @@
                     <div class="col-md">
                         <!-- player search -->
                         <div class="mb-3">
-                            <label for="player-search" class="form-label">Players</label>
+                            <label for="player-search" class="form-label" id="player-search-label">Players</label>
                             <input type="text"
                                 class="form-control"
                                 id="player-search"

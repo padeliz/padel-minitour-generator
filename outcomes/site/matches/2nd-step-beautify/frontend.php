@@ -42,6 +42,8 @@
                             <?php
                             if (!empty($_GET['include-scores'])) { ?>
                                 <b style="font-size: 24px;">
+                                    <?= $_GET['court'] ?>
+                                    •
                                     <?= $pointsPerMatch + (int)($_GET['adjust-points-per-match'] ?? 0) ?> points per match
                                 </b>
                             <?php } ?>

@@ -40,6 +40,12 @@
                             <?php } ?>
                         </td>
                     </tr>
+                    <tr>
+                        <td>court</td>
+                        <td>
+                            <?= $eventDivision->getCourt() ?>
+                        </td>
+                    </tr>
                 </tbody>
             </table>
 
@@ -115,6 +121,7 @@
                     <input type="hidden" name="partner-id" value="<?= $eventDivision->getPartnerId() ?>" />
                     <input type="hidden" name="title" value="<?= $eventDivision->getTitle() ?>" />
                     <input type="hidden" name="color" value="<?= $_GET['color'] ?>" />
+                    <input type="hidden" name="court" value="<?= $eventDivision->getCourt() ?>" />
                     <input type="hidden" name="time-start" value="<?= $eventDivision->getTimeStart() ?>" />
                     <input type="hidden" name="time-end" value="<?= $eventDivision->getTimeEnd() ?>" />
                     <input type="hidden" name="points-per-match" value="<?= $eventDivision->getPointsPerMatch() ?>" />
@@ -148,6 +155,7 @@
                     <input type="hidden" name="partner-id" value="<?= $eventDivision->getPartnerId() ?>" />
                     <input type="hidden" name="title" value="<?= $eventDivision->getTitle() ?>" />
                     <input type="hidden" name="color" value="<?= $_GET['color'] ?>" />
+                    <input type="hidden" name="court" value="<?= $eventDivision->getCourt() ?>" />
                     <input type="hidden" name="time-start" value="<?= $eventDivision->getTimeStart() ?>" />
                     <input type="hidden" name="time-end" value="<?= $eventDivision->getTimeEnd() ?>" />
                     <input type="hidden" name="points-per-match" value="<?= $eventDivision->getPointsPerMatch() ?>" />
@@ -184,9 +192,12 @@
                     <input type="hidden" name="partner-id" value="<?= $eventDivision->getPartnerId() ?>" />
                     <input type="hidden" name="title" value="<?= $eventDivision->getTitle() ?>" />
                     <input type="hidden" name="color" value="<?= $_GET['color'] ?>" />
+                    <input type="hidden" name="court" value="<?= $eventDivision->getCourt() ?>" />
                     <input type="hidden" name="player-matches-count" value="<?= $eventDivision->getOpponentsPerPlayer() * $eventDivision->getRepeatPartners() ?>" />
+                    <input type="hidden" name="points-per-match" value="<?= $eventDivision->getPointsPerMatch() ?>" />
                     <input type="hidden" name="include-scores" value="<?= $_GET['include-scores'] ?? 0 ?>" />
                     <input type="hidden" name="fixed-teams" value="<?= $_GET['fixed-teams'] ?? 0 ?>" />
+                    <input type="hidden" name="adjust-points-per-match" value="<?= $_GET['adjust-points-per-match'] ?? 0 ?>" />
                     <?php
                     /** @var \Arshavinel\PadelMiniTour\Service\EventDivision $eventDivision */
                     array_map(function (int $key, \Arshavinel\PadelMiniTour\Table\Player $player) { ?>
@@ -209,9 +220,12 @@
                     <input type="hidden" name="partner-id" value="<?= $eventDivision->getPartnerId() ?>" />
                     <input type="hidden" name="title" value="<?= $eventDivision->getTitle() ?>" />
                     <input type="hidden" name="color" value="<?= $_GET['color'] ?>" />
+                    <input type="hidden" name="court" value="<?= $eventDivision->getCourt() ?>" />
                     <input type="hidden" name="player-matches-count" value="<?= $eventDivision->getOpponentsPerPlayer() * $eventDivision->getRepeatPartners() ?>" />
+                    <input type="hidden" name="points-per-match" value="<?= $eventDivision->getPointsPerMatch() ?>" />
                     <input type="hidden" name="include-scores" value="<?= $_GET['include-scores'] ?? 0 ?>" />
                     <input type="hidden" name="fixed-teams" value="<?= $_GET['fixed-teams'] ?? 0 ?>" />
+                    <input type="hidden" name="adjust-points-per-match" value="<?= $_GET['adjust-points-per-match'] ?? 0 ?>" />
                     <?php
                     /** @var \Arshavinel\PadelMiniTour\Service\EventDivision $eventDivision */
                     array_map(function (int $key, \Arshavinel\PadelMiniTour\Table\Player $player) { ?>

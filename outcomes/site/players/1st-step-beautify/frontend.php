@@ -36,6 +36,14 @@
             <h1 style="font-size: 40px; text-align: left; background-color: <?= $_GET['color'] ?>; color: white;">
                 <?= $_GET['title'] ?>
             </h1>
+            <?php
+            if (!empty($_GET['include-scores'])) { ?>
+                <b style="font-size: 18px;">
+                    <?= $_GET['court'] ?>
+                    •
+                    <?= $pointsPerMatch + (int)($_GET['adjust-points-per-match'] ?? 0) ?> points per match
+                </b>
+            <?php } ?>
         </td>
         <td colspan="2" style="text-align: right; vertical-align: bottom;">
             <img style="max-width: 100%; max-height: 55px;" src="<?= Arshwell\Monolith\Web::site() . 'statics/media/MiniTour-partners/partner-' . $_GET['partner-id'] . '.png' ?>" />

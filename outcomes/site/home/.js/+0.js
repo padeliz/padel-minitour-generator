@@ -6,6 +6,7 @@ $(document).ready(function () {
     const $searchInput = $('#player-search');
     const $searchResults = $('#player-search-results');
     const $selectedPlayersContainer = $('#selected-players');
+    const $playerSearchLabel = $('#player-search-label');
 
     // Update hidden inputs
     function updateHiddenInputs() {
@@ -36,6 +37,13 @@ $(document).ready(function () {
         // Update display
         if (playerIds.length === 0) {
             $selectedPlayersContainer.html('<small class="text-muted">No players selected</small>');
+        }
+
+        // Update label with player count
+        if (playerIds.length > 0) {
+            $playerSearchLabel.text(`Players (${playerIds.length})`);
+        } else {
+            $playerSearchLabel.text('Players');
         }
     }
 

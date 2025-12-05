@@ -43,23 +43,20 @@ $mpdf = new Mpdf([
 
 $mpdf->SetMargins(0, 0, 0);
 
-// there is not enough space on the page where there are 12 players
-if (count($_GET['player-ids']) < 12) {
-    $mpdf->SetFooter([
-        'odd' => [
-            'L' => [
-                'content' => '<b>If replacing someone in a match</b>, instead of the score, put just a dash (-) for her/him, and nothing for yourself.',
-            ],
-            'R' => [
-                'content' => call_user_func(function () {
-                    if (!empty($_GET['include-scores'])) {
-                        return 'The final is played by the 4 players with the most matches won.';
-                    }
-                }),
-            ],
-        ]
-    ]);
-}
+$mpdf->SetFooter([
+    'odd' => [
+        'L' => [
+            'content' => '<b>If replacing someone in a match</b>, instead of the score, put just a dash (-) for her/him, and nothing for yourself.',
+        ],
+        'R' => [
+            'content' => call_user_func(function () {
+                if (!empty($_GET['include-scores'])) {
+                    return 'The final is played by the 4 players with the most matches won.';
+                }
+            }),
+        ],
+    ]
+]);
 
 $mpdf->WriteHTML(
     file_get_contents(Web::url('site.players.1st-step-beautify', null, null, 0, $_GET))

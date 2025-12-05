@@ -8,13 +8,13 @@ final class PdfHtmlHelper
 {
     const PLAYERS_ROWS_SIZING = [
         '1' => [
-            'img-width' => "155px",
-            'points-slot-padding' => "30px 0",
-            'total-points-padding' => "0 0 20px 10px",
-            'total-points-font-size' => "170px",
+            'img-width' => "145px",
+            'points-slot-padding' => "20px 0",
+            'total-points-padding' => "0 0 10px 10px",
+            'total-points-font-size' => "150px",
             'match-slot-font-size' => "40px",
-            'total-matches-padding' => "0 0 20px 5px",
-            'total-matches-font-size' => "170px",
+            'total-matches-padding' => "0 0 10px 5px",
+            'total-matches-font-size' => "150px",
         ],
         '2' => [
             'img-width' => "135px",
@@ -38,7 +38,7 @@ final class PdfHtmlHelper
         } elseif ($countMatches >= 22) {
             $marginTop = 60;
         } elseif ($countMatches >= 20) {
-            $marginTop = 67;
+            $marginTop = 52;
         } elseif ($countMatches == 19) {
             $marginTop = 75;
         } elseif ($countMatches >= 18) {
@@ -61,7 +61,7 @@ final class PdfHtmlHelper
     public static function getPlayersMarginTop(int $countPlayers): int
     {
         if ($countPlayers == 12) {
-            $marginTop = 0;
+            $marginTop = 50;
         } elseif ($countPlayers == 11) {
             $marginTop = 62;
         } elseif ($countPlayers == 10) {

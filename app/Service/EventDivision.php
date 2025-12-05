@@ -25,11 +25,13 @@ class EventDivision
     private int $pointsPerMatch;
     private int $pointsPerPlayer;
     private bool $hasDemonstrativeMatch;
+    private string $court;
 
     public function __construct(
         string $edition,
         string $partnerId,
         string $title,
+        string $court,
         array $playerIds,
         int $opponentsPerPlayer,
         int $repeatPartners,
@@ -68,6 +70,7 @@ class EventDivision
         $this->edition = $edition;
         $this->partnerId = $partnerId;
         $this->title = $title;
+        $this->court = $court;
         $this->timeStart = $timeStart;
         $this->timeEnd = $timeEnd;
         $this->hasDemonstrativeMatch = $hasDemonstrativeMatch;
@@ -84,7 +87,7 @@ class EventDivision
         $this->matchesGenerator = $matchesGenerator;
     }
 
-    public function getEdition(): int
+    public function getEdition(): string
     {
         return $this->edition;
     }
@@ -97,6 +100,11 @@ class EventDivision
     public function getTitle(): string
     {
         return $this->title;
+    }
+
+    public function getCourt(): string
+    {
+        return $this->court;
     }
 
     public function getTimeStart(): string
