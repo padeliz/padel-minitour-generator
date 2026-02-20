@@ -21,13 +21,13 @@ except:
 # NAME LIST
 # ==========================
 names = [
-"Maria A. Tănasă",
-"Alin M. Olteanu",
-"Beatrice G. Netu",
-"Alex C. Zamfir",
-"Andreea M. Lungu",
-"Mihai I. Ghiaur",
-"Mălina Cioșnar"
+"Andreea Teodorescu",
+"Remus Gal",
+"Simona Mititelu",
+"Cătălin G. Mititelu",
+"Eduard I. Forcos",
+"Jose P. Gallegos",
+"Filip Angheluță"
 ]
 
 # ==========================
