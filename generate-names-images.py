@@ -21,7 +21,10 @@ except:
 # NAME LIST
 # ==========================
 names = [
-"Maxine M. Ionașcuț"
+"Maxine M. Ionașcuț",
+"Uana I. Andrei",
+"Dorian J. S. Proaño",
+"Paul C. Tuloiu"
 ]
 
 # ==========================
