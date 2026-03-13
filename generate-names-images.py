@@ -21,13 +21,7 @@ except:
 # NAME LIST
 # ==========================
 names = [
-"Andreea Teodorescu",
-"Remus Gal",
-"Simona Mititelu",
-"Cătălin G. Mititelu",
-"Eduard I. Forcos",
-"Jose P. Gallegos",
-"Filip Angheluță"
+"Maxine M. Ionașcuț"
 ]
 
 # ==========================
