@@ -21,10 +21,39 @@ except:
 # NAME LIST
 # ==========================
 names = [
-"Maxine M. Ionașcuț",
-"Uana I. Andrei",
-"Dorian J. S. Proaño",
-"Paul C. Tuloiu"
+    "Cristian Nitu",
+    "Daniel Lbosy",
+    "Dani Vsn",
+    "Ana S. Pan",
+    "Șerban Farmus",
+    "Mihaela B. Dabija",
+    "Codruț F. Dica",
+    "Ioan Lungu",
+    "Bogdan Balamace",
+    "Petru Macovei",
+    "Cristian Hatagan",
+    "Adrian Postelnicu",
+    "Alexandra Dogaru",
+    "Mihnea Ispas",
+    "Cristian Surdica",
+    "Adrian Poaca",
+    "Radu Manea",
+    "Bianca Fratilescu",
+    "Andrei Skillshx",
+    "Diana Firican",
+    "Cazacescu Adina",
+    "Vlad Negrău",
+    "George I. S.",
+    "Radu Șerban",
+    "Stian A. Johansen",
+    "Floarea Ionut",
+    "Nicolas Chavez",
+    "Robert Burlacu",
+    "Jorge Luis",
+    "Pierre Prevel",
+    "Claudia Florea",
+    "Vlad Abcd",
+    "Mihai C. Nicolescu",
 ]
 
 # ==========================
