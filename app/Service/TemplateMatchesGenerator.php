@@ -7,6 +7,35 @@ use Arshwell\Monolith\Func;
 
 class TemplateMatchesGenerator
 {
+    /**
+     * Monotonic nanoseconds clock for `sortMatches()` timing.
+     *
+     * Tests may assign a callable `fn(): int` returning nanoseconds to simulate time advancing
+     * between permutation evaluations without sleeping.
+     */
+    private static $sortMatchesClock = null;
+
+    /**
+     * Wall-time budget (nanoseconds) for `sortMatches()` to spend evaluating permutations.
+     *
+     * Default is 25 seconds. Tests should override this to keep unit tests fast/deterministic.
+     */
+    private static int $sortMatchesWallBudgetNs = 25_000_000_000;
+
+    /**
+     * When scanning match-order permutations lexicographically, evaluate every Nth permutation.
+     *
+     * A value of 1 means evaluate every permutation (no skipping). Higher values allow the search to
+     * reach farther into the lexicographic sequence within the same wall-clock budget, at the cost
+     * of evaluating fewer candidates.
+     */
+    private static int $sortMatchesLexStride = 1;
+
+    /**
+     * Use multi-start local search when match count is at least this value (12–26+ supported).
+     */
+    private const SORT_MATCHES_MULTISTART_THRESHOLD = 12;
+
     // player => partners
     const COMBINATIONS = [
         4 => [1, 2, 3],
@@ -43,7 +72,7 @@ class TemplateMatchesGenerator
 
     public function __construct(int $playersCount, int $opponentsPerPlayer, int $repeatOpponents, bool $fixedTeams = false)
     {
-        $key = "template-matches/v1.5/players-{$playersCount}-partners-{$opponentsPerPlayer}-repeat-{$repeatOpponents}";
+        $key = "template-matches/v2.0/players-{$playersCount}-partners-{$opponentsPerPlayer}-repeat-{$repeatOpponents}";
 
         if ($fixedTeams) {
             $key .= '-fixedteams';
@@ -241,7 +270,7 @@ class TemplateMatchesGenerator
 
         $bestTemplate = [
             'meetingsVariation' => null,
-            'matches' => null,
+            'matches' => [],
             'playersMet' => [],
             'permutationIndex' => 1,
             'templateIndex' => 1,
@@ -458,6 +487,109 @@ class TemplateMatchesGenerator
         return (float) array_sum($meetingsVariationPerPlayer) / count($meetingsVariationPerPlayer);
     }
 
+    /**
+     * Returns a score in [0, 1] where 1 means the player's matches are well spread across the schedule.
+     *
+     * Input matches are template matches, using mock player indices (0..playersCount-1):
+     * [
+     *   [[pA, pB], [pC, pD]],
+     *   ...
+     * ]
+     */
+    private function calculatePlayerDistribution(int $playerIndex, array $matches): float
+    {
+        $playerMatches = [];
+        foreach ($matches as $i => $match) {
+            if (
+                ($match[0][0] ?? null) === $playerIndex || ($match[0][1] ?? null) === $playerIndex ||
+                ($match[1][0] ?? null) === $playerIndex || ($match[1][1] ?? null) === $playerIndex
+            ) {
+                $playerMatches[] = (int) $i;
+            }
+        }
+
+        if (count($playerMatches) <= 1) {
+            return 1.0;
+        }
+
+        $totalMatches = count($matches);
+        if ($totalMatches <= 0) {
+            return 1.0;
+        }
+
+        $matchCount = count($playerMatches);
+
+        $idealGap = $totalMatches / $matchCount;
+        if ($idealGap <= 0) {
+            return 1.0;
+        }
+
+        $gaps = [];
+        for ($i = 0; $i < $matchCount; $i++) {
+            if ($i > 0) {
+                $gaps[] = $playerMatches[$i] - $playerMatches[$i - 1];
+            }
+        }
+
+        $firstMatch = $playerMatches[0];
+        $lastMatch = $playerMatches[$matchCount - 1];
+
+        if ($firstMatch > 0) {
+            array_unshift($gaps, $firstMatch);
+        }
+        if ($lastMatch < $totalMatches - 1) {
+            $gaps[] = ($totalMatches - 1 - $lastMatch);
+        }
+
+        if (empty($gaps)) {
+            return 1.0;
+        }
+
+        $avgGap = array_sum($gaps) / count($gaps);
+        $gapVariance = 0.0;
+        foreach ($gaps as $gap) {
+            $gapVariance += pow($gap - $avgGap, 2);
+        }
+        $gapVariance = $gapVariance / count($gaps);
+        $normalizedGapVariance = $gapVariance / pow($totalMatches, 2);
+
+        $clusteringPenalty = 0.0;
+        $largeGapPenalty = 0.0;
+
+        $matchDensity = $matchCount / $totalMatches;
+        $basePenalty = max(0.1, 0.5 - ($matchDensity * 0.3));
+
+        $acceptableRange = $idealGap * 0.3;
+        $minAcceptableGap = $idealGap - $acceptableRange;
+        $maxAcceptableGap = $idealGap + $acceptableRange;
+
+        foreach ($gaps as $gap) {
+            if ($gap < $minAcceptableGap) {
+                $gapDeficit = $minAcceptableGap - $gap;
+                $penaltyRatio = $gapDeficit / $idealGap;
+                $clusteringPenalty += min($basePenalty, $penaltyRatio * $basePenalty);
+            }
+
+            if ($gap > $maxAcceptableGap && $maxAcceptableGap > 0) {
+                $gapExcess = $gap - $maxAcceptableGap;
+                $penaltyRatio = $gapExcess / $maxAcceptableGap;
+                $largeGapPenalty += min(0.6, $penaltyRatio * 0.6);
+            }
+        }
+
+        $totalSpan = $lastMatch - $firstMatch;
+        $idealSpan = ($matchCount - 1) * $idealGap;
+        $spanRatio = ($idealSpan > 0) ? min($totalSpan / $idealSpan, 1) : 1.0;
+
+        $gapScore = 1 - $normalizedGapVariance;
+        $clusteringScore = max(0.0, 1 - $clusteringPenalty);
+        $largeGapScore = max(0.0, 1 - $largeGapPenalty);
+
+        $finalScore = ($gapScore * 0.3) + ($clusteringScore * 0.3) + ($largeGapScore * 0.3) + ($spanRatio * 0.1);
+
+        return max(0.0, min(1.0, $finalScore));
+    }
+
     private function pcNextPermutation($p, $size)
     {
         // slide down the array looking for where we're smaller than the next guy
@@ -543,23 +675,6 @@ class TemplateMatchesGenerator
         return false;
     }
 
-    private function boredPlayers(array $matches, array $mockPlayers): array
-    {
-        $mockPlayersEnergy = array_fill_keys($mockPlayers, -1);
-
-        foreach ($matches as $m => $match) {
-            foreach ($match as $team) {
-                foreach ($team as $player) {
-                    $mockPlayersEnergy[$player] = $m;
-                }
-            }
-        }
-
-        asort($mockPlayersEnergy);
-
-        return array_keys($mockPlayersEnergy);
-    }
-
     private function nextCombination(&$combination, $n, $k)
     {
         $i = $k - 1;
@@ -576,78 +691,384 @@ class TemplateMatchesGenerator
         return null;
     }
 
-    private function getNextMatchIndex(array $matches, array $mockPlayers, array $mockPlayersToOmit = []): ?int
+    /**
+     * Sort matches so every player has his matches distributed equally over the time.
+     *
+     * For match counts below {@see TemplateMatchesGenerator::SORT_MATCHES_MULTISTART_THRESHOLD}, walks
+     * permutations in lexicographic order from the identity mapping. For larger counts, uses a deterministic
+     * multi-start local search (windowed swaps + occasional full swap passes) within the wall budget.
+     */
+    private function sortMatches(array $matches, array $mockPlayers): array
     {
-        $mockPlayers = array_values($mockPlayers);
-        $k = 4;  // Size of combinations
-        $n = count($mockPlayers);
-        $combination = range(0, $k - 1);  // Initial combination: [0, 1, 2, 3]
+        $matches = array_values($matches);
+        $m = count($matches);
 
-        $backupMatches = [];
+        if ($m <= 1) {
+            return $matches;
+        }
+
+        $estimatedTime = $this->estimateGenerationTime($m);
+        $wallSeconds = (int) max(1, (int) ceil(self::$sortMatchesWallBudgetNs / 1_000_000_000));
+        ini_set(
+            'max_execution_time',
+            (string) ((int) ini_get('max_execution_time') + $estimatedTime + $wallSeconds)
+        );
+
+        $deadlineNs = $this->sortMatchesMonotonicNow() + self::$sortMatchesWallBudgetNs;
+
+        if ($m >= self::SORT_MATCHES_MULTISTART_THRESHOLD) {
+            return $this->sortMatchesMultistartLocalSearch($matches, $mockPlayers, $deadlineNs);
+        }
+
+        $bestOrderedMatches = $matches;
+        $bestMin = null;
+        $bestAvg = null;
+
+        // Lexicographic scan from identity (deterministic) for smaller m.
+        $size = $m - 1;
+        $perm = range(0, $size);
+        $permCopy = range(0, $size);
+
+        $lexStride = self::$sortMatchesLexStride;
+        if ($lexStride <= 1 && $m >= 15) {
+            $lexStride = 7;
+        }
+
+        $permutationsExplored = 0;
+        $permutationsSkipped = 0;
+        $bestImprovementIndex = 0;
 
         do {
-            $combPlayers = [];
-            foreach ($combination as $index) {
-                $combPlayers[] = $mockPlayers[$index];
+            if ($this->sortMatchesMonotonicNow() >= $deadlineNs) {
+                break;
             }
 
-            $foundMatches = array_filter($matches, function (array $match) use ($combPlayers) {
-                return !array_diff($combPlayers, Func::arrayFlatten($match));
-            });
-            $perfectMatches = array_filter($foundMatches, function (array $match) use ($mockPlayersToOmit) {
-                return empty(array_intersect($mockPlayersToOmit, Func::arrayFlatten($match)));
-            });
+            $orderedMatches = $this->sortMatchesOrderByPerm($matches, $perm);
+            $scores = $this->scoreMatchOrderDistribution($orderedMatches, $mockPlayers);
+            $minScore = $scores['min'];
+            $avgScore = $scores['avg'];
 
-            if (empty($perfectMatches)) {
-                $backupMatches = array_replace($backupMatches, $foundMatches);
+            ++$permutationsExplored;
+
+            if ($bestMin === null || $minScore > $bestMin || ($minScore === $bestMin && $avgScore > $bestAvg)) {
+                $bestMin = $minScore;
+                $bestAvg = $avgScore;
+                $bestOrderedMatches = $orderedMatches;
+                ++$bestImprovementIndex;
             }
-        } while (($combination = $this->nextCombination($combination, $n, $k)) && empty($perfectMatches));
 
-        if ($perfectMatches) {
-            return key($perfectMatches);
+            if ($this->sortMatchesMonotonicNow() >= $deadlineNs) {
+                break;
+            }
+
+            $next = $perm;
+            for ($s = 0; $s < $lexStride; ++$s) {
+                $next = $this->pcNextPermutation($next, $size);
+                if ($next === false || $next === $permCopy) {
+                    break 2;
+                }
+                if ($s < $lexStride - 1) {
+                    ++$permutationsSkipped;
+                }
+            }
+            $perm = $next;
+        } while ($perm && $perm !== $permCopy);
+
+        return $bestOrderedMatches;
+    }
+
+    /**
+     * Deterministic multi-start local search for larger match counts (no bigint / no randomness).
+     *
+     * @param array<int, array<int, array<int, int>>> $matches
+     * @param array<int, int> $mockPlayers
+     * @return array<int, array<int, array<int, int>>>
+     */
+    private function sortMatchesMultistartLocalSearch(
+        array $matches,
+        array $mockPlayers,
+        int $deadlineNs
+    ): array {
+        $m = count($matches);
+        $budgetTotalNs = self::$sortMatchesWallBudgetNs;
+        $perStartSliceNs = intdiv($budgetTotalNs * 12, 100);
+        if ($perStartSliceNs < 1) {
+            $perStartSliceNs = 1;
         }
-        if ($backupMatches) {
-            return key($backupMatches);
+
+        $seedShuffle = (int) (crc32((string) json_encode($matches, JSON_UNESCAPED_UNICODE)) & 0x7fffffff);
+        if ($seedShuffle === 0) {
+            $seedShuffle = 1;
+        }
+
+        $starts = [
+            'identity' => array_values($matches),
+            'reverse' => array_values(array_reverse($matches)),
+            'rotate_third' => $this->sortMatchesRotateMatchesList($matches, intdiv($m, 3)),
+            'rotate_two_thirds' => $this->sortMatchesRotateMatchesList($matches, intdiv(2 * $m, 3)),
+            'deterministic_shuffle' => $this->sortMatchesOrderByPerm(
+                $matches,
+                $this->sortMatchesDeterministicIndicesPermutation($m, $seedShuffle)
+            ),
+        ];
+
+        $windowW = min(12, max(2, intdiv($m, 3)));
+        if ($m > 1 && $windowW >= $m) {
+            $windowW = $m - 1;
+        }
+
+        $baseScores = $this->scoreMatchOrderDistribution($matches, $mockPlayers);
+        $globalBestOrder = array_values($matches);
+        $globalBestMin = $baseScores['min'];
+        $globalBestAvg = $baseScores['avg'];
+
+        foreach ($starts as $startOrder) {
+            if ($this->sortMatchesMonotonicNow() >= $deadlineNs) {
+                break;
+            }
+
+            $sliceEnd = min($deadlineNs, $this->sortMatchesMonotonicNow() + $perStartSliceNs);
+            $stats = [
+                'improvements' => 0,
+                'passes' => 0,
+                'fullPasses' => 0,
+            ];
+            $refined = $this->sortMatchesLocalSearchUntilDeadline(
+                array_values($startOrder),
+                $mockPlayers,
+                $sliceEnd,
+                $windowW,
+                $stats
+            );
+
+            $sc = $this->scoreMatchOrderDistribution($refined, $mockPlayers);
+            if ($sc['min'] > $globalBestMin || ($sc['min'] === $globalBestMin && $sc['avg'] > $globalBestAvg)) {
+                $globalBestMin = $sc['min'];
+                $globalBestAvg = $sc['avg'];
+                $globalBestOrder = $refined;
+            }
+        }
+
+        $statsRefine = [
+            'improvements' => 0,
+            'passes' => 0,
+            'fullPasses' => 0,
+        ];
+        return $this->sortMatchesLocalSearchUntilDeadline(
+            $globalBestOrder,
+            $mockPlayers,
+            $deadlineNs,
+            $windowW,
+            $statsRefine
+        );
+    }
+
+    /**
+     * @param array<int, array<int, array<int, int>>> $matches
+     * @return array<int, array<int, array<int, int>>>
+     */
+    private function sortMatchesRotateMatchesList(array $matches, int $k): array
+    {
+        $matches = array_values($matches);
+        $m = count($matches);
+        if ($m <= 1) {
+            return $matches;
+        }
+
+        $k = $k % $m;
+
+        return array_values(array_merge(array_slice($matches, $k), array_slice($matches, 0, $k)));
+    }
+
+    /**
+     * @return array<int, int>
+     */
+    private function sortMatchesDeterministicIndicesPermutation(int $m, int $seed): array
+    {
+        $perm = range(0, $m - 1);
+        if ($m < 2) {
+            return $perm;
+        }
+
+        $s = $seed & 0x7fffffff;
+        if ($s === 0) {
+            $s = 1;
+        }
+
+        for ($i = $m - 1; $i > 0; --$i) {
+            $s = (int) (($s * 1103515245 + 12345) & 0x7fffffff);
+            $j = $s % ($i + 1);
+            $tmp = $perm[$i];
+            $perm[$i] = $perm[$j];
+            $perm[$j] = $tmp;
+        }
+
+        return $perm;
+    }
+
+    /**
+     * @param array<int, array<int, array<int, int>>> $ordered
+     * @param array<int, int> $mockPlayers
+     */
+    private function sortMatchesLocalSearchUntilDeadline(
+        array $ordered,
+        array $mockPlayers,
+        int $deadlineNs,
+        int $windowW,
+        array &$stats
+    ): array {
+        $m = count($ordered);
+        if ($m < 2) {
+            return $ordered;
+        }
+
+        while ($this->sortMatchesMonotonicNow() < $deadlineNs) {
+            $next = $this->sortMatchesTryFirstImprovingSwapWindowed($ordered, $mockPlayers, $deadlineNs, $windowW);
+            if ($next !== null) {
+                $ordered = $next;
+                ++$stats['improvements'];
+                ++$stats['passes'];
+
+                continue;
+            }
+
+            $nextFull = $this->sortMatchesTryFirstImprovingSwapFull($ordered, $mockPlayers, $deadlineNs);
+            if ($nextFull !== null) {
+                $ordered = $nextFull;
+                ++$stats['improvements'];
+                ++$stats['passes'];
+                ++$stats['fullPasses'];
+
+                continue;
+            }
+
+            break;
+        }
+
+        return $ordered;
+    }
+
+    /**
+     * @param array<int, array<int, array<int, int>>> $ordered
+     * @param array<int, int> $mockPlayers
+     * @return array<int, array<int, array<int, int>>>|null
+     */
+    private function sortMatchesTryFirstImprovingSwapWindowed(
+        array $ordered,
+        array $mockPlayers,
+        int $deadlineNs,
+        int $windowW
+    ): ?array {
+        $m = count($ordered);
+        $baseScores = $this->scoreMatchOrderDistribution($ordered, $mockPlayers);
+        $baseMin = $baseScores['min'];
+        $baseAvg = $baseScores['avg'];
+
+        for ($i = 0; $i < $m - 1; ++$i) {
+            for ($d = 1; $d <= $windowW; ++$d) {
+                $j = $i + $d;
+                if ($j >= $m) {
+                    break;
+                }
+
+                if ($this->sortMatchesMonotonicNow() >= $deadlineNs) {
+                    return null;
+                }
+
+                $trial = $ordered;
+                $tmp = $trial[$i];
+                $trial[$i] = $trial[$j];
+                $trial[$j] = $tmp;
+
+                $sc = $this->scoreMatchOrderDistribution($trial, $mockPlayers);
+                if ($sc['min'] > $baseMin || ($sc['min'] === $baseMin && $sc['avg'] > $baseAvg)) {
+                    return $trial;
+                }
+            }
         }
 
         return null;
     }
 
     /**
-     * Sort matches so every player has his matches distributed equally over the time.
+     * @param array<int, array<int, array<int, int>>> $ordered
+     * @param array<int, int> $mockPlayers
+     * @return array<int, array<int, array<int, int>>>|null
      */
-    private function sortMatches(array $matches, array $mockPlayers): array
+    private function sortMatchesTryFirstImprovingSwapFull(array $ordered, array $mockPlayers, int $deadlineNs): ?array
     {
-        $sortedMatches = array();
+        $m = count($ordered);
+        $baseScores = $this->scoreMatchOrderDistribution($ordered, $mockPlayers);
+        $baseMin = $baseScores['min'];
+        $baseAvg = $baseScores['avg'];
 
-        $matches = array_reverse($matches);
+        for ($i = 0; $i < $m - 1; ++$i) {
+            for ($j = $i + 1; $j < $m; ++$j) {
+                if ($this->sortMatchesMonotonicNow() >= $deadlineNs) {
+                    return null;
+                }
 
-        while ($matches) {
-            // players sorted by how long ago they had the last match
-            $boredPlayers = $this->boredPlayers($sortedMatches, $mockPlayers);
+                $trial = $ordered;
+                $tmp = $trial[$i];
+                $trial[$i] = $trial[$j];
+                $trial[$j] = $tmp;
 
-            // players which still have matches to play
-            $mockPlayersToPlay = array_intersect($boredPlayers, Func::arrayFlatten($matches));
-
-            if ($sortedMatches) {
-                $nextMatchIndex = $this->getNextMatchIndex(
-                    $matches,
-                    $mockPlayersToPlay,
-                    Func::arrayFlatten($sortedMatches[array_key_last($sortedMatches)])
-                );
-            } else {
-                $nextMatchIndex = $this->getNextMatchIndex(
-                    $matches,
-                    $mockPlayersToPlay
-                );
+                $sc = $this->scoreMatchOrderDistribution($trial, $mockPlayers);
+                if ($sc['min'] > $baseMin || ($sc['min'] === $baseMin && $sc['avg'] > $baseAvg)) {
+                    return $trial;
+                }
             }
-
-            $sortedMatches[] = $matches[$nextMatchIndex];
-
-            unset($matches[$nextMatchIndex]);
         }
 
-        return $sortedMatches;
+        return null;
+    }
+
+    /**
+     * @param array<int, array<int, array<int, int>>> $matches
+     * @param array<int, int> $perm
+     * @return array<int, array<int, array<int, int>>>
+     */
+    private function sortMatchesOrderByPerm(array $matches, array $perm): array
+    {
+        $ordered = [];
+        foreach ($perm as $i) {
+            $ordered[] = $matches[$i];
+        }
+
+        return $ordered;
+    }
+
+    private function sortMatchesMonotonicNow(): int
+    {
+        if (is_callable(self::$sortMatchesClock)) {
+            return (int) (self::$sortMatchesClock)();
+        }
+
+        return (int) hrtime(true);
+    }
+
+    /**
+     * @return array{min: float, avg: float}
+     */
+    private function scoreMatchOrderDistribution(array $orderedMatches, array $mockPlayers): array
+    {
+        $sum = 0.0;
+        $min = INF;
+
+        foreach ($mockPlayers as $playerIndex) {
+            $score = $this->calculatePlayerDistribution((int) $playerIndex, $orderedMatches);
+            $sum += $score;
+            if ($score < $min) {
+                $min = $score;
+            }
+        }
+
+        $count = count($mockPlayers);
+
+        return [
+            'min' => $min === INF ? 0.0 : (float) $min,
+            'avg' => $count > 0 ? $sum / $count : 0.0,
+        ];
     }
 
     /**
