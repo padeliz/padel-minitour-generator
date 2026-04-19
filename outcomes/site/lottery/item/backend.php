@@ -190,7 +190,7 @@ if ($luckyOne) {
     );
 
     $luckyOne->division = Division::first([
-        'columns' => "name, color",
+        'columns' => "name, color, " . EditionDivision::TABLE . ".court AS division_court",
         'joins' => [
             [
                 'type' => 'INNER',

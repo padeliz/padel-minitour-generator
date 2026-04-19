@@ -1,4 +1,4 @@
-<div class="container padding-0-4th">
+<div class="container padding-2nd-1st">
     <div class="row align-items-end justify-content-center">
         <div class="col-6">
             <a href="<?= \Arshwell\Monolith\Web::url('site.lottery.list') ?>">
@@ -150,13 +150,17 @@
                             <div class="thumb-wrapper" style="background-color: <?= $luckyOne->division->color ?>; border-color: <?= $luckyOne->division->color ?>;">
                                 <img src="<?= $pdfPlayer->getAvatarUrl() ?>" alt="<?= $pdfPlayer->getShortName() ?>" />
                             </div>
+                            <br>
+                            <small class="thumb d-inline-block px-3 fz-20" style="background-color: white; color: black;">
+                                <?= $luckyOne->division->division_court ?>
+                            </small>
                         </div>
 
                         <div><?= $pdfPlayer->getShortName() ?></div>
 
                         <div class="padding-4th-1st padding-md-2nd-1st">
                             <?php
-                            if (substr(Arshwell\Monolith\Web::path(), -6) != '/admin' || !Arshwell\Monolith\StaticHandler::supervisor()) { ?>
+                            if (substr(Arshwell\Monolith\Web::path(), -6) != '/admin') { ?>
                                 <button id="button--refresh-page" class="btn btn-outline-light">
                                     <small>
                                         <b>
