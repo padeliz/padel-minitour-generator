@@ -1,3 +1,7 @@
+# ==========================
+# RUN: python3 generate-names-images.py
+# ==========================
+
 from PIL import Image, ImageDraw, ImageFont
 import os
 import unicodedata
@@ -21,39 +25,32 @@ except:
 # NAME LIST
 # ==========================
 names = [
-    "Cristian Nitu",
-    "Daniel Lbosy",
-    "Dani Vsn",
-    "Ana S. Pan",
-    "Șerban Farmus",
-    "Mihaela B. Dabija",
+    "Ana M. Ann",
+    "Alexandra A. Poaca",
+    "Tudor Petracovici",
+    "Alex C. Kis",
+    "Florin Tutuianu",
+    "Teodora Calota",
+    "Matei Popa",
+    "Viorel Munteanu",
+    "Alexandru Macovei",
+    "Sebastian Salaru",
+    "Lidia E. Ciucă",
+    "Vlad Angelo",
+    "Darius C. Crivineanu",
+    "Teddy G. Iovan",
+    "Rareș Munteanu",
+    "Tudor Zoran",
     "Codruț F. Dica",
-    "Ioan Lungu",
-    "Bogdan Balamace",
-    "Petru Macovei",
-    "Cristian Hatagan",
-    "Adrian Postelnicu",
-    "Alexandra Dogaru",
-    "Mihnea Ispas",
-    "Cristian Surdica",
-    "Adrian Poaca",
-    "Radu Manea",
-    "Bianca Fratilescu",
-    "Andrei Skillshx",
-    "Diana Firican",
-    "Cazacescu Adina",
-    "Vlad Negrău",
-    "George I. S.",
-    "Radu Șerban",
-    "Stian A. Johansen",
-    "Floarea Ionut",
-    "Nicolas Chavez",
-    "Robert Burlacu",
-    "Jorge Luis",
-    "Pierre Prevel",
-    "Claudia Florea",
-    "Vlad Abcd",
-    "Mihai C. Nicolescu",
+    "Alex Gabor",
+    "Gabriela Ștefan",
+    "Victor Rausse",
+    "Cătălin Horomnea"
+    "Alexandru Palievici",
+    "Imam A. Alfa",
+    "David Axiniea",
+    "Ștefan Brănescu",
+    "Claudiu Ghiță"
 ]
 
 # ==========================
