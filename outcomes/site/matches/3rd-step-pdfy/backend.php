@@ -7,22 +7,24 @@ use Mpdf\Output\Destination;
 if (
 
     empty($_GET['edition']) || is_array($_GET['edition']) ||
+    empty($_GET['organizer-id']) || !is_numeric($_GET['organizer-id']) ||
     empty($_GET['partner-id']) || !is_numeric($_GET['partner-id']) ||
+    !isset($_GET['allow-replacements']) || !is_numeric($_GET['allow-replacements']) ||
     empty($_GET['title']) || !is_string($_GET['title']) ||
     empty($_GET['matches']) || !is_array($_GET['matches']) ||
     empty($_GET['time-start']) || !is_string($_GET['time-start']) ||
     empty($_GET['time-end']) || !is_string($_GET['time-end'])
 ) {
-    die('$_GET vars [edition], [partner-id], [title], [time-start], [time-end] and [matches] are mandatory.');
+    die('$_GET vars [edition], [organizer-id], [partner-id], [allow-replacements], [title], [time-start], [time-end] and [matches] are mandatory.');
 }
 
 ini_set('max_execution_time', ini_get('max_execution_time') + (2 * count($_GET['matches'])));
 
-$countMatches = count($_GET['matches']);
+$matchesCount = count($_GET['matches']);
 $hasDemonstrativeMatch = (bool) ($_GET['demonstrative-match'] ?? false);
 
 if ($hasDemonstrativeMatch) {
-    $countMatches++;
+    $matchesCount++;
 }
 
 
@@ -45,22 +47,27 @@ $mpdf = new Mpdf([
 
 $mpdf->SetMargins(0, 0, 0);
 
-if ($countMatches < 25) {
+$oddFooter = [];
+
+if (!empty($_GET['allow-replacements'])) {
+    $oddFooter['L']['content'] = '<b>If someone is missing</b> from the next match, you can take their place <u>without receiving points</u> for that match.';
+} elseif (empty($_GET['include-scores'])) {
+    $oddFooter['L']['content'] = "The score doesn't matter, but if you prefer, you can keep it during the match.";
+}
+
+if (!empty($oddFooter['L']['content'])) {
+    $oddFooter['R'] = [
+        'content' => 'Two serves per player/team. The team on the left serves first.',
+    ];
+} else {
+    $oddFooter['C'] = [
+        'content' => 'Two serves per player/team. The team on the left serves first.',
+    ];
+}
+
+if ($matchesCount < 25) {
     $mpdf->SetFooter([
-        'odd' => [
-            'L' => [
-                'content' => call_user_func(function () {
-                    if (!empty($_GET['include-scores'])) {
-                        return '<b>If someone is missing</b> from the next match, you can take their place <u>without receiving points</u> for that match.';
-                    } else {
-                        return "The score doesn't matter, but if you prefer, you can keep it during the match.";
-                    }
-                }),
-            ],
-            'R' => [
-                'content' => 'Two serves per player/team. The team on the left serves first.',
-            ],
-        ]
+        'odd' => $oddFooter
     ]);
 }
 

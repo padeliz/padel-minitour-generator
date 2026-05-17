@@ -27,55 +27,75 @@ final class PdfHtmlHelper
         ],
     ];
 
-    public static function getMatchesMarginTop(int $countMatches): int
+    public static function getActivitiesMarginTop(int $activitiesCount): int
     {
-        if ($countMatches >= 28) {
+        if ($activitiesCount >= 27) {
             $marginTop = 10;
-        } elseif ($countMatches >= 26) {
+        } elseif ($activitiesCount >= 25) {
             $marginTop = 13;
-        } elseif ($countMatches >= 24) {
+        } elseif ($activitiesCount >= 23) {
             $marginTop = 22;
-        } elseif ($countMatches >= 22) {
+        } elseif ($activitiesCount >= 21) {
             $marginTop = 60;
-        } elseif ($countMatches >= 20) {
-            $marginTop = 52;
-        } elseif ($countMatches == 19) {
-            $marginTop = 75;
-        } elseif ($countMatches >= 18) {
-            $marginTop = 90;
-        } elseif ($countMatches >= 16) {
-            $marginTop = 105;
-        } elseif ($countMatches >= 14) {
-            $marginTop = 120;
-        } elseif ($countMatches >= 12) {
-            $marginTop = 145;
-        } elseif ($countMatches >= 8) {
-            $marginTop = 180;
+        } elseif ($activitiesCount >= 19) {
+            $marginTop = 92;
+        } elseif ($activitiesCount >= 17) {
+            $marginTop = 130;
+        } elseif ($activitiesCount >= 15) {
+            $marginTop = 160;
+        } elseif ($activitiesCount >= 13) {
+            $marginTop = 190;
+        } elseif ($activitiesCount >= 11) {
+            $marginTop = 220;
+        } elseif ($activitiesCount >= 9) {
+            $marginTop = 235;
+        } elseif ($activitiesCount >= 7) {
+            $marginTop = 250;
         } else {
-            $marginTop = 215;
+            $marginTop = 265;
         }
 
         return $marginTop;
     }
 
-    public static function getPlayersMarginTop(int $countPlayers): int
+    public static function getPlayersMarginTop(int $countPlayers, int $nrOfPlayerRows): int
     {
-        if ($countPlayers == 12) {
-            $marginTop = 50;
-        } elseif ($countPlayers == 11) {
-            $marginTop = 62;
-        } elseif ($countPlayers == 10) {
-            $marginTop = 66;
-        } elseif ($countPlayers == 9) {
-            $marginTop = 70;
-        } elseif ($countPlayers == 8) {
-            $marginTop = 74;
-        } elseif ($countPlayers == 7) {
-            $marginTop = 78;
-        } elseif ($countPlayers == 6) {
-            $marginTop = 82;
-        } else {
-            $marginTop = 90;
+        if ($nrOfPlayerRows == 1) {
+            if ($countPlayers <= 6) {
+                $marginTop = 110;
+            } elseif ($countPlayers == 7) {
+                $marginTop = 100;
+            } elseif ($countPlayers == 8) {
+                $marginTop = 90;
+            } elseif ($countPlayers == 9) {
+                $marginTop = 80;
+            } elseif ($countPlayers == 10) {
+                $marginTop = 70;
+            } elseif ($countPlayers == 11) {
+                $marginTop = 60;
+            } elseif ($countPlayers == 12) {
+                $marginTop = 50;
+            } else {
+                $marginTop = 40;
+            }
+        } elseif ($nrOfPlayerRows == 2) {
+            if ($countPlayers <= 6) {
+                $marginTop = 55;
+            } elseif ($countPlayers == 7) {
+                $marginTop = 50;
+            } elseif ($countPlayers == 8) {
+                $marginTop = 45;
+            } elseif ($countPlayers == 9) {
+                $marginTop = 40;
+            } elseif ($countPlayers == 10) {
+                $marginTop = 35;
+            } elseif ($countPlayers == 11) {
+                $marginTop = 30;
+            } elseif ($countPlayers == 12) {
+                $marginTop = 25;
+            } else {
+                $marginTop = 20;
+            }
         }
 
         return $marginTop;

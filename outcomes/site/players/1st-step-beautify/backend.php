@@ -5,7 +5,10 @@ use Arshwell\Monolith\Meta;
 
 if (
     empty($_GET['edition']) || is_array($_GET['edition']) ||
+    empty($_GET['organizer-id']) || !is_numeric($_GET['organizer-id']) ||
     empty($_GET['partner-id']) || !is_numeric($_GET['partner-id']) ||
+    !isset($_GET['include-final']) || !is_numeric($_GET['include-final']) ||
+    !isset($_GET['allow-replacements']) || !is_numeric($_GET['allow-replacements']) ||
     empty($_GET['title']) || !is_string($_GET['title']) ||
     empty($_GET['color']) || !is_string($_GET['color']) ||
     empty($_GET['court']) || !is_string($_GET['court']) ||
@@ -18,7 +21,7 @@ if (
     (!empty($_GET['adjust-points-per-match']) && !is_numeric($_GET['adjust-points-per-match'])) // optional integer
 ) {
     _vd($_GET, '$_GET');
-    die('$_GET vars [edition], [partner-id], [title], [color], [player-matches-count], [player-ids], [players-collecting-points], [include-scores], [fixed-teams] are mandatory.');
+    die('$_GET vars [edition], [organizer-id], [partner-id], [include-final], [allow-replacements], [title], [color], [player-matches-count], [player-ids], [players-collecting-points], [include-scores], [fixed-teams] are mandatory.');
 }
 
 $pointsPerMatch = ($_GET['points-per-match'] % 2 == 0 ? $_GET['points-per-match'] : ($_GET['points-per-match'] + 1));
@@ -36,6 +39,9 @@ usort($pdfPlayers, function ($a, $b) {
     return $a->getName() <=> $b->getName();
 });
 
-$marginTop = PdfHtmlHelper::getPlayersMarginTop($countPlayers);
+$matchesRows = Arshavinel\PadelMiniTour\Helper\PdfHtmlHelper::splitMatchRankingRows($countPlayers, $_GET['player-matches-count']);
+$nrOfRows = count($matchesRows);
+
+$marginTop = PdfHtmlHelper::getPlayersMarginTop($countPlayers, $nrOfRows);
 
 Meta::set('title', "Players beautified | ARSH Padel MiniTour");

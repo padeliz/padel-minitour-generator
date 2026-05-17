@@ -29,11 +29,15 @@
                 <table cellspacing="0" style="width: 100%;" autosize="1">
                     <tr>
                         <td style="width: 30%; text-align: left;">
-                            <img style="max-width: 100%; width: 400px; max-height: 100px;" src="<?= Arshwell\Monolith\Web::site() . 'statics/media/MiniTour LongDown F.png' ?>" />
-                            <span style="font-size: 60px;">&nbsp;</span>
-                            <b style="font-family: sans; font-size: 60px; color: #a9d78b;">
-                                <?= is_numeric($_GET['edition']) ? '#' : '' ?><span style="color: #7ab857;"><?= $_GET['edition'] ?></span>
-                            </b>
+                            <img style="max-width: 100%; width: 400px; max-height: 100px;" src="<?= Arshwell\Monolith\Web::site() . 'statics/media/organizers/organizer-' . $_GET['organizer-id'] . '.png' ?>" />
+                            <?php
+                            if ($_GET['organizer-id'] == 1) { // ARSH Padel MiniTour
+                            ?>
+                                <span style="font-size: 60px;">&nbsp;</span>
+                                <b style="font-family: sans; font-size: 60px; color: #a9d78b;">
+                                    <?= is_numeric($_GET['edition']) ? '#' : '' ?><span style="color: #7ab857;"><?= $_GET['edition'] ?></span>
+                                </b>
+                            <?php } ?>
                         </td>
                         <td style="width: 36%; text-align: left; padding-left: 180px;">
                             <h1 style="font-size: 60px; background-color: <?= $_GET['color'] ?>; color: white;">
@@ -57,12 +61,15 @@
         </tr>
         <tr>
             <td class="column" style="width: 50%; border-right: 1px solid gray;">
-                <img height="180px" src="<?= Arshwell\Monolith\Web::site() . 'statics/media/MiniTour-prints/MiniTour-step-stretching.jpg' ?>" />
-                <br>
-                <span style="font-size: 18px;">
-                    <?= date('H:i', strtotime($_GET['matches'][0][2] . ' -15 minutes')) ?>
-                    - we start with stretching
-                </span>
+                <?php
+                if (!empty($_GET['include-final'])) { ?>
+                    <img height="180px" src="<?= Arshwell\Monolith\Web::site() . 'statics/media/MiniTour-prints/MiniTour-step-stretching.jpg' ?>" />
+                    <br>
+                    <span style="font-size: 18px;">
+                        <?= date('H:i', strtotime($_GET['matches'][0][2] . ' -15 minutes')) ?>
+                        - we start with stretching
+                    </span>
+                <?php } ?>
 
                 <?php
                 foreach ($_GET['matches'] as $m => $match) {
@@ -71,7 +78,7 @@
                     $pdfPlayer3 = new Arshavinel\PadelMiniTour\DTO\PdfPlayer($match[1][0], in_array($match[1][0], $_GET['players-collecting-points']));
                     $pdfPlayer4 = new Arshavinel\PadelMiniTour\DTO\PdfPlayer($match[1][1], in_array($match[1][1], $_GET['players-collecting-points']));
                 ?>
-                    <table <?= ($m != (ceil($countMatches / 2)) ? 'style="margin-top: ' . $marginTop . 'px;"' : '') ?>>
+                    <table <?= (!in_array($m, $matchesWithoutMarginTop) ? 'style="margin-top: ' . $marginTop . 'px;"' : '') ?>>
                         <tr>
                             <td style="width: 21%; text-align: right; padding-right: 17px;">
                                 <div style="font-size: <?= Arshavinel\PadelMiniTour\Helper\PdfHtmlHelper::getFontSize($pdfPlayer1) ?>px;">
@@ -125,14 +132,14 @@
                     </table>
 
                     <?php
-                    if ($m == ceil($countMatches / 2) - 1) { ?>
+                    if ($m == $matchBreakColumn) { ?>
             </td>
             <td class="column" style="width: 50%; border-left: 1px solid gray;">
             <?php } ?>
         <?php } ?>
 
         <?php
-        if (!empty($_GET['include-scores'])) { ?>
+        if (!empty($_GET['include-final'])) { ?>
             <!-- final match -->
             <table style="margin-top: <?= $marginTop ?>px;">
                 <tr>
@@ -151,17 +158,25 @@
                         </div>
                     </td>
 
-                    <td style="width: 9%; vertical-align: bottom;">
-                        <hr>
-                    </td>
-                    <td style="width: 4%;">
-                        <!-- timestamp -->
-                        <span style="font-size: 15px;"><?= $match[3] ?></span>
-                        <hr>
-                    </td>
-                    <td style="width: 9%; vertical-align: bottom;">
-                        <hr>
-                    </td>
+                    <?php
+                    if (!empty($_GET['include-scores'])) { ?>
+                        <td style="width: 9%; vertical-align: bottom;">
+                            <hr>
+                        </td>
+                        <td style="width: 4%;">
+                            <!-- timestamp -->
+                            <span style="font-size: 15px;"><?= $match[3] ?></span>
+                            <hr>
+                        </td>
+                        <td style="width: 9%; vertical-align: bottom;">
+                            <hr>
+                        </td>
+                    <?php } else { ?>
+                        <td style="width: 22%;">
+                            <!-- timestamp -->
+                            <span style="font-size: 30px;"><?= $match[3] ?></span>
+                        </td>
+                    <?php } ?>
 
                     <td style="width: 18%;">
                         <div style="width: 100%; max-width: 100%; text-align: right;">

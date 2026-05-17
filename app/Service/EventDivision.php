@@ -7,9 +7,23 @@ use DateTime;
 
 class EventDivision
 {
+    public const ORGANIZERS = [
+        1 => 'ARSH Padel MiniTour',
+        2 => 'Bucharest Padel Tour',
+    ];
+
+    public const PARTNERS = [
+        1 => 'PadelMania',
+        2 => 'Padel One',
+        3 => 'Padel World',
+        4 => 'Magic Padel',
+        5 => 'Padel Hub',
+    ];
+
     private MatchesGenerator $matchesGenerator;
     private string $edition;
-    private string $partnerId;
+    private int $organizerId;
+    private int $partnerId;
     private string $title;
     private string $timeStart;
     private string $timeEnd;
@@ -29,6 +43,7 @@ class EventDivision
 
     public function __construct(
         string $edition,
+        int $organizerId,
         string $partnerId,
         string $title,
         string $court,
@@ -68,6 +83,7 @@ class EventDivision
         );
 
         $this->edition = $edition;
+        $this->organizerId = $organizerId;
         $this->partnerId = $partnerId;
         $this->title = $title;
         $this->court = $court;
@@ -92,9 +108,24 @@ class EventDivision
         return $this->edition;
     }
 
+    public function getOrganizerId(): int
+    {
+        return $this->organizerId;
+    }
+
+    public function getOrganizerName(): string
+    {
+        return self::ORGANIZERS[$this->organizerId] ?? self::ORGANIZERS[1];
+    }
+
     public function getPartnerId(): int
     {
         return $this->partnerId;
+    }
+
+    public function getPartnerName(): string
+    {
+        return self::PARTNERS[$this->partnerId];
     }
 
     public function getTitle(): string

@@ -5,7 +5,9 @@ use Arshwell\Monolith\Meta;
 
 if (
     empty($_GET['edition']) || is_array($_GET['edition']) ||
+    empty($_GET['organizer-id']) || !is_numeric($_GET['organizer-id']) ||
     empty($_GET['partner-id']) || !is_numeric($_GET['partner-id']) ||
+    !isset($_GET['include-final']) || !is_numeric($_GET['include-final']) ||
     empty($_GET['title']) || !is_string($_GET['title']) ||
     empty($_GET['color']) || !is_string($_GET['color']) ||
     empty($_GET['court']) || !is_string($_GET['court']) ||
@@ -16,20 +18,31 @@ if (
     (!empty($_GET['adjust-points-per-match']) && !is_numeric($_GET['adjust-points-per-match'])) // optional integer
 ) {
     _vd($_GET, '$_GET');
-    die('$_GET vars [edition], [partner-id], [title], [color], [time-start], [time-end] and [matches] are mandatory.
+    die('$_GET vars [edition], [organizer-id], [partner-id], [include-final], [title], [color], [time-start], [time-end] and [matches] are mandatory.
     [adjust-points-per-match] is an optional integer.');
 }
 
 $pointsPerMatch = ($_GET['points-per-match'] % 2 == 0 ? $_GET['points-per-match'] : ($_GET['points-per-match'] + 1));
 
-$countMatches = count($_GET['matches']);
+$matchesCount = $activitiesCount = count($_GET['matches']);
 $hasDemonstrativeMatch = (bool) ($_GET['demonstrative-match'] ?? false);
 
+if (!empty($_GET['include-final'])) {
+    $activitiesCount += 2; // stretching + final
+}
 if ($hasDemonstrativeMatch) {
-    $countMatches++;
+    $activitiesCount++;
 }
 
-$marginTop = PdfHtmlHelper::getMatchesMarginTop($countMatches);
+$matchesWithoutMarginTop = [];
+if (empty($_GET['include-final'])) {
+    $matchesWithoutMarginTop[] = 0; // because the first match is at the top of the list
+}
+$matchesWithoutMarginTop[] = ceil($matchesCount / 2);
+
+$matchBreakColumn = ceil($matchesCount / 2) - 1;
+
+$marginTop = PdfHtmlHelper::getActivitiesMarginTop($activitiesCount);
 
 Meta::set('title', "Matches beautified | ARSH Padel MiniTour");
 Meta::set('description', "Fun and short padel matches.");

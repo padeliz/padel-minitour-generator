@@ -6,13 +6,16 @@ use Mpdf\Output\Destination;
 
 if (
     empty($_GET['edition']) || is_array($_GET['edition']) ||
+    empty($_GET['organizer-id']) || !is_numeric($_GET['organizer-id']) ||
     empty($_GET['partner-id']) || !is_numeric($_GET['partner-id']) ||
+    !isset($_GET['allow-replacements']) || !is_numeric($_GET['allow-replacements']) ||
+    !isset($_GET['include-final']) || !is_numeric($_GET['include-final']) ||
     empty($_GET['title']) || !is_string($_GET['title']) ||
     empty($_GET['player-ids']) || !is_array($_GET['player-ids']) ||
     !isset($_GET['include-scores']) || !is_numeric($_GET['include-scores']) ||
     !isset($_GET['fixed-teams']) || !is_numeric($_GET['fixed-teams'])
 ) {
-    die('$_GET vars [edition], [partner-id], [title], [players], [include-scores], [fixed-teams] are mandatory.');
+    die('$_GET vars [edition], [organizer-id], [partner-id], [allow-replacements], [include-final], [title], [players], [include-scores], [fixed-teams] are mandatory.');
 }
 
 ini_set('max_execution_time', ini_get('max_execution_time') + (2 * count($_GET['player-ids'])));
@@ -46,11 +49,13 @@ $mpdf->SetMargins(0, 0, 0);
 $mpdf->SetFooter([
     'odd' => [
         'L' => [
-            'content' => '<b>If replacing someone in a match</b>, instead of the score, put just a dash (-) for her/him, and nothing for yourself.',
+            'content' => !empty($_GET['allow-replacements'])
+                ? '<b>If replacing someone in a match</b>, instead of the score, put just a dash (-) for her/him, and nothing for yourself.'
+                : '',
         ],
         'R' => [
             'content' => call_user_func(function () {
-                if (!empty($_GET['include-scores'])) {
+                if (!empty($_GET['include-final'])) {
                     return 'The final is played by the 4 players with the most matches won.';
                 }
             }),

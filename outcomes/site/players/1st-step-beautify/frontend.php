@@ -25,11 +25,15 @@
     <tr>
         <td colspan="2" style="text-align: left; vertical-align: bottom;">
             <div>
-                <img style="max-width: 100%; width: 280px; max-height: 80px;" src="<?= Arshwell\Monolith\Web::site() . 'statics/media/MiniTour LongDown F.png' ?>" />
-                <span style="font-size: 40px;">&nbsp;</span>
-                <b style="font-family: sans; font-size: 40px; color: #a9d78b;">
-                    <?= is_numeric($_GET['edition']) ? '#' : '' ?><span style="color: #7ab857;"><?= $_GET['edition'] ?></span>
-                </b>
+                <img style="max-width: 100%; width: 280px; max-height: 80px;" src="<?= Arshwell\Monolith\Web::site() . 'statics/media/organizers/organizer-' . $_GET['organizer-id'] . '.png' ?>" />
+                <?php
+                if ($_GET['organizer-id'] == 1) { // ARSH Padel MiniTour
+                ?>
+                    <span style="font-size: 40px;">&nbsp;</span>
+                    <b style="font-family: sans; font-size: 40px; color: #a9d78b;">
+                        <?= is_numeric($_GET['edition']) ? '#' : '' ?><span style="color: #7ab857;"><?= $_GET['edition'] ?></span>
+                    </b>
+                <?php } ?>
             </div>
         </td>
         <td colspan="2" style="text-align: left; padding-left: 50px;">
@@ -53,8 +57,6 @@
 
 <table cellspacing="0" style="width: 100%; margin-top: <?= $marginTop ?>px;" autosize="1">
     <?php
-    $matchesRows = Arshavinel\PadelMiniTour\Helper\PdfHtmlHelper::splitMatchRankingRows($countPlayers, $_GET['player-matches-count']);
-    $nrOfRows = count($matchesRows);
 
     // there is not enough space on the page where there are 12 players
     if (count($_GET['player-ids']) < 12) { ?>
@@ -153,12 +155,10 @@
                     </td>
                 </tr>
             <?php }
-
-            if ($countPlayers <= 5) { ?>
-                <tr>
-                    <td style="height: <?= $marginTop ?>px;"></td>
-                </tr>
-        <?php }
-        } ?>
+            ?>
+            <tr>
+                <td style="height: <?= $marginTop ?>px;"></td>
+            </tr>
+        <?php } ?>
     </tbody>
 </table>

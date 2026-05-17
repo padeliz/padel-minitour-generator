@@ -10,6 +10,18 @@
                 <div class="row">
 
                     <div class="col-md-3 mb-3">
+                        <!-- organizer -->
+                        <label for="organizer-id" class="form-label">Organizer</label>
+                        <select class="form-select" name="organizer-id" id="organizer-id" required>
+                            <option></option>
+                            <?php
+                            foreach (\Arshavinel\PadelMiniTour\Service\EventDivision::ORGANIZERS as $organizerId => $organizerName) { ?>
+                                <option value="<?= $organizerId ?>"><?= $organizerName ?></option>
+                            <?php } ?>
+                        </select>
+                    </div>
+
+                    <div class="col-md-3 mb-3">
                         <!-- edition -->
                         <label for="edition" class="form-label">Edition</label>
                         <input type="text" class="form-control" name="edition" id="edition" required>
@@ -20,13 +32,16 @@
                         <label for="partner-id" class="form-label">Powered by</label>
                         <select class="form-select" name="partner-id" id="partner-id" required>
                             <option></option>
-                            <option value="1">PadelMania</option>
-                            <option value="2">Padel One</option>
-                            <option value="3">Padel World</option>
-                            <option value="4">Magic Padel</option>
-                            <option value="5">Padel Hub</option>
+                            <?php
+                            foreach (\Arshavinel\PadelMiniTour\Service\EventDivision::PARTNERS as $partnerId => $partnerName) { ?>
+                                <option value="<?= $partnerId ?>"><?= $partnerName ?></option>
+                            <?php } ?>
                         </select>
                     </div>
+
+                </div>
+
+                <div class="row">
 
                     <div class="col-md-3 mb-3">
                         <!-- division -->
@@ -46,13 +61,19 @@
                         </select>
                     </div>
 
-                    <div class="col-md">
-
+                    <div class="col-md-3 mb-3">
                         <!-- court -->
                         <div class="padding-0-1st">
                             <label for="court" class="form-label">Court</label>
                             <input type="text" class="form-control" name="court" id="court" placeholder="e.g: Court 1, etc." required>
                         </div>
+                    </div>
+
+                </div>
+
+                <div class="row">
+
+                    <div class="col-md">
 
                         <div class="row g-0 padding-0-1st">
                             <div class="col">
@@ -93,6 +114,24 @@
                             <input type="checkbox" name="include-scores" checked value="1" id="include-scores">
                             <label class="form-check-label" for="include-scores">
                                 Include scores
+                            </label>
+                        </div>
+
+                        <!-- allow replacements -->
+                        <div class="padding-0-1st">
+                            <input type="hidden" name="allow-replacements" value="0">
+                            <input type="checkbox" name="allow-replacements" checked value="1" id="allow-replacements">
+                            <label class="form-check-label" for="allow-replacements">
+                                Allow replacements
+                            </label>
+                        </div>
+
+                        <!-- include final -->
+                        <div class="padding-0-1st">
+                            <input type="hidden" name="include-final" value="0">
+                            <input type="checkbox" name="include-final" checked value="1" id="include-final">
+                            <label class="form-check-label" for="include-final">
+                                Include final
                             </label>
                         </div>
 

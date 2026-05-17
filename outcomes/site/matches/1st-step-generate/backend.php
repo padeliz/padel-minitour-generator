@@ -5,6 +5,7 @@ use Arshwell\Monolith\Meta;
 
 if (
     empty($_GET['edition']) || is_array($_GET['edition']) ||
+    empty($_GET['organizer-id']) || !is_numeric($_GET['organizer-id']) ||
     empty($_GET['partner-id']) || !is_numeric($_GET['partner-id']) ||
     empty($_GET['title']) || !is_string($_GET['title']) ||
     empty($_GET['color']) || !is_string($_GET['color']) ||
@@ -14,15 +15,18 @@ if (
     empty($_GET['opponents-per-player']) || !is_numeric($_GET['opponents-per-player']) ||
     empty($_GET['repeat-partners']) || !is_numeric($_GET['repeat-partners']) ||
     empty($_GET['player-ids']) || !is_array($_GET['player-ids']) ||
+    !isset($_GET['include-final']) || !is_numeric($_GET['include-final']) ||
+    !isset($_GET['allow-replacements']) || !is_numeric($_GET['allow-replacements']) ||
     (!empty($_GET['adjust-points-per-match']) && !is_numeric($_GET['adjust-points-per-match'])) // optional integer
 ) {
     _vd($_GET, '$_GET');
-    die('$_GET vars: [edition], [partner-id], [title], [color], [time-start], [time-end], [opponents-per-player], [repeat-partners], [players] are mandatory.
+    die('$_GET vars: [edition], [organizer-id], [partner-id], [title], [color], [time-start], [time-end], [opponents-per-player], [repeat-partners], [players], [include-final], [allow-replacements] are mandatory.
     [adjust-points-per-match] is an optional integer.');
 }
 
 $eventDivision = new EventDivision(
     $_GET['edition'],
+    $_GET['organizer-id'],
     $_GET['partner-id'],
     $_GET['title'],
     $_GET['court'],
@@ -31,7 +35,7 @@ $eventDivision = new EventDivision(
     $_GET['repeat-partners'],
     $_GET['time-start'],
     $_GET['time-end'],
-    (bool) ($_GET['include-scores'] ?? false),
+    (bool) ($_GET['include-final'] ?? false),
     (bool) ($_GET['demonstrative-match'] ?? false),
     (bool) ($_GET['fixed-teams'] ?? false)
 );

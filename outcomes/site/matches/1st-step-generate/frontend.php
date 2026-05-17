@@ -18,9 +18,15 @@
                         </td>
                     </tr>
                     <tr>
+                        <td>organizer</td>
+                        <td>
+                            <?= $eventDivision->getOrganizerName() ?>
+                        </td>
+                    </tr>
+                    <tr>
                         <td>partner</td>
                         <td>
-                            <?= (new \NumberFormatter("en", \NumberFormatter::ORDINAL))->format($eventDivision->getPartnerId()) ?>
+                            <?= $eventDivision->getPartnerName() ?>
                         </td>
                     </tr>
                     <tr>
@@ -118,6 +124,7 @@
                 <!-- see beautified matches -->
                 <form method="GET" action="<?= Arshwell\Monolith\Web::url('site.matches.2nd-step-beautify') ?>" class="d-inline" target="_blank">
                     <input type="hidden" name="edition" value="<?= $eventDivision->getEdition() ?>" />
+                    <input type="hidden" name="organizer-id" value="<?= $eventDivision->getOrganizerId() ?>" />
                     <input type="hidden" name="partner-id" value="<?= $eventDivision->getPartnerId() ?>" />
                     <input type="hidden" name="title" value="<?= $eventDivision->getTitle() ?>" />
                     <input type="hidden" name="color" value="<?= $_GET['color'] ?>" />
@@ -126,6 +133,8 @@
                     <input type="hidden" name="time-end" value="<?= $eventDivision->getTimeEnd() ?>" />
                     <input type="hidden" name="points-per-match" value="<?= $eventDivision->getPointsPerMatch() ?>" />
                     <input type="hidden" name="include-scores" value="<?= $_GET['include-scores'] ?? 0 ?>" />
+                    <input type="hidden" name="include-final" value="<?= $_GET['include-final'] ?? 0 ?>" />
+                    <input type="hidden" name="allow-replacements" value="<?= $_GET['allow-replacements'] ?? 0 ?>" />
                     <input type="hidden" name="demonstrative-match" value="<?= $eventDivision->hasDemonstrativeMatch() ?>" />
                     <input type="hidden" name="fixed-teams" value="<?= $_GET['fixed-teams'] ?? 0 ?>" />
                     <input type="hidden" name="adjust-points-per-match" value="<?= $_GET['adjust-points-per-match'] ?? 0 ?>" />
@@ -152,6 +161,7 @@
                 <!-- print PDF -->
                 <form method="GET" action="<?= Arshwell\Monolith\Web::url('site.matches.3rd-step-pdfy') ?>" class="d-inline" target="_blank">
                     <input type="hidden" name="edition" value="<?= $eventDivision->getEdition() ?>" />
+                    <input type="hidden" name="organizer-id" value="<?= $eventDivision->getOrganizerId() ?>" />
                     <input type="hidden" name="partner-id" value="<?= $eventDivision->getPartnerId() ?>" />
                     <input type="hidden" name="title" value="<?= $eventDivision->getTitle() ?>" />
                     <input type="hidden" name="color" value="<?= $_GET['color'] ?>" />
@@ -160,6 +170,8 @@
                     <input type="hidden" name="time-end" value="<?= $eventDivision->getTimeEnd() ?>" />
                     <input type="hidden" name="points-per-match" value="<?= $eventDivision->getPointsPerMatch() ?>" />
                     <input type="hidden" name="include-scores" value="<?= $_GET['include-scores'] ?? 0 ?>" />
+                    <input type="hidden" name="include-final" value="<?= $_GET['include-final'] ?? 0 ?>" />
+                    <input type="hidden" name="allow-replacements" value="<?= $_GET['allow-replacements'] ?? 0 ?>" />
                     <input type="hidden" name="demonstrative-match" value="<?= $eventDivision->hasDemonstrativeMatch() ?>" />
                     <input type="hidden" name="fixed-teams" value="<?= $_GET['fixed-teams'] ?? 0 ?>" />
                     <input type="hidden" name="adjust-points-per-match" value="<?= $_GET['adjust-points-per-match'] ?? 0 ?>" />
@@ -189,6 +201,7 @@
                 <!-- see beautified players -->
                 <form method="GET" action="<?= Arshwell\Monolith\Web::url('site.players.1st-step-beautify') ?>" class="d-inline" target="_blank">
                     <input type="hidden" name="edition" value="<?= $eventDivision->getEdition() ?>" />
+                    <input type="hidden" name="organizer-id" value="<?= $eventDivision->getOrganizerId() ?>" />
                     <input type="hidden" name="partner-id" value="<?= $eventDivision->getPartnerId() ?>" />
                     <input type="hidden" name="title" value="<?= $eventDivision->getTitle() ?>" />
                     <input type="hidden" name="color" value="<?= $_GET['color'] ?>" />
@@ -196,6 +209,8 @@
                     <input type="hidden" name="player-matches-count" value="<?= $eventDivision->getOpponentsPerPlayer() * $eventDivision->getRepeatPartners() ?>" />
                     <input type="hidden" name="points-per-match" value="<?= $eventDivision->getPointsPerMatch() ?>" />
                     <input type="hidden" name="include-scores" value="<?= $_GET['include-scores'] ?? 0 ?>" />
+                    <input type="hidden" name="include-final" value="<?= $_GET['include-final'] ?? 0 ?>" />
+                    <input type="hidden" name="allow-replacements" value="<?= $_GET['allow-replacements'] ?? 0 ?>" />
                     <input type="hidden" name="fixed-teams" value="<?= $_GET['fixed-teams'] ?? 0 ?>" />
                     <input type="hidden" name="adjust-points-per-match" value="<?= $_GET['adjust-points-per-match'] ?? 0 ?>" />
                     <?php
@@ -217,6 +232,7 @@
                 <!-- print PDF -->
                 <form method="GET" action="<?= Arshwell\Monolith\Web::url('site.players.2nd-step-pdfy') ?>" class="d-inline" target="_blank">
                     <input type="hidden" name="edition" value="<?= $eventDivision->getEdition() ?>" />
+                    <input type="hidden" name="organizer-id" value="<?= $eventDivision->getOrganizerId() ?>" />
                     <input type="hidden" name="partner-id" value="<?= $eventDivision->getPartnerId() ?>" />
                     <input type="hidden" name="title" value="<?= $eventDivision->getTitle() ?>" />
                     <input type="hidden" name="color" value="<?= $_GET['color'] ?>" />
@@ -224,6 +240,8 @@
                     <input type="hidden" name="player-matches-count" value="<?= $eventDivision->getOpponentsPerPlayer() * $eventDivision->getRepeatPartners() ?>" />
                     <input type="hidden" name="points-per-match" value="<?= $eventDivision->getPointsPerMatch() ?>" />
                     <input type="hidden" name="include-scores" value="<?= $_GET['include-scores'] ?? 0 ?>" />
+                    <input type="hidden" name="include-final" value="<?= $_GET['include-final'] ?? 0 ?>" />
+                    <input type="hidden" name="allow-replacements" value="<?= $_GET['allow-replacements'] ?? 0 ?>" />
                     <input type="hidden" name="fixed-teams" value="<?= $_GET['fixed-teams'] ?? 0 ?>" />
                     <input type="hidden" name="adjust-points-per-match" value="<?= $_GET['adjust-points-per-match'] ?? 0 ?>" />
                     <?php
