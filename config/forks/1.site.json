@@ -2,7 +2,8 @@
     "lottery": {
         "list": ["GET", ["lottery", "/"]],
         "item": ["GET", "lottery/[id:i]"],
-        "item-admin": ["GET", "lottery/[id:i]/admin"]
+        "item-admin": ["GET", "lottery/[id:i]/admin"],
+        "prizes": ["GET", "lottery/[id:i]/prizes"]
     },
 
     "home":	["GET",	["/generate", "/generator"]],

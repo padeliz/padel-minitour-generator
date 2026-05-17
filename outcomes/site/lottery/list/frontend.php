@@ -6,6 +6,7 @@
     </div>
     <div class="row justify-content-center align-items-center">
         <?php
+        /** @var array<Arshavinel\PadelMiniTour\Table\Edition> $editions */
         array_map(function (Arshavinel\PadelMiniTour\Table\Edition $edition) { ?>
             <div class="col-md-8 col-lg-6 col-xl-5 padding-0-2nd">
                 <div class="lottery">
