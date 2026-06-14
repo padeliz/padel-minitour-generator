@@ -24,6 +24,9 @@
 			"announce-lucky-one": ["AJAX", "ajax/announce-lucky-one"],
 			"rejected-by-lucky-one": ["AJAX", "ajax/rejected-by-lucky-one"],
 			"accepted-by-lucky-one": ["AJAX", "ajax/accepted-by-lucky-one"]
+		},
+		"matches": {
+			"calculate-distribution": ["AJAX", "ajax/matches/calculate-distribution"]
 		}
 	}
 }

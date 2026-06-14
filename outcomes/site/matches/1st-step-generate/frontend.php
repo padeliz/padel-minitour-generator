@@ -270,7 +270,7 @@
                         <th scope="col">#</th>
                         <th scope="col">Player name</th>
                         <?php
-                        if ($eventDivision->hasDifferentPartnersNumber()) { ?>
+                        if ($eventDivision->partnersCountVariation() > 0) { ?>
                             <th scope="col">Partners</th>
                         <?php } ?>
                         <th scope="col">Meeting players</th>
@@ -292,7 +292,7 @@
                                 <?= $player->name ?>
                             </td>
                             <?php
-                            if ($eventDivision->hasDifferentPartnersNumber()) { ?>
+                            if ($eventDivision->partnersCountVariation() > 0) { ?>
                                 <td><?= $eventDivision->countPartners($player->id()) ?></td>
                             <?php } ?>
                             <td style="color: <?= (in_array($player->id(), $_GET['players-collecting-points'])) ? '#000' : '#444' ?>;">
@@ -306,7 +306,7 @@
                 </tbody>
             </table>
             <?php
-            if ($eventDivision->hasDifferentPartnersNumber()) { ?>
+            if ($eventDivision->partnersCountVariation() > 0) { ?>
                 <div class="alert alert-danger d-flex align-items-center" role="alert">
                     <div>
                         Different partners number

@@ -1,0 +1,45 @@
+{
+    "players": 16,
+    "partners": 8,
+    "repeat": 1,
+    "fixedTeams": false,
+    "matches": null,
+    "pairing": {
+        "meetingsVariation": null,
+        "permutationsIterated": 256,
+        "permutationIndex": null,
+        "templatesGenerated": 0,
+        "templateIndex": null,
+        "partnersCount": null,
+        "playersMet": null,
+        "partnersCountVariation": null,
+        "bestMatchesCount": null,
+        "stopReason": "FACTORIAL_COMPLETE",
+        "time": 22.5729027,
+        "differenceLimit": 2,
+        "relaxAttempts": [
+            {
+                "differenceLimit": 1,
+                "permutationsIterated": 256,
+                "templatesGenerated": 0,
+                "time": 36.9169676
+            },
+            {
+                "differenceLimit": 2,
+                "permutationsIterated": 256,
+                "templatesGenerated": 0,
+                "time": 22.5729027
+            }
+        ]
+    },
+    "sorting": {
+        "stopReason": "TRIVIAL",
+        "minDistribution": null,
+        "avgDistribution": null,
+        "permutationsIterated": 0,
+        "permutationIndex": null,
+        "minBreak": null,
+        "maxBreak": null,
+        "time": 0.0046503
+    }
+}

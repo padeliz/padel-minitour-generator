@@ -11,7 +11,7 @@ class MatchesGenerator
     private int $matchesCount;
     private array $partnersCount;
     private array $playersMet;
-    private bool $hasDifferentPartnersNumber;
+    private int $partnersCountVariation;
 
     public function __construct(
         array $players,
@@ -24,9 +24,10 @@ class MatchesGenerator
         bool $fixedTeams = false
     )
     {
-        $templateMatchesGenerator = new TemplateMatchesGenerator(count($players), $opponentsPerPlayer, $repeatPartners, $fixedTeams);
+        $templateMatches = (new TemplateMatchesRepository())
+            ->find(count($players), $opponentsPerPlayer, $repeatPartners, $fixedTeams);
 
-        $matches = $templateMatchesGenerator->getMatches();
+        $matches = $templateMatches->getMatches();
         array_walk_recursive($matches, function (int &$playerIndex) use ($players) {
             $playerIndex = $players[$playerIndex];
         });
@@ -62,19 +63,19 @@ class MatchesGenerator
 
 
         $countPartners = [];
-        $templateCountPartners = $templateMatchesGenerator->getPartnersCount();
+        $templateCountPartners = $templateMatches->getPairingPartnersCount() ?? [];
         array_walk($templateCountPartners, function (int $value, int $key) use (&$countPartners, $players) {
             $countPartners[$players[$key]] = $value;
         });
 
         $countPlayersMet = [];
-        $templateCountPlayersMet = $templateMatchesGenerator->getPlayersMet();
+        $templateCountPlayersMet = $templateMatches->getPairingPlayersMet() ?? [];
         array_walk($templateCountPlayersMet, function (array $value, int $key) use (&$countPlayersMet, $players) {
             $countPlayersMet[$players[$key]] = $value;
         });
 
         $this->matches = $matches;
-        $this->hasDifferentPartnersNumber = $templateMatchesGenerator->hasDifferentPartnersNumber();
+        $this->partnersCountVariation = (int) $templateMatches->getPairingPartnersCountVariation();
         $this->partnersCount = $countPartners;
         $this->playersMet = $countPlayersMet;
     }
@@ -114,8 +115,8 @@ class MatchesGenerator
         return $this->playersMet[$player] ?? [];
     }
 
-    public function hasDifferentPartnersNumber(): bool
+    public function partnersCountVariation(): int
     {
-        return $this->hasDifferentPartnersNumber;
+        return $this->partnersCountVariation;
     }
 }

@@ -1,0 +1,175 @@
+{
+    "players": 7,
+    "partners": 4,
+    "repeat": 1,
+    "fixedTeams": false,
+    "matches": [
+        [
+            [
+                0,
+                5
+            ],
+            [
+                2,
+                4
+            ]
+        ],
+        [
+            [
+                1,
+                6
+            ],
+            [
+                0,
+                3
+            ]
+        ],
+        [
+            [
+                1,
+                4
+            ],
+            [
+                2,
+                6
+            ]
+        ],
+        [
+            [
+                2,
+                5
+            ],
+            [
+                1,
+                3
+            ]
+        ],
+        [
+            [
+                2,
+                3
+            ],
+            [
+                0,
+                4
+            ]
+        ],
+        [
+            [
+                0,
+                6
+            ],
+            [
+                1,
+                5
+            ]
+        ],
+        [
+            [
+                3,
+                6
+            ],
+            [
+                4,
+                5
+            ]
+        ]
+    ],
+    "pairing": {
+        "meetingsVariation": 1.1428571428571428,
+        "permutationsIterated": 256,
+        "permutationIndex": 7,
+        "templatesGenerated": 256,
+        "templateIndex": 7,
+        "partnersCount": [
+            4,
+            4,
+            4,
+            4,
+            4,
+            4,
+            4
+        ],
+        "playersMet": {
+            "0": {
+                "6": 2,
+                "1": 2,
+                "5": 2,
+                "3": 2,
+                "2": 2,
+                "4": 2
+            },
+            "6": {
+                "0": 2,
+                "1": 3,
+                "5": 2,
+                "3": 2,
+                "4": 2,
+                "2": 1
+            },
+            "1": {
+                "0": 2,
+                "6": 3,
+                "5": 2,
+                "3": 2,
+                "4": 1,
+                "2": 2
+            },
+            "5": {
+                "0": 2,
+                "6": 2,
+                "1": 2,
+                "2": 2,
+                "4": 2,
+                "3": 2
+            },
+            "3": {
+                "1": 2,
+                "6": 2,
+                "0": 2,
+                "2": 2,
+                "4": 2,
+                "5": 2
+            },
+            "2": {
+                "0": 2,
+                "5": 2,
+                "4": 3,
+                "3": 2,
+                "1": 2,
+                "6": 1
+            },
+            "4": {
+                "0": 2,
+                "5": 2,
+                "2": 3,
+                "3": 2,
+                "1": 1,
+                "6": 2
+            }
+        },
+        "partnersCountVariation": 0,
+        "bestMatchesCount": 7,
+        "stopReason": "FACTORIAL_COMPLETE",
+        "time": 0.022783,
+        "differenceLimit": 1,
+        "relaxAttempts": [
+            {
+                "differenceLimit": 1,
+                "permutationsIterated": 256,
+                "templatesGenerated": 256,
+                "time": 0.022783
+            }
+        ]
+    },
+    "sorting": {
+        "stopReason": "FACTORIAL_COMPLETE",
+        "minDistribution": 0.925,
+        "avgDistribution": 0.9609523809523811,
+        "permutationsIterated": 1328,
+        "permutationIndex": 405,
+        "minBreak": 1,
+        "maxBreak": 2,
+        "time": 0.0459682
+    }
+}

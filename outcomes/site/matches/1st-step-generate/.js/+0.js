@@ -3,6 +3,7 @@ $(document).ready(function () {
     const originalMatchesData = getOriginalMatchesData();
     let userHasInteracted = false;
     let allIntervals = []; // Global list to track all intervals and timeouts
+    let inflightXhr = null; // Active distribution-recalc AJAX request, if any
 
     $("#players tr").hover(
         // mouseenter
@@ -142,47 +143,96 @@ $(document).ready(function () {
         // Show loading state
         $(".distribution-index").html('<span class="loading-dots"></span>');
 
-        // Add delay to make loading animation visible
-        const calculationTimeout = setTimeout(() => {
-            // Get current match order
-            const currentMatches = [];
-            $("#matches tbody tr").each(function(index) {
-                const originalIndex = $(this).data('match-index');
-                currentMatches.push({
-                    position: index,
-                    originalIndex: originalIndex,
-                    data: originalMatchesData[originalIndex]
+        // Abort any in-flight recalc request (cancel-in-flight policy):
+        // a fresh reorder always supersedes the previous one.
+        if (inflightXhr) {
+            inflightXhr.abort();
+            inflightXhr = null;
+        }
+
+        // Build the request payload from the current DOM order. Hidden times in slots
+        // [2] and [3] aren't needed by the scorer (the algorithm only looks at player IDs
+        // in slots [0][0..1] and [1][0..1]) so we ship the lighter shape.
+        const matchesPayload = [];
+        $("#matches tbody tr").each(function() {
+            const originalIndex = $(this).data('match-index');
+            const data = originalMatchesData[originalIndex];
+            if (!data) {
+                return;
+            }
+            matchesPayload.push([
+                [data[0][0], data[0][1]],
+                [data[1][0], data[1][1]]
+            ]);
+        });
+
+        const players = [];
+        $("#players tbody tr").each(function() {
+            const playerId = $(this).find("[data-player-id]").data('player-id');
+            players.push(playerId);
+        });
+
+        inflightXhr = $.ajax({
+            url: Web.url('site._ajax.matches.calculate-distribution'),
+            type: 'POST',
+            dataType: 'JSON',
+            data: {
+                ajax_token: Form.token('ajax'),
+                form_token: Form.token('form'),
+                matches: matchesPayload,
+                player_ids: players
+            }
+        });
+
+        inflightXhr.done(function(response) {
+            inflightXhr = null;
+
+            const perPlayer = (response && response.values && response.values.perPlayer) || {};
+
+            // Preserve the existing UX timing: 1.5 s initial loading-dot delay, then a
+            // 200 ms per-player stagger, then the worst-player hover demo after the last
+            // cell renders. The math is precomputed by the server; the stagger is purely
+            // cosmetic continuity with the prior client-side flow.
+            const calculationTimeout = setTimeout(() => {
+                players.forEach(function(playerId, index) {
+                    const playerTimeout = setTimeout(() => {
+                        const payload = perPlayer[playerId];
+                        if (payload) {
+                            updatePlayerDistributionIndex(playerId, payload.percentage, payload.cssClass);
+                        }
+
+                        // After all players are calculated, demo the hover feature on the worst player
+                        if (index === players.length - 1) {
+                            const demoTimeout = setTimeout(() => {
+                                demoHoverFeature();
+                            }, 500);
+                            addInterval(demoTimeout, 'timeout');
+                        }
+                    }, index * 200); // 200ms delay between each player
+
+                    addInterval(playerTimeout, 'timeout');
                 });
+            }, 1500); // 1.5 second delay
+
+            addInterval(calculationTimeout, 'timeout');
+        });
+
+        inflightXhr.fail(function(xhr, status) {
+            // Aborted requests are expected -- a fresh reorder superseded this one.
+            if (status === 'abort') {
+                return;
+            }
+            inflightXhr = null;
+
+            if (xhr.status === 401 || xhr.status === 403) {
+                alert("Old session. Refresh page and try again.");
+            }
+
+            // Surface a clearly-failed state on every cell so stale loading dots never linger.
+            $(".distribution-index").each(function() {
+                $(this).removeClass('excellent good fair poor').addClass('poor').html('-');
             });
-
-            // Calculate distribution for each player
-            const players = [];
-            $("#players tbody tr").each(function() {
-                const playerId = $(this).find("[data-player-id]").data('player-id');
-                players.push(playerId);
-            });
-
-            // Display results one by one with staggered delay
-            players.forEach(function(playerId, index) {
-                const playerTimeout = setTimeout(() => {
-                    const distributionScore = calculatePlayerDistribution(playerId, currentMatches);
-
-                    updatePlayerDistributionIndex(playerId, distributionScore);
-
-                    // After all players are calculated, demo the hover feature on the worst player
-                    if (index === players.length - 1) {
-                        const demoTimeout = setTimeout(() => {
-                            demoHoverFeature();
-                        }, 500);
-                        addInterval(demoTimeout, 'timeout');
-                    }
-                }, index * 200); // 200ms delay between each player
-
-                addInterval(playerTimeout, 'timeout');
-            });
-        }, 1500); // 1.5 second delay
-
-        addInterval(calculationTimeout, 'timeout');
+        });
     }
 
     function demoHoverFeature() {
@@ -234,119 +284,10 @@ $(document).ready(function () {
         }
     }
 
-    function calculatePlayerDistribution(playerId, matches) {
-        // Find all matches where this player participates
-        const playerMatches = [];
-        matches.forEach(function(match, index) {
-            const matchData = match.data;
-
-            if (matchData[0][0] == playerId || matchData[0][1] == playerId ||
-                matchData[1][0] == playerId || matchData[1][1] == playerId) {
-                playerMatches.push(index);
-            }
-        });
-
-        if (playerMatches.length <= 1) {
-            return 1; // Perfect distribution if only one match
-        }
-
-        const totalMatches = matches.length;
-        const matchCount = playerMatches.length;
-
-        // Calculate ideal distribution
-        const idealGap = totalMatches / matchCount;
-
-        // Calculate actual gaps between consecutive matches
-        const gaps = [];
-        for (const [i, match] of playerMatches.entries()) {
-            if (i > 0) {
-                gaps.push(match - playerMatches[i-1]);
-            }
-        }
-
-        // Add gaps at the beginning and end of the schedule
-        const firstMatch = playerMatches[0];
-        const lastMatch = playerMatches[playerMatches.length - 1];
-
-        // Gap from start of schedule to first match
-        if (firstMatch > 0) {
-            gaps.unshift(firstMatch);
-        }
-
-        // Gap from last match to end of schedule
-        if (lastMatch < totalMatches - 1) {
-            gaps.push(totalMatches - 1 - lastMatch);
-        }
-
-        // Calculate gap variance (how consistent the gaps are)
-        const avgGap = gaps.reduce((sum, gap) => sum + gap, 0) / gaps.length;
-        const gapVariance = gaps.reduce((sum, gap) => sum + Math.pow(gap - avgGap, 2), 0) / gaps.length;
-        const normalizedGapVariance = gapVariance / Math.pow(totalMatches, 2);
-
-        // Calculate clustering penalty (penalize consecutive and close matches)
-        let clusteringPenalty = 0;
-        let largeGapPenalty = 0;
-
-        // Dynamic penalty based on match density
-        const matchDensity = matchCount / totalMatches; // How many matches this player has relative to total
-        const basePenalty = Math.max(0.1, 0.5 - (matchDensity * 0.3)); // Lower penalty for high-density players
-
-        // Define acceptable range around ideal gap (no penalty within this range)
-        const acceptableRange = idealGap * 0.3; // 30% tolerance around ideal gap
-        const minAcceptableGap = idealGap - acceptableRange;
-        const maxAcceptableGap = idealGap + acceptableRange;
-
-        for (const gap of gaps) {
-            if (gap >= minAcceptableGap && gap <= maxAcceptableGap) {
-                // No penalty for gaps close to ideal
-            } else if (gap < minAcceptableGap) {
-                // Penalty for gaps smaller than ideal (clustering)
-                const gapDeficit = minAcceptableGap - gap;
-                const penaltyRatio = gapDeficit / idealGap;
-                clusteringPenalty += Math.min(basePenalty, penaltyRatio * basePenalty);
-            }
-
-            // Calculate large gap penalty (penalize gaps that are too large)
-            if (gap > maxAcceptableGap) {
-                // Penalty increases with the size of the gap
-                const gapExcess = gap - maxAcceptableGap;
-                const penaltyRatio = gapExcess / maxAcceptableGap;
-                largeGapPenalty += Math.min(0.6, penaltyRatio * 0.6); // Increased cap and multiplier
-            }
-        }
-
-        // Calculate overall spread (how well distributed across the entire schedule)
-        const totalSpan = lastMatch - firstMatch;
-        const idealSpan = (matchCount - 1) * idealGap;
-        const spanRatio = Math.min(totalSpan / idealSpan, 1); // Should be close to 1
-
-        // Calculate distribution score
-        const gapScore = 1 - normalizedGapVariance;
-        const clusteringScore = Math.max(0, 1 - clusteringPenalty);
-        const largeGapScore = Math.max(0, 1 - largeGapPenalty);
-
-        // Weight the different factors
-        const finalScore = (gapScore * 0.3) + (clusteringScore * 0.3) + (largeGapScore * 0.3) + (spanRatio * 0.1);
-
-        return Math.max(0, Math.min(1, finalScore));
-    }
-
-    function updatePlayerDistributionIndex(playerId, score) {
+    function updatePlayerDistributionIndex(playerId, percentage, cssClass) {
         const $cell = $(".distribution-index[data-player-id='" + playerId + "']");
-        const percentage = Math.round(score * 100);
-        let colorClass;
 
-        if (score >= 0.9) {
-            colorClass = "excellent";
-        } else if (score >= 0.8) {
-            colorClass = "good";
-        } else if (score >= 0.6) {
-            colorClass = "fair";
-        } else {
-            colorClass = "poor";
-        }
-
-        $cell.removeClass('excellent good fair poor').addClass(colorClass);
+        $cell.removeClass('excellent good fair poor').addClass(cssClass);
         $cell.html(percentage + '%');
     }
 

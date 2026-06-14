@@ -199,9 +199,9 @@ class EventDivision
         return count($this->matchesGenerator->getPlayersMetBy($playerId));
     }
 
-    public function hasDifferentPartnersNumber(): bool
+    public function partnersCountVariation(): int
     {
-        return $this->matchesGenerator->hasDifferentPartnersNumber();
+        return $this->matchesGenerator->partnersCountVariation();
     }
 
     public function getPointsPerMatch(): int

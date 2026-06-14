@@ -1,0 +1,130 @@
+{
+    "players": 8,
+    "partners": 2,
+    "repeat": 1,
+    "fixedTeams": false,
+    "matches": [
+        [
+            [
+                0,
+                7
+            ],
+            [
+                1,
+                6
+            ]
+        ],
+        [
+            [
+                2,
+                5
+            ],
+            [
+                3,
+                4
+            ]
+        ],
+        [
+            [
+                0,
+                6
+            ],
+            [
+                1,
+                7
+            ]
+        ],
+        [
+            [
+                2,
+                4
+            ],
+            [
+                3,
+                5
+            ]
+        ]
+    ],
+    "pairing": {
+        "meetingsVariation": 0,
+        "permutationsIterated": 1,
+        "permutationIndex": 1,
+        "templatesGenerated": 1,
+        "templateIndex": 1,
+        "partnersCount": [
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2
+        ],
+        "playersMet": {
+            "0": {
+                "7": 2,
+                "1": 2,
+                "6": 2
+            },
+            "7": {
+                "0": 2,
+                "1": 2,
+                "6": 2
+            },
+            "1": {
+                "0": 2,
+                "7": 2,
+                "6": 2
+            },
+            "6": {
+                "0": 2,
+                "7": 2,
+                "1": 2
+            },
+            "2": {
+                "5": 2,
+                "3": 2,
+                "4": 2
+            },
+            "5": {
+                "2": 2,
+                "3": 2,
+                "4": 2
+            },
+            "3": {
+                "2": 2,
+                "5": 2,
+                "4": 2
+            },
+            "4": {
+                "2": 2,
+                "5": 2,
+                "3": 2
+            }
+        },
+        "partnersCountVariation": 0,
+        "bestMatchesCount": 4,
+        "stopReason": "FACTORIAL_COMPLETE",
+        "time": 0.0043811,
+        "differenceLimit": 1,
+        "relaxAttempts": [
+            {
+                "differenceLimit": 1,
+                "permutationsIterated": 1,
+                "templatesGenerated": 1,
+                "time": 0.0043811
+            }
+        ]
+    },
+    "sorting": {
+        "stopReason": "FACTORIAL_COMPLETE",
+        "minDistribution": 1,
+        "avgDistribution": 1,
+        "permutationsIterated": 24,
+        "permutationIndex": 3,
+        "minBreak": 1,
+        "maxBreak": 1,
+        "time": 0.0047394
+    }
+}

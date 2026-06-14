@@ -1,0 +1,36 @@
+<?php
+/**
+ * Padel MiniTour developer CLI (dev-only).
+ *
+ * Wires the local Symfony Console application that exposes:
+ *
+ *  - templates:regenerate          (writes resources/template-matches/v{N+1}/)
+ *  - templates:stats               (read-only stats over the in-use mixed-teams templates)
+ *  - templates:stats-fixed-teams   (read-only stats over the in-use fixed-teams templates)
+ *
+ * Not intended to be deployed to production: the regenerate command is a long-running batch job
+ * meant to be run by an engineer locally, and the stats commands are inspection helpers.
+ *
+ * Usage:
+ *   php bin/console templates:regenerate
+ *   php bin/console templates:regenerate --players=12 --partners=8 --repeat=1 --fixed-teams=0
+ *   php bin/console templates:stats
+ *   php bin/console templates:stats --templates-version=2
+ *   php bin/console templates:stats-fixed-teams
+ *   php bin/console templates:stats-fixed-teams --templates-version=2
+ */
+
+require __DIR__ . '/../vendor/autoload.php';
+
+use Arshavinel\PadelMiniTour\Console\Command\RegenerateTemplatesCommand;
+use Arshavinel\PadelMiniTour\Console\Command\StatsTemplatesCommand;
+use Arshavinel\PadelMiniTour\Console\Command\StatsTemplatesFixedTeamsCommand;
+use Symfony\Component\Console\Application;
+
+$application = new Application('Padel MiniTour developer CLI', '1.0.0');
+$application->add(new RegenerateTemplatesCommand());
+$application->add(new StatsTemplatesCommand());
+$application->add(new StatsTemplatesFixedTeamsCommand());
+
+$exitCode = $application->run();
+exit($exitCode);
