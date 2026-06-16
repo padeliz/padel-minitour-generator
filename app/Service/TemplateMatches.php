@@ -43,8 +43,8 @@ final class TemplateMatches
     private ?int $pairingBestMatchesCount;
     private ?string $pairingStopReason;
     private ?float $pairingTime;
-    private ?int $pairingDifferenceLimit;
-    /** @var array<int, array{differenceLimit:int,permutationsIterated:int,templatesGenerated:int,time:float}>|null */
+    private ?int $pairingMeetingsVariationLimit;
+    /** @var array<int, array{meetingsVariationLimit:int,permutationsIterated:int,templatesGenerated:int,time:float}>|null */
     private ?array $pairingRelaxAttempts;
 
     private ?string $sortingStopReason;
@@ -60,7 +60,7 @@ final class TemplateMatches
      * @param array<int, array<int, array<int, int>>>|null $matches
      * @param array<int, int>|null                         $pairingPartnersCount
      * @param array<int, array<int, int>>|null             $pairingPlayersMet
-     * @param array<int, array{differenceLimit:int,permutationsIterated:int,templatesGenerated:int,time:float}>|null $pairingRelaxAttempts
+     * @param array<int, array{meetingsVariationLimit:int,permutationsIterated:int,templatesGenerated:int,time:float}>|null $pairingRelaxAttempts
      */
     public function __construct(
         int $players,
@@ -87,7 +87,7 @@ final class TemplateMatches
         ?int $sortingMinBreak,
         ?int $sortingMaxBreak,
         ?float $sortingTime,
-        ?int $pairingDifferenceLimit = null,
+        ?int $pairingMeetingsVariationLimit = null,
         ?array $pairingRelaxAttempts = null
     ) {
         $this->players = $players;
@@ -114,7 +114,7 @@ final class TemplateMatches
         $this->sortingMinBreak = $sortingMinBreak;
         $this->sortingMaxBreak = $sortingMaxBreak;
         $this->sortingTime = $sortingTime;
-        $this->pairingDifferenceLimit = $pairingDifferenceLimit;
+        $this->pairingMeetingsVariationLimit = $pairingMeetingsVariationLimit;
         $this->pairingRelaxAttempts = $pairingRelaxAttempts;
     }
 
@@ -216,22 +216,22 @@ final class TemplateMatches
     }
 
     /**
-     * The `differenceLimit` at which the pairing phase finally produced a template (or the max
+     * The `meetingsVariationLimit` at which the pairing phase finally produced a template (or the max
      * attempted value when none was found). Surfaces the S6 adaptive auto-relax outcome:
      * `1` means the strict build succeeded, `2` (or higher) means the loop had to relax.
      */
-    public function getPairingDifferenceLimit(): ?int
+    public function getPairingMeetingsVariationLimit(): ?int
     {
-        return $this->pairingDifferenceLimit;
+        return $this->pairingMeetingsVariationLimit;
     }
 
     /**
      * Per-attempt forensic trail of the S6 pairing relax loop. Always populated for a generated
      * mixed-teams template (length 1 on the happy path); `null` for templates predating S6.
      *
-     * Each entry is `{differenceLimit, permutationsIterated, templatesGenerated, time}`.
+     * Each entry is `{meetingsVariationLimit, permutationsIterated, templatesGenerated, time}`.
      *
-     * @return array<int, array{differenceLimit:int,permutationsIterated:int,templatesGenerated:int,time:float}>|null
+     * @return array<int, array{meetingsVariationLimit:int,permutationsIterated:int,templatesGenerated:int,time:float}>|null
      */
     public function getPairingRelaxAttempts(): ?array
     {
@@ -266,12 +266,14 @@ final class TemplateMatches
     /**
      * Cross-player minimum of each player's shortest INNER consecutive break run.
      *
-     * An inner break run is a maximal stretch of consecutive matches in which the player does
-     * not appear, bracketed by appearances on BOTH sides. Lead runs (before the player's first
-     * appearance) and trail runs (after the player's last appearance) are EXCLUDED. When a
-     * player has no inner break runs (plays every match, plays only once, or never plays at
-     * all), their per-player value is `0`, which means the aggregate becomes `0` whenever any
-     * player has no inner runs.
+     * An inner break run is the stretch of consecutive matches in which the player does not
+     * appear between two of their own appearances. Lead runs (before the player's first
+     * appearance) and trail runs (after the player's last appearance) are EXCLUDED. Sit-out
+     * semantics apply: when a player plays in two consecutive matches the inner run length is
+     * `0`, and that `0` counts -- the player's contribution to `Min Break` becomes `0`. A
+     * player with no closed inner run at all (plays only once, or never plays) also
+     * contributes `0`. Either way, whenever any player's contribution is `0` the aggregate
+     * becomes `0` too.
      *
      * Ordering-sensitive: this metric meaningfully participates in the sort phase as the third
      * tie-break tier `(minBreak + maxBreak) / 2` versus `m / playerMatches`. `null` when the
@@ -468,7 +470,7 @@ final class TemplateMatches
             isset($sorting['minBreak']) ? (int) $sorting['minBreak'] : null,
             isset($sorting['maxBreak']) ? (int) $sorting['maxBreak'] : null,
             isset($sorting['time']) ? (float) $sorting['time'] : null,
-            isset($pairing['differenceLimit']) ? (int) $pairing['differenceLimit'] : null,
+            isset($pairing['meetingsVariationLimit']) ? (int) $pairing['meetingsVariationLimit'] : null,
             isset($pairing['relaxAttempts']) && is_array($pairing['relaxAttempts'])
                 ? self::normalizeRelaxAttempts($pairing['relaxAttempts'])
                 : null
@@ -498,7 +500,7 @@ final class TemplateMatches
                 'bestMatchesCount' => $this->pairingBestMatchesCount,
                 'stopReason' => $this->pairingStopReason,
                 'time' => $this->pairingTime,
-                'differenceLimit' => $this->pairingDifferenceLimit,
+                'meetingsVariationLimit' => $this->pairingMeetingsVariationLimit,
                 'relaxAttempts' => $this->pairingRelaxAttempts,
             ],
             'sorting' => [
@@ -541,7 +543,7 @@ final class TemplateMatches
      * everywhere else (int / float fields, fixed key order).
      *
      * @param array<int, array<string, mixed>> $raw
-     * @return array<int, array{differenceLimit:int,permutationsIterated:int,templatesGenerated:int,time:float}>
+     * @return array<int, array{meetingsVariationLimit:int,permutationsIterated:int,templatesGenerated:int,time:float}>
      */
     private static function normalizeRelaxAttempts(array $raw): array
     {
@@ -551,7 +553,7 @@ final class TemplateMatches
                 continue;
             }
             $normalized[] = [
-                'differenceLimit' => isset($entry['differenceLimit']) ? (int) $entry['differenceLimit'] : 0,
+                'meetingsVariationLimit' => isset($entry['meetingsVariationLimit']) ? (int) $entry['meetingsVariationLimit'] : 0,
                 'permutationsIterated' => isset($entry['permutationsIterated']) ? (int) $entry['permutationsIterated'] : 0,
                 'templatesGenerated' => isset($entry['templatesGenerated']) ? (int) $entry['templatesGenerated'] : 0,
                 'time' => isset($entry['time']) ? (float) $entry['time'] : 0.0,

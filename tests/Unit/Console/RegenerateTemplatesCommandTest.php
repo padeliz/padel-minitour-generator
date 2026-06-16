@@ -60,16 +60,16 @@ final class RegenerateTemplatesCommandTest extends TestCase
 
         $this->assertSame(0, $tester->getStatusCode());
 
-        $writeVersion = TemplateMatchesRepository::TEMPLATES_VERSION + 1;
+        $writeVersion = TemplateMatchesRepository::DEFAULT_TEMPLATE_VERSION + 1;
         $expected = $this->tempBaseDir
             . DIRECTORY_SEPARATOR . 'v' . $writeVersion
             . DIRECTORY_SEPARATOR . 'players-4-partners-1-repeat-1.json';
         $this->assertFileExists($expected);
 
         $output = $tester->getDisplay();
-        $this->assertStringContainsString('Currently in use: v' . TemplateMatchesRepository::TEMPLATES_VERSION, $output);
+        $this->assertStringContainsString('Currently in use: v' . TemplateMatchesRepository::DEFAULT_TEMPLATE_VERSION, $output);
         $this->assertStringContainsString('Writing to: v' . $writeVersion, $output);
-        $this->assertStringContainsString('TEMPLATES_VERSION to ' . $writeVersion, $output);
+        $this->assertStringContainsString('DEFAULT_TEMPLATE_VERSION to ' . $writeVersion, $output);
     }
 
     public function test_buffered_output_contains_pairing_and_ordering_lines_for_mixed(): void
@@ -167,7 +167,7 @@ final class RegenerateTemplatesCommandTest extends TestCase
         ]);
 
         $inUseDir = $this->tempBaseDir
-            . DIRECTORY_SEPARATOR . 'v' . TemplateMatchesRepository::TEMPLATES_VERSION;
+            . DIRECTORY_SEPARATOR . 'v' . TemplateMatchesRepository::DEFAULT_TEMPLATE_VERSION;
         $this->assertDirectoryDoesNotExist($inUseDir);
     }
 
@@ -196,7 +196,7 @@ final class RegenerateTemplatesCommandTest extends TestCase
 
         $tester->execute([]);
 
-        $writeVersion = TemplateMatchesRepository::TEMPLATES_VERSION + 1;
+        $writeVersion = TemplateMatchesRepository::DEFAULT_TEMPLATE_VERSION + 1;
         $writeDir = $this->tempBaseDir . DIRECTORY_SEPARATOR . 'v' . $writeVersion;
 
         $expectedCount = 0;
@@ -209,7 +209,7 @@ final class RegenerateTemplatesCommandTest extends TestCase
         $this->assertSame($expectedCount, count($produced));
 
         $output = $tester->getDisplay();
-        $this->assertStringContainsString('TEMPLATES_VERSION to ' . $writeVersion, $output);
+        $this->assertStringContainsString('DEFAULT_TEMPLATE_VERSION to ' . $writeVersion, $output);
     }
 
     public function test_buffered_fallback_emits_phase_done_lines(): void
@@ -257,7 +257,7 @@ final class RegenerateTemplatesCommandTest extends TestCase
     {
         // Seed v{writeVersion}/ with a stale template that is NOT in COMBINATIONS (e.g. left over
         // from a prior schema or an interrupted run). Bulk mode must delete it before regenerating.
-        $writeVersion = TemplateMatchesRepository::TEMPLATES_VERSION + 1;
+        $writeVersion = TemplateMatchesRepository::DEFAULT_TEMPLATE_VERSION + 1;
         $writeDir = $this->tempBaseDir . DIRECTORY_SEPARATOR . 'v' . $writeVersion;
         if (!is_dir($writeDir)) {
             mkdir($writeDir, 0775, true);
@@ -297,7 +297,7 @@ final class RegenerateTemplatesCommandTest extends TestCase
     {
         // Single-combo mode must surgically overwrite only its own file - other templates that
         // already exist under v{writeVersion}/ from prior runs must survive.
-        $writeVersion = TemplateMatchesRepository::TEMPLATES_VERSION + 1;
+        $writeVersion = TemplateMatchesRepository::DEFAULT_TEMPLATE_VERSION + 1;
         $writeDir = $this->tempBaseDir . DIRECTORY_SEPARATOR . 'v' . $writeVersion;
         if (!is_dir($writeDir)) {
             mkdir($writeDir, 0775, true);

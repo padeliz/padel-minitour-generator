@@ -44,7 +44,7 @@ final class StatsTemplatesCommand extends Command
                 'Iterates TemplateMatchesGenerator::COMBINATIONS by default. Override with',
                 '--combinations="players:partners1,partners2 players:partners1" (space-separated pairs).',
                 'Reads from the in-use version by default; pass --templates-version=N to inspect',
-                'freshly regenerated v{TEMPLATES_VERSION+1}/ files before bumping the constant.',
+                'freshly regenerated v{DEFAULT_TEMPLATE_VERSION+1}/ files before bumping the constant.',
                 '(--version is reserved by the Symfony application for printing its own version.)',
             ]))
             ->addOption(
@@ -58,7 +58,7 @@ final class StatsTemplatesCommand extends Command
                 'templates-version',
                 null,
                 InputOption::VALUE_REQUIRED,
-                'Templates version directory to read (defaults to in-use TEMPLATES_VERSION)',
+                'Templates version directory to read (defaults to in-use DEFAULT_TEMPLATE_VERSION)',
                 null
             );
     }
@@ -72,9 +72,9 @@ final class StatsTemplatesCommand extends Command
         $table = $this->makeUnifiedTable($output);
         $table->setHeaders($this->unifiedHeaders(1, false));
 
-        $versionLabel = $version === TemplateMatchesRepository::TEMPLATES_VERSION
+        $versionLabel = $version === TemplateMatchesRepository::DEFAULT_TEMPLATE_VERSION
             ? sprintf('v%d <comment>(in use)</comment>', $version)
-            : sprintf('v%d <comment>(in use: v%d)</comment>', $version, TemplateMatchesRepository::TEMPLATES_VERSION);
+            : sprintf('v%d <comment>(in use: v%d)</comment>', $version, TemplateMatchesRepository::DEFAULT_TEMPLATE_VERSION);
 
         $output->writeln(sprintf(
             '<info>Reading:</info> %s   <info>Base dir:</info> %s',
@@ -127,7 +127,7 @@ final class StatsTemplatesCommand extends Command
 
         if ($missing > 0) {
             $output->writeln(sprintf('<error>%d template(s) missing under v%d.</error>', $missing, $version));
-            $output->writeln('Run <comment>php bin/console templates:regenerate</comment> to (re)generate them, then bump TEMPLATES_VERSION.');
+            $output->writeln('Run <comment>php bin/console templates:regenerate</comment> to (re)generate them, then bump DEFAULT_TEMPLATE_VERSION.');
         }
 
         return $missing;
@@ -196,7 +196,7 @@ final class StatsTemplatesCommand extends Command
     private function parseVersion($raw): int
     {
         if ($raw === null || $raw === '') {
-            return TemplateMatchesRepository::TEMPLATES_VERSION;
+            return TemplateMatchesRepository::DEFAULT_TEMPLATE_VERSION;
         }
         if (!is_string($raw) && !is_int($raw)) {
             throw new \InvalidArgumentException('Invalid --templates-version value: must be a positive integer.');

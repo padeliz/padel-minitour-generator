@@ -1,6 +1,7 @@
 <?php
 
 use Arshavinel\PadelMiniTour\Service\EventDivision;
+use Arshavinel\PadelMiniTour\Service\TemplateMatchesRepository;
 use Arshwell\Monolith\Meta;
 
 if (
@@ -24,6 +25,27 @@ if (
     [adjust-points-per-match] is an optional integer.');
 }
 
+// Optional `?template-version=N` overrides the default template version. Silently fall back to the
+// default when the value is missing, non-numeric, or doesn't have the requested combo on disk -- the
+// disabled-in-dropdown UX is the primary guard, this guard just protects against stale URLs and
+// hand-crafted bookmarks 500ing the page.
+$templateVersion = null;
+if (isset($_GET['template-version']) && is_scalar($_GET['template-version']) && is_numeric($_GET['template-version'])) {
+    $candidate = (int) $_GET['template-version'];
+    if ($candidate > 0) {
+        $repository = new TemplateMatchesRepository();
+        if ($repository->hasAt(
+            $candidate,
+            count($_GET['player-ids']),
+            (int) $_GET['opponents-per-player'],
+            (int) $_GET['repeat-partners'],
+            (bool) ($_GET['fixed-teams'] ?? false)
+        )) {
+            $templateVersion = $candidate;
+        }
+    }
+}
+
 $eventDivision = new EventDivision(
     $_GET['edition'],
     $_GET['organizer-id'],
@@ -37,7 +59,8 @@ $eventDivision = new EventDivision(
     $_GET['time-end'],
     (bool) ($_GET['include-final'] ?? false),
     (bool) ($_GET['demonstrative-match'] ?? false),
-    (bool) ($_GET['fixed-teams'] ?? false)
+    (bool) ($_GET['fixed-teams'] ?? false),
+    $templateVersion
 );
 
 

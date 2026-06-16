@@ -43,7 +43,7 @@ final class PairingProgress extends GenerationProgress
     private ?array $playersMet;
     private ?int $partnersCountVariation;
     private ?string $aggregateStopReason;
-    private int $currentDifferenceLimit;
+    private int $currentMeetingsVariationLimit;
 
     /**
      * @param array<int, int>|null              $partnersCount
@@ -69,7 +69,7 @@ final class PairingProgress extends GenerationProgress
         ?array $playersMet = null,
         ?int $partnersCountVariation = null,
         ?string $aggregateStopReason = null,
-        int $currentDifferenceLimit = 1
+        int $currentMeetingsVariationLimit = 1
     ) {
         parent::__construct(
             self::PHASE_PAIRING,
@@ -93,7 +93,7 @@ final class PairingProgress extends GenerationProgress
         $this->playersMet = $playersMet;
         $this->partnersCountVariation = $partnersCountVariation;
         $this->aggregateStopReason = $aggregateStopReason;
-        $this->currentDifferenceLimit = $currentDifferenceLimit;
+        $this->currentMeetingsVariationLimit = $currentMeetingsVariationLimit;
     }
 
     public function getIterations(): int
@@ -192,13 +192,13 @@ final class PairingProgress extends GenerationProgress
     }
 
     /**
-     * The currently-active `differenceLimit` for the pairing phase. Surfaces the S6 adaptive
-     * auto-relax loop's state so the renderer can show e.g. "dl=2" mid-flight. Default `1`
-     * matches the historic strict-build behaviour for back-compat with snapshots that never
-     * reached the relax loop.
+     * The currently-active `meetingsVariationLimit` for the pairing phase. Surfaces the S6
+     * adaptive auto-relax loop's state so the renderer can show e.g. "mvl=2" mid-flight.
+     * Default `1` matches the historic strict-build behaviour for back-compat with snapshots
+     * that never reached the relax loop.
      */
-    public function getCurrentDifferenceLimit(): int
+    public function getCurrentMeetingsVariationLimit(): int
     {
-        return $this->currentDifferenceLimit;
+        return $this->currentMeetingsVariationLimit;
     }
 }

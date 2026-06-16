@@ -48,7 +48,7 @@ final class StatsTemplatesFixedTeamsCommand extends Command
             ->setHelp(implode("\n", [
                 'Defaults to [8 => [2, 3]]. Override with --combinations="players:partners1,partners2".',
                 'Reads from the in-use version by default; pass --templates-version=N to inspect',
-                'freshly regenerated v{TEMPLATES_VERSION+1}/ files before bumping the constant.',
+                'freshly regenerated v{DEFAULT_TEMPLATE_VERSION+1}/ files before bumping the constant.',
                 '(--version is reserved by the Symfony application for printing its own version.)',
             ]))
             ->addOption(
@@ -62,7 +62,7 @@ final class StatsTemplatesFixedTeamsCommand extends Command
                 'templates-version',
                 null,
                 InputOption::VALUE_REQUIRED,
-                'Templates version directory to read (defaults to in-use TEMPLATES_VERSION)',
+                'Templates version directory to read (defaults to in-use DEFAULT_TEMPLATE_VERSION)',
                 null
             );
     }
@@ -76,9 +76,9 @@ final class StatsTemplatesFixedTeamsCommand extends Command
         $table = $this->makeUnifiedTable($output);
         $table->setHeaders($this->unifiedHeaders(1, true));
 
-        $versionLabel = $version === TemplateMatchesRepository::TEMPLATES_VERSION
+        $versionLabel = $version === TemplateMatchesRepository::DEFAULT_TEMPLATE_VERSION
             ? sprintf('v%d <comment>(in use)</comment>', $version)
-            : sprintf('v%d <comment>(in use: v%d)</comment>', $version, TemplateMatchesRepository::TEMPLATES_VERSION);
+            : sprintf('v%d <comment>(in use: v%d)</comment>', $version, TemplateMatchesRepository::DEFAULT_TEMPLATE_VERSION);
 
         $output->writeln(sprintf(
             '<info>Reading:</info> %s   <info>Base dir:</info> %s',
@@ -199,7 +199,7 @@ final class StatsTemplatesFixedTeamsCommand extends Command
     private function parseVersion($raw): int
     {
         if ($raw === null || $raw === '') {
-            return TemplateMatchesRepository::TEMPLATES_VERSION;
+            return TemplateMatchesRepository::DEFAULT_TEMPLATE_VERSION;
         }
         if (!is_string($raw) && !is_int($raw)) {
             throw new \InvalidArgumentException('Invalid --templates-version value: must be a positive integer.');

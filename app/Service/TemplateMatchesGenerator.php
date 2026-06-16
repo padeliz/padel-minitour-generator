@@ -28,8 +28,8 @@ use Arshwell\Monolith\Func;
  *   visit candidates in ascending index order).
  *
  *   S6 wraps the entire pairing phase in an adaptive relaxation loop: if a strict
- *   {@code differenceLimit = 1} build yields zero templates, the loop bumps {@code dl} up to
- *   {@see DEFAULT_DIFFERENCE_LIMIT_MAX} and retries with the full per-combo budget.
+ *   {@code meetingsVariationLimit = 1} build yields zero templates, the loop bumps the limit up
+ *   to {@see DEFAULT_MEETINGS_VARIATION_LIMIT_MAX} and retries with the full per-combo budget.
  *
  * - **{@see sortMatches()}**: deterministic backtracking DFS over match orderings with a hard
  *   prune on `Max Break > ceil(playersCount / 4)`. Tracks the lexicographic
@@ -42,10 +42,27 @@ use Arshwell\Monolith\Func;
 class TemplateMatchesGenerator
 {
     /**
-     * Supported (playersCount => allowed opponentsPerPlayer) combinations.
+     * Supported `players => [partners, ...]` combinations targeted by the bulk regenerate run.
      *
-     * Used by the home form ({@see outcomes/site/home/frontend.php}) and the
+     * Also used by the home form ({@see outcomes/site/home/frontend.php}) and the
      * regenerate/stats CLI commands.
+     *
+     * A combo `(N, partners)` can in principle achieve `Partners Var. = 0` (every player ends
+     * up with the same number of distinct partners) only when both:
+     *
+     *   1. `N * partners` is divisible by 4 (total matches = `N * partners / 4` must be an
+     *      integer in the repeat=1 pipeline).
+     *   2. `partners <= N - 1` (a player cannot have more distinct partners than there are
+     *      other players).
+     *
+     * Divisibility is necessary but not always sufficient: the meetings/opponents constraints
+     * can still defeat the generator (see e.g. `16-8`, where the committed JSON has
+     * `partnersCountVariation: null` because no eligible template was found within budget).
+     *
+     * Combos that violate condition 1 are intentionally absent: e.g. `6 => 5` (30 / 4 = 7.5),
+     * `10 => 9` (90 / 4 = 22.5), and any `7 => partners` with partners not equal to 4 (7 is
+     * odd, so partners must itself be divisible by 4; `partners <= 6` leaves only
+     * `partners = 4`).
      */
     public const COMBINATIONS = [
         4 => [1, 2, 3],
@@ -55,9 +72,9 @@ class TemplateMatchesGenerator
         8 => [2, 4, 6, 7],
         9 => [8],
         10 => [8],
-        // 11 => [],
+        11 => [8],
         12 => [2, 3, 6, 7, 8, 9],
-        13 => [4],
+        13 => [4, 8],
         14 => [4, 8],
         15 => [4, 9],
         16 => [2, 3, 4, 5, 8, 11, 12],
@@ -77,16 +94,23 @@ class TemplateMatchesGenerator
      * is rejected." Tests can pass 0 for strictly-balanced builds or higher values to relax the
      * constraint for combos that cannot complete under the strict default.
      */
-    public const DEFAULT_DIFFERENCE_LIMIT = 1;
+    public const DEFAULT_MEETINGS_VARIATION_LIMIT = 1;
 
     /**
-     * Maximum value of {@code $differenceLimit} that the S6 adaptive auto-relax loop is allowed
-     * to attempt. When the strict-build pairing phase returns no templates, the loop bumps
-     * `$effectiveDl` to `dl + 1` and re-runs until a template is found or the limit is reached.
-     * Each retry receives the full per-combo budget, so the worst-case wall time is
-     * `(differenceLimitMax - differenceLimit + 1) * outerBudget`.
+     * Maximum value of {@code $meetingsVariationLimit} that the S6 adaptive auto-relax loop is
+     * allowed to attempt. When the strict-build pairing phase returns no templates, the loop
+     * bumps `$effectiveMeetingsVariationLimit` to `mvl + 1` and re-runs until a template is
+     * found or the limit is reached. Each retry receives the full per-combo budget, so the
+     * worst-case wall time is
+     * `(meetingsVariationLimitMax - meetingsVariationLimit + 1) * outerBudget`.
+     *
+     * 3 vs the prior 2 gives one extra relaxation level for combos whose strict and mid builds
+     * both fail to find a template within budget; under the historic 2-cap they returned the
+     * "no eligible permutation" record (e.g. v3/16-8). At 3 the constraint becomes loose enough
+     * that the per-player most-met minus least-met gap can be up to 3, which is generally
+     * achievable even on graphs where the pairing structure resists tighter balance.
      */
-    public const DEFAULT_DIFFERENCE_LIMIT_MAX = 2;
+    public const DEFAULT_MEETINGS_VARIATION_LIMIT_MAX = 3;
 
     /**
      * Per-combo wall-clock budgets, in nanoseconds, as `[outerWallBudgetNs, sortWallBudgetNs]`.
@@ -106,6 +130,8 @@ class TemplateMatchesGenerator
         '12-8'  => [1_800_000_000_000, 1_800_000_000_000],
         '15-9'  => [1_800_000_000_000, 1_800_000_000_000],
         '14-8'  => [1_800_000_000_000, 1_800_000_000_000],
+        '13-8'  => [1_800_000_000_000, 1_800_000_000_000],
+        '11-8'  => [1_800_000_000_000, 1_800_000_000_000],
         '16-5'  => [1_800_000_000_000, 1_800_000_000_000],
         '12-6'  => [1_800_000_000_000, 1_800_000_000_000],
         '10-8'  => [1_800_000_000_000, 1_800_000_000_000],
@@ -136,7 +162,7 @@ class TemplateMatchesGenerator
      *
      * 10k is comfortably above the empirically-observed branch budget for every combo in
      * {@see COMBINATIONS} (including 16/12), with safety margin for future bumps to
-     * `differenceLimit`.
+     * `meetingsVariationLimit`.
      */
     public const DEFAULT_DFS_BRANCH_CAP = 10_000;
 
@@ -214,8 +240,8 @@ class TemplateMatchesGenerator
     private int $sortWallBudgetNs;
     private int $multiSeedCountPairing;
     private int $multiSeedThresholdPairs;
-    private int $differenceLimit;
-    private int $differenceLimitMax;
+    private int $meetingsVariationLimit;
+    private int $meetingsVariationLimitMax;
     private int $dfsBranchCap;
 
     /**
@@ -271,8 +297,8 @@ class TemplateMatchesGenerator
      * @param int $multiSeedThresholdPairs Pair-count cutoff above which multi-seed kicks in. Lower
      *                                    it in tests to exercise the multi-seed code path on small
      *                                    combos.
-     * @param int $differenceLimit Per-player meeting-gap tolerance for the pair-matching DFS.
-     *                             See {@see DEFAULT_DIFFERENCE_LIMIT}.
+     * @param int $meetingsVariationLimit Per-player meeting-gap tolerance for the pair-matching DFS.
+     *                             See {@see DEFAULT_MEETINGS_VARIATION_LIMIT}.
      * @param int $dfsBranchCap Max recursion entries per pairing-phase DFS run (per seed); the
      *                          DFS aborts the seed and returns null once the cap is hit, leaving
      *                          the other seeds free to explore their own subtrees.
@@ -283,9 +309,9 @@ class TemplateMatchesGenerator
         int $sortWallBudgetNs = self::DEFAULT_SORT_WALL_BUDGET_NS,
         int $multiSeedCountPairing = self::DEFAULT_MULTI_SEED_COUNT_PAIRING,
         int $multiSeedThresholdPairs = self::DEFAULT_MULTI_SEED_THRESHOLD_PAIRS,
-        int $differenceLimit = self::DEFAULT_DIFFERENCE_LIMIT,
+        int $meetingsVariationLimit = self::DEFAULT_MEETINGS_VARIATION_LIMIT,
         int $maxBreakThreshold = -1,
-        int $differenceLimitMax = self::DEFAULT_DIFFERENCE_LIMIT_MAX,
+        int $meetingsVariationLimitMax = self::DEFAULT_MEETINGS_VARIATION_LIMIT_MAX,
         int $dfsBranchCap = self::DEFAULT_DFS_BRANCH_CAP
     ) {
         $this->clock = $clock;
@@ -293,11 +319,11 @@ class TemplateMatchesGenerator
         $this->sortWallBudgetNs = $sortWallBudgetNs;
         $this->multiSeedCountPairing = max(1, $multiSeedCountPairing);
         $this->multiSeedThresholdPairs = max(1, $multiSeedThresholdPairs);
-        $this->differenceLimit = max(0, $differenceLimit);
+        $this->meetingsVariationLimit = max(0, $meetingsVariationLimit);
         $this->maxBreakThreshold = $maxBreakThreshold;
         // The relaxation ceiling cannot drop below the starting dl, otherwise the loop has no
         // headroom and behaves as if S6 were disabled.
-        $this->differenceLimitMax = max($this->differenceLimit, $differenceLimitMax);
+        $this->meetingsVariationLimitMax = max($this->meetingsVariationLimit, $meetingsVariationLimitMax);
         $this->dfsBranchCap = max(1, $dfsBranchCap);
         $this->perComboBudgetsNs = self::PER_COMBO_BUDGETS_NS;
         $this->effectiveOuterBudgetNs = $outerWallBudgetNs;
@@ -385,7 +411,7 @@ class TemplateMatchesGenerator
 
         $n = count($pairs);
 
-        $effectiveDl = $this->differenceLimit;
+        $effectiveMeetingsVariationLimit = $this->meetingsVariationLimit;
         $relaxAttempts = [];
         $phase = null;
 
@@ -399,20 +425,20 @@ class TemplateMatchesGenerator
                 $n,
                 $partnersCount,
                 $partnersCountVariation,
-                $effectiveDl,
+                $effectiveMeetingsVariationLimit,
                 $reporter
             );
             $relaxAttempts[] = [
-                'differenceLimit' => $effectiveDl,
+                'meetingsVariationLimit' => $effectiveMeetingsVariationLimit,
                 'permutationsIterated' => $phase['processes']['permutationsIterated'],
                 'templatesGenerated' => $phase['processes']['templatesGenerated'],
                 'time' => $phase['pairingTime'],
             ];
 
-            if ($phase['bestTemplate']['matches'] !== null || $effectiveDl >= $this->differenceLimitMax) {
+            if ($phase['bestTemplate']['matches'] !== null || $effectiveMeetingsVariationLimit >= $this->meetingsVariationLimitMax) {
                 break;
             }
-            $effectiveDl++;
+            $effectiveMeetingsVariationLimit++;
         }
 
         $bestTemplate = $phase['bestTemplate'];
@@ -477,13 +503,13 @@ class TemplateMatchesGenerator
             $sortResult['minBreak'],
             $sortResult['maxBreak'],
             $sortingTime,
-            $effectiveDl,
+            $effectiveMeetingsVariationLimit,
             $relaxAttempts
         );
     }
 
     /**
-     * Executes one full multi-seed pairing pass at the given `$differenceLimit`. Extracted from
+     * Executes one full multi-seed pairing pass at the given `$meetingsVariationLimit`. Extracted from
      * {@see generateMixed()} so the S6 auto-relax loop can re-invoke it with a bumped dl when
      * the strict build yields no templates.
      *
@@ -508,7 +534,7 @@ class TemplateMatchesGenerator
         int $n,
         array $partnersCount,
         int $partnersCountVariation,
-        int $differenceLimit,
+        int $meetingsVariationLimit,
         ProgressReporter $reporter
     ): array {
         $useMultiSeed = ($n >= $this->multiSeedThresholdPairs && $this->multiSeedCountPairing > 1);
@@ -553,7 +579,7 @@ class TemplateMatchesGenerator
                 $bestTemplate,
                 $partnersCount,
                 $partnersCountVariation,
-                $differenceLimit,
+                $meetingsVariationLimit,
                 $playersCount
             );
         }
@@ -579,7 +605,7 @@ class TemplateMatchesGenerator
             $bestTemplate['playersMet'],
             $partnersCountVariation,
             $pairingStopReason,
-            $differenceLimit
+            $meetingsVariationLimit
         );
 
         return [
@@ -627,7 +653,7 @@ class TemplateMatchesGenerator
      * @param array{permutationsIterated:int,templatesGenerated:int} $processes Mutated by reference.
      * @param array{meetingsVariation:?float,matches:?array,playersMet:array,permutationIndex:?int,templateIndex:?int,minMet:?int} $bestTemplate Mutated by reference.
      * @param array<int, int> $partnersCount Per-player partner count (constant across the phase).
-     * @param int $differenceLimit Active gap tolerance for {@see playersMetTooMuch()}. Passed in
+     * @param int $meetingsVariationLimit Active gap tolerance for {@see playersMetTooMuch()}. Passed in
      *                             explicitly so the S6 auto-relax loop can re-invoke the seed
      *                             runner with a bumped value without mutating generator state.
      */
@@ -642,7 +668,7 @@ class TemplateMatchesGenerator
         array &$bestTemplate,
         array $partnersCount,
         int $partnersCountVariation,
-        int $differenceLimit,
+        int $meetingsVariationLimit,
         int $playersCount
     ): string {
         $deadlineNs = $this->monotonicNow() + $perSeedBudgetNs;
@@ -670,7 +696,7 @@ class TemplateMatchesGenerator
             $bestTemplate['playersMet'],
             $partnersCountVariation,
             null,
-            $differenceLimit
+            $meetingsVariationLimit
         );
 
         $orderedPairs = [];
@@ -687,7 +713,7 @@ class TemplateMatchesGenerator
         $result = $this->buildTemplateByBacktracking(
             $orderedPairs,
             $deadlineNs,
-            $differenceLimit,
+            $meetingsVariationLimit,
             $this->dfsBranchCap,
             $playersCount,
             $bestTemplate['minMet']
@@ -725,7 +751,7 @@ class TemplateMatchesGenerator
      * (deterministic); pair-2 candidates are tried in ascending index order (deterministic).
      *
      * The DFS enforces two prune signals:
-     * - HARD CONSTRAINT: {@see playersMetTooMuch()} with the current `$differenceLimit`.
+     * - HARD CONSTRAINT: {@see playersMetTooMuch()} with the current `$meetingsVariationLimit`.
      * - B&B PRUNE on Min Met: if any player's current distinct-opponent count plus the count of
      *   unused pairs containing that player is `< $bestMinMetSoFar`, the branch cannot beat
      *   the current global-best template's Min Met — prune.
@@ -739,7 +765,7 @@ class TemplateMatchesGenerator
     private function buildTemplateByBacktracking(
         array $orderedPairs,
         int $deadlineNs,
-        int $differenceLimit,
+        int $meetingsVariationLimit,
         int $branchCap,
         int $playersCount,
         ?int $bestMinMetSoFar
@@ -757,7 +783,7 @@ class TemplateMatchesGenerator
             $playersMet,
             $matches,
             $deadlineNs,
-            $differenceLimit,
+            $meetingsVariationLimit,
             $branchesRemaining,
             $bestMinMetSoFar
         );
@@ -792,7 +818,7 @@ class TemplateMatchesGenerator
         array &$playersMet,
         array &$matches,
         int $deadlineNs,
-        int $differenceLimit,
+        int $meetingsVariationLimit,
         int &$branchesRemaining,
         ?int $bestMinMetSoFar
     ): bool {
@@ -858,7 +884,7 @@ class TemplateMatchesGenerator
             if (array_intersect($pair1Players, $pair2Players)) {
                 continue;
             }
-            if ($this->playersMetTooMuch($pair1Players, $pair2Players, $playersMet, $differenceLimit)) {
+            if ($this->playersMetTooMuch($pair1Players, $pair2Players, $playersMet, $meetingsVariationLimit)) {
                 continue;
             }
 
@@ -874,7 +900,7 @@ class TemplateMatchesGenerator
                 $playersMet,
                 $matches,
                 $deadlineNs,
-                $differenceLimit,
+                $meetingsVariationLimit,
                 $branchesRemaining,
                 $bestMinMetSoFar
             );
@@ -1217,8 +1243,8 @@ class TemplateMatchesGenerator
      * True when adding this match would push any of the four players over the gap tolerance
      * between their most-met and least-met partner.
      *
-     * Reads strictly above `$differenceLimit`: with the natural reading "gap of 1 is allowed",
-     * `$differenceLimit = 1` rejects gaps of 2 or more, `$differenceLimit = 0` enforces a
+     * Reads strictly above `$meetingsVariationLimit`: with the natural reading "gap of 1 is allowed",
+     * `$meetingsVariationLimit = 1` rejects gaps of 2 or more, `$meetingsVariationLimit = 0` enforces a
      * strictly-balanced build (every per-player met-count tied to within zero), and any positive
      * value relaxes the constraint accordingly.
      *
@@ -1227,7 +1253,7 @@ class TemplateMatchesGenerator
      * back to int before the strict `in_array()` check, otherwise the constraint silently never
      * fires (string "1" !== int 1) and the whole gap-tolerance logic degenerates to a no-op.
      */
-    private function playersMetTooMuch(array $pair1, array $pair2, array $playersMet, int $differenceLimit): bool
+    private function playersMetTooMuch(array $pair1, array $pair2, array $playersMet, int $meetingsVariationLimit): bool
     {
         $matchPlayers = [
             $pair1[0],
@@ -1241,7 +1267,7 @@ class TemplateMatchesGenerator
                 $leastMet = min($playersMet[$p]);
                 $mostMetPlayer = (int) Func::keyFromBiggest($playersMet[$p]);
 
-                if ($playersMet[$p][$mostMetPlayer] - $leastMet > $differenceLimit && in_array($mostMetPlayer, $matchPlayers, true)) {
+                if ($playersMet[$p][$mostMetPlayer] - $leastMet > $meetingsVariationLimit && in_array($mostMetPlayer, $matchPlayers, true)) {
                     return true;
                 }
             }
@@ -1329,8 +1355,11 @@ class TemplateMatchesGenerator
         // Per-player state for the asymmetric break metrics:
         // - `$playedAtLeastOnce[p]` distinguishes a lead run (don't record as inner) from a
         //   closing inner run (record).
-        // - `$shortestInner[p]` accumulates the shortest closed inner break run; null until the
-        //   player has at least one inner run that has been "closed" by a subsequent appearance.
+        // - `$shortestInner[p]` accumulates the shortest closed inner break run -- including
+        //   length-`0` runs from back-to-back appearances (sit-out semantics: two consecutive
+        //   matches give a run of `0`, pinning $shortestInner to `0` for that player). Stays
+        //   `null` until the player has at least one inner run closed by a subsequent
+        //   appearance; the leaf maps `null` to `0` per the asymmetric contract.
         $playedAtLeastOnce = [];
         $shortestInner = [];
         foreach ($mockPlayers as $playerIndex) {
@@ -1447,9 +1476,12 @@ class TemplateMatchesGenerator
      *     seen so far; the leaf's `maxBreak` is `max($longestRuns)`.
      *   - `$playedAtLeastOnce[p]` -- flips to true on p's first appearance, so the lead run is
      *     NOT recorded as an inner run.
-     *   - `$shortestInner[p]` -- shortest closed inner break run for p so far, or null if no
-     *     inner run has closed yet (player has not played a second time, or has not played at
-     *     all). At the leaf, null is mapped to 0 per the asymmetric contract.
+     *   - `$shortestInner[p]` -- shortest closed inner break run for p so far. A subsequent
+     *     appearance always closes an inner run, even when the previous appearance was the
+     *     immediately preceding match (length `0`, sit-out semantics: two consecutive matches
+     *     contribute a `0` and pin $shortestInner to `0`). Stays null when p has not yet had a
+     *     second appearance (single-appearance or zero-appearance player); the leaf maps null
+     *     to `0` per the asymmetric contract.
      *
      * Mutates `$schedule`, all four per-player maps, `$used`, `$bestState`, `$iterations`,
      * and `$exit` by reference. Returns when the search exhausts the (pruned) tree or the
@@ -1530,10 +1562,12 @@ class TemplateMatchesGenerator
             //
             // Asymmetric break metrics:
             //   - `minBreak` = cross-player MIN of each player's shortest INNER break run (a
-            //     break run bracketed by appearances on both sides). When a player has no inner
-            //     break runs (plays every match, plays only once, or never plays at all), their
-            //     per-player contribution is 0 -- which means whenever ANY player has zero inner
-            //     runs, the aggregate is 0 too.
+            //     break run bracketed by appearances on both sides). Inner runs include
+            //     length-`0` back-to-back appearances (sit-out semantics: two consecutive
+            //     matches give a run of `0`), so any player with at least one back-to-back
+            //     contributes `0`. A player with no closed inner run at all (plays only once,
+            //     or never plays) also contributes `0`. Either way, whenever any player's
+            //     contribution is `0` the aggregate is `0` too.
             //   - `maxBreak` = cross-player MAX of each player's longest break run anywhere in
             //     the schedule (lead + inner + trail). Already encoded in `$longestRuns` because
             //     the DFS increments the counter at every absence regardless of position.
@@ -1612,10 +1646,13 @@ class TemplateMatchesGenerator
                         // First appearance: the accumulated $currentRuns was the lead -- do NOT
                         // record it as an inner run.
                         $deltaPlayed[$playerIndex] = true;
-                    } elseif ($currentRuns[$playerIndex] > 0) {
-                        // Subsequent appearance closing an inner break run of length $currentRuns.
-                        // Stash the previous value (for undo) only when we actually improve, then
-                        // we will apply the new value below alongside the other deltas.
+                    } else {
+                        // Subsequent appearance closing an inner break run of length
+                        // $currentRuns (a value of 0 means back-to-back appearances, matching
+                        // the scorer's sit-out semantics -- a 0 is a legitimate inner run that
+                        // pins $shortestInner to 0). Stash the previous value (for undo) only
+                        // when we actually improve, then we will apply the new value below
+                        // alongside the other deltas.
                         $prev = $shortestInner[$playerIndex];
                         $candidate = $currentRuns[$playerIndex];
                         if ($prev === null || $candidate < $prev) {

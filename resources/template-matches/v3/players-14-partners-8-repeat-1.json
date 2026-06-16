@@ -506,14 +506,14 @@
         "partnersCountVariation": 0,
         "bestMatchesCount": 28,
         "stopReason": "FACTORIAL_COMPLETE",
-        "time": 10.7297808,
-        "differenceLimit": 1,
+        "time": 10.565441,
+        "meetingsVariationLimit": 1,
         "relaxAttempts": [
             {
-                "differenceLimit": 1,
+                "meetingsVariationLimit": 1,
                 "permutationsIterated": 256,
                 "templatesGenerated": 190,
-                "time": 10.7297808
+                "time": 10.565441
             }
         ]
     },
@@ -521,10 +521,10 @@
         "stopReason": "DEADLINE",
         "minDistribution": 0.9222222222222223,
         "avgDistribution": 0.9362528344671202,
-        "permutationsIterated": 1101888,
+        "permutationsIterated": 1111515,
         "permutationIndex": 367979,
-        "minBreak": 1,
+        "minBreak": 0,
         "maxBreak": 4,
-        "time": 1800.0065438
+        "time": 1800.0046083
     }
 }

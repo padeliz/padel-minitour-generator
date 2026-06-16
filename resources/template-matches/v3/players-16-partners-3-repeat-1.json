@@ -308,14 +308,14 @@
         "partnersCountVariation": 0,
         "bestMatchesCount": 12,
         "stopReason": "FACTORIAL_COMPLETE",
-        "time": 0.0891839,
-        "differenceLimit": 1,
+        "time": 0.0863929,
+        "meetingsVariationLimit": 1,
         "relaxAttempts": [
             {
-                "differenceLimit": 1,
+                "meetingsVariationLimit": 1,
                 "permutationsIterated": 256,
                 "templatesGenerated": 256,
-                "time": 0.0891839
+                "time": 0.0863929
             }
         ]
     },
@@ -327,6 +327,6 @@
         "permutationIndex": null,
         "minBreak": null,
         "maxBreak": null,
-        "time": 0.1841599
+        "time": 0.1841031
     }
 }

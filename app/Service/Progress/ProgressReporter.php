@@ -93,7 +93,7 @@ final class ProgressReporter
         ?array $playersMet = null,
         ?int $partnersCountVariation = null,
         ?string $aggregateStopReason = null,
-        int $currentDifferenceLimit = 1
+        int $currentMeetingsVariationLimit = 1
     ): void {
         if ($this->callback === null) {
             return;
@@ -123,7 +123,7 @@ final class ProgressReporter
             $playersMet,
             $partnersCountVariation,
             $aggregateStopReason,
-            $currentDifferenceLimit
+            $currentMeetingsVariationLimit
         ), $now);
     }
 

@@ -21,11 +21,14 @@ class MatchesGenerator
         string $timeEnd,
         bool $includeFinal,
         bool $hasDemonstrativeMatch = false,
-        bool $fixedTeams = false
+        bool $fixedTeams = false,
+        ?int $templateVersion = null
     )
     {
-        $templateMatches = (new TemplateMatchesRepository())
-            ->find(count($players), $opponentsPerPlayer, $repeatPartners, $fixedTeams);
+        $repository = new TemplateMatchesRepository();
+        $templateMatches = $templateVersion === null
+            ? $repository->find(count($players), $opponentsPerPlayer, $repeatPartners, $fixedTeams)
+            : $repository->findAt($templateVersion, count($players), $opponentsPerPlayer, $repeatPartners, $fixedTeams);
 
         $matches = $templateMatches->getMatches();
         array_walk_recursive($matches, function (int &$playerIndex) use ($players) {

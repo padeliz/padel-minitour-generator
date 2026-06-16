@@ -20,30 +20,34 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
 /**
- * Generates committed template files into the next-version directory
- * (`resources/template-matches/v{DEFAULT_TEMPLATE_VERSION + 1}/`).
+ * Additively generates template files into the next-version directory
+ * (`resources/template-matches/v{DEFAULT_TEMPLATE_VERSION + 1}/`), skipping any combo whose JSON
+ * file already exists in that directory. Complement to {@see RegenerateTemplatesCommand}: never
+ * wipes anything and is safe to re-run.
  *
  * Two mutually exclusive invocation modes:
  *
- * - **Bulk mode** (no options): wipes `v{DEFAULT_TEMPLATE_VERSION + 1}/` first (so stale files from
- *   prior runs - including combos that have since been removed from
- *   {@see TemplateMatchesGenerator::COMBINATIONS} - are gone), then regenerates every
- *   (players => partners) entry of {@see TemplateMatchesGenerator::COMBINATIONS} with
- *   `repeat = 1, fixedTeams = false`.
- * - **Single-combo mode** (all four options provided): regenerates exactly that combo, with no
- *   requirement to exist in {@see TemplateMatchesGenerator::COMBINATIONS}. Does **not** wipe the
- *   target directory, so unrelated files committed under `v{N+1}/` survive the run.
+ * - **Bulk mode** (no options): iterates every (players => partners) entry of
+ *   {@see TemplateMatchesGenerator::COMBINATIONS} with `repeat = 1, fixedTeams = false`, filters
+ *   out combos already present in `v{DEFAULT_TEMPLATE_VERSION + 1}/`, then generates the rest.
+ *   No wipe step, so unrelated sibling files (READMEs, .gitkeep, foreign artefacts) and any
+ *   already-generated combo files are preserved untouched.
+ * - **Single-combo mode** (all four options provided): generates exactly that combo if its file
+ *   is missing from `v{DEFAULT_TEMPLATE_VERSION + 1}/`. If the file already exists, the command
+ *   logs a brief "already exists" line and exits with status 0 (no-op).
  *
  * Mixing 1, 2 or 3 of the four options is an input-validation error.
  *
- * The in-use `v{DEFAULT_TEMPLATE_VERSION}/` directory is never touched, so the running app keeps
- * using the old templates while the new ones are reviewed.
+ * Use this command instead of `templates:regenerate` when adding a new combo to
+ * {@see TemplateMatchesGenerator::COMBINATIONS} and the existing files in
+ * `v{DEFAULT_TEMPLATE_VERSION + 1}/` are still wanted; or to safely retry an interrupted bulk
+ * run without redoing combos that have already succeeded.
  */
-final class RegenerateTemplatesCommand extends Command
+final class GenerateTemplatesCommand extends Command
 {
     use StatsFormatterTrait;
 
-    protected static $defaultName = 'templates:regenerate';
+    protected static $defaultName = 'templates:generate';
 
     private TemplateMatchesGenerator $generator;
     private TemplateMatchesRepository $repository;
@@ -60,12 +64,14 @@ final class RegenerateTemplatesCommand extends Command
     protected function configure(): void
     {
         $this
-            ->setDescription('Regenerate template-matches JSON files into the next-version directory.')
+            ->setDescription('Additively generate missing template-matches JSON files into the next-version directory (no wipe).')
             ->setHelp(implode("\n", [
-                'With no options, regenerates the entire TemplateMatchesGenerator::COMBINATIONS set',
-                '(fixedTeams=false, repeat=1) and wipes v{DEFAULT_TEMPLATE_VERSION+1}/ first so stale files',
-                'from prior runs are removed. Provide all four options to regenerate a single combo;',
-                'single-combo mode only overwrites that one file (no wipe).',
+                'Only generates combos whose v{DEFAULT_TEMPLATE_VERSION+1}/ JSON file is missing;',
+                'existing files (and unrelated sibling files) are left untouched. Safe to re-run.',
+                'With no options, iterates the entire TemplateMatchesGenerator::COMBINATIONS set',
+                '(fixedTeams=false, repeat=1) and fills the gaps. Provide all four options to',
+                'generate a single combo if its file is missing; the command no-ops when the file',
+                'already exists.',
                 'Omitting some of the four options is rejected.',
             ]))
             ->addOption('players', null, InputOption::VALUE_REQUIRED, 'Players count')
@@ -121,39 +127,77 @@ final class RegenerateTemplatesCommand extends Command
         $io->newLine();
 
         if ($providedCount === 4) {
-            $combos = [[
+            $combo = [
                 'players' => (int) $provided['players'],
                 'partners' => (int) $provided['partners'],
                 'repeat' => (int) $provided['repeat'],
                 'fixedTeams' => $this->parseBool($provided['fixed-teams']),
-            ]];
-        } else {
-            // Bulk mode: purge the target version directory first so v{writeVersion}/ is a clean
-            // slate. Stale files from a prior run (combos that have since been removed from
-            // COMBINATIONS, or files left over from an interrupted run) are deleted; only the
-            // freshly generated files survive. Single-combo mode skips this so surgical re-runs
-            // do not destroy unrelated files.
-            $cleared = $this->repository->clearVersion($writeVersion);
-            if ($cleared > 0) {
+            ];
+
+            // Single-combo idempotency: if the target file already exists, exit cleanly without
+            // overwriting it. The user can fall back to `templates:regenerate` when they
+            // explicitly want to redo a combo.
+            if ($this->repository->hasAt(
+                $writeVersion,
+                $combo['players'],
+                $combo['partners'],
+                $combo['repeat'],
+                $combo['fixedTeams']
+            )) {
                 $io->writeln(sprintf(
-                    '<comment>Cleared %d stale file%s from v%d before regenerating.</comment>',
-                    $cleared,
-                    $cleared === 1 ? '' : 's',
-                    $writeVersion
+                    '<info>%s already exists -- skipping (use templates:regenerate to overwrite).</info>',
+                    $this->repository->path(
+                        $writeVersion,
+                        $combo['players'],
+                        $combo['partners'],
+                        $combo['repeat'],
+                        $combo['fixedTeams']
+                    )
                 ));
-                $io->newLine();
+                return 0;
             }
 
-            $combos = [];
+            $combos = [$combo];
+        } else {
+            // Bulk mode: enumerate COMBINATIONS then filter out combos already on disk under
+            // v{writeVersion}/. No wipe step, so already-generated files and unrelated siblings
+            // (READMEs, .gitkeep, foreign artefacts) survive the run.
+            $rawCombos = [];
             foreach (TemplateMatchesGenerator::COMBINATIONS as $players => $partnersList) {
                 foreach ($partnersList as $partners) {
-                    $combos[] = [
+                    $rawCombos[] = [
                         'players' => (int) $players,
                         'partners' => (int) $partners,
                         'repeat' => 1,
                         'fixedTeams' => false,
                     ];
                 }
+            }
+
+            $combos = array_values(array_filter(
+                $rawCombos,
+                fn(array $c): bool => !$this->repository->hasAt(
+                    $writeVersion,
+                    $c['players'],
+                    $c['partners'],
+                    $c['repeat'],
+                    $c['fixedTeams']
+                )
+            ));
+            $skipped = count($rawCombos) - count($combos);
+            if ($skipped > 0) {
+                $io->writeln(sprintf(
+                    '<comment>Skipped %d combo%s already present in v%d/.</comment>',
+                    $skipped,
+                    $skipped === 1 ? '' : 's',
+                    $writeVersion
+                ));
+                $io->newLine();
+            }
+
+            if (empty($combos)) {
+                $io->writeln('<info>Nothing to generate -- every combo is already present.</info>');
+                return 0;
             }
         }
 
@@ -171,7 +215,7 @@ final class RegenerateTemplatesCommand extends Command
         $totalCombos = count($combos);
 
         // Track player-group transitions so the grouped Players column renders `12 / . / . / ...`
-        // across the regenerate combo list, mirroring the stats commands' output.
+        // across the generate combo list, mirroring the stats and regenerate commands' output.
         $previousPlayers = null;
         $variations = [];
         $mins = [];
@@ -305,7 +349,9 @@ final class RegenerateTemplatesCommand extends Command
         }
 
         $io->writeln(sprintf(
-            '<comment>Review v%d files, then bump TemplateMatchesRepository::DEFAULT_TEMPLATE_VERSION to %d and commit.</comment>',
+            '<comment>Generated %d combo%s into v%d/. Run `templates:stats --templates-version=%d` to inspect.</comment>',
+            $totalCombos,
+            $totalCombos === 1 ? '' : 's',
             $writeVersion,
             $writeVersion
         ));
@@ -328,9 +374,10 @@ final class RegenerateTemplatesCommand extends Command
 
     /**
      * Builds the AVG aggregate row for the end-of-run summary table. Mirrors the buildAvgRow
-     * helpers in both stats commands so the three CLI outputs share the same column-by-column
-     * shape. The two per-phase Time columns and the two Min/Max Break columns are intentionally
-     * left blank because the AVG footer no longer reports time or breaks aggregates.
+     * helpers in both stats commands and {@see RegenerateTemplatesCommand} so the four CLI
+     * outputs share the same column-by-column shape. The two per-phase Time columns and the two
+     * Min/Max Break columns are intentionally left blank because the AVG footer no longer reports
+     * time or breaks aggregates.
      *
      * @param array<int, float|null> $variations
      * @param array<int, float|null> $mins

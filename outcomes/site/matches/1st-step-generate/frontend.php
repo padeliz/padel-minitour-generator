@@ -36,6 +36,38 @@
                         </td>
                     </tr>
                     <tr>
+                        <td>template</td>
+                        <td>
+                            <select id="template-version-picker" class="form-select form-select-sm" onchange="
+                                var v = this.value;
+                                var params = new URLSearchParams(window.location.search);
+                                params.delete('template-version');
+                                var rest = params.toString();
+                                window.location = window.location.pathname + '?template-version=' + encodeURIComponent(v) + (rest ? '&' + rest : '');
+                            ">
+                                <?php
+                                foreach ($eventDivision->getTemplateVersionsForDropdown() as $entry) {
+                                    $value = $entry['version'] !== null ? (string) (int) $entry['version'] : '';
+                                    if (!$entry['isCompatible']) {
+                                        $tooltip = "directory name is not the bare v{N} form -- the runtime loader can't open it";
+                                    } elseif (!$entry['hasCombo']) {
+                                        $tooltip = 'no template generated for this combo yet';
+                                    } else {
+                                        $tooltip = '';
+                                    } ?>
+                                    <option
+                                        value="<?= $value ?>"
+                                        <?= $entry['isCurrent'] ? 'selected' : '' ?>
+                                        <?= $entry['isSelectable'] ? '' : 'disabled' ?>
+                                        title="<?= htmlspecialchars($tooltip) ?>"
+                                    >
+                                        <?= htmlspecialchars($entry['label']) ?>
+                                    </option>
+                                <?php } ?>
+                            </select>
+                        </td>
+                    </tr>
+                    <tr>
                         <td>division</td>
                         <td>
                             <?= $eventDivision->getTitle(); ?>

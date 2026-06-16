@@ -46,7 +46,7 @@ final class TemplateMatchesRepositoryTest extends TestCase
     {
         $repo = new TemplateMatchesRepository($this->tempBaseDir);
 
-        $expectedPath = $repo->path(TemplateMatchesRepository::TEMPLATES_VERSION, 8, 4, 1, false);
+        $expectedPath = $repo->path(TemplateMatchesRepository::DEFAULT_TEMPLATE_VERSION, 8, 4, 1, false);
 
         try {
             $repo->find(8, 4, 1, false);
@@ -63,7 +63,7 @@ final class TemplateMatchesRepositoryTest extends TestCase
     {
         $repo = new TemplateMatchesRepository($this->tempBaseDir);
 
-        $path = $repo->path(TemplateMatchesRepository::TEMPLATES_VERSION, 8, 4, 1, false);
+        $path = $repo->path(TemplateMatchesRepository::DEFAULT_TEMPLATE_VERSION, 8, 4, 1, false);
         if (!is_dir(dirname($path))) {
             mkdir(dirname($path), 0775, true);
         }
@@ -248,10 +248,144 @@ final class TemplateMatchesRepositoryTest extends TestCase
         $repo = new TemplateMatchesRepository($this->tempBaseDir);
         $template = $this->makeTemplate(8, 4, 1, false);
 
-        $repo->save(TemplateMatchesRepository::TEMPLATES_VERSION, $template);
+        $repo->save(TemplateMatchesRepository::DEFAULT_TEMPLATE_VERSION, $template);
         $loaded = $repo->find(8, 4, 1, false);
 
         $this->assertSame($template->toArray(), $loaded->toArray());
+    }
+
+    public function test_list_versions_returns_empty_when_base_dir_has_no_subdirectories(): void
+    {
+        $repo = new TemplateMatchesRepository($this->tempBaseDir);
+
+        $this->assertSame([], $repo->listVersions());
+    }
+
+    public function test_list_versions_skips_top_level_files(): void
+    {
+        $repo = new TemplateMatchesRepository($this->tempBaseDir);
+
+        file_put_contents($this->tempBaseDir . DIRECTORY_SEPARATOR . 'README.md', '# notes');
+        file_put_contents($this->tempBaseDir . DIRECTORY_SEPARATOR . '.gitkeep', '');
+        mkdir($this->tempBaseDir . DIRECTORY_SEPARATOR . 'v3');
+
+        $versions = $repo->listVersions();
+
+        $this->assertCount(1, $versions);
+        $this->assertSame('v3', $versions[0]['directoryName']);
+    }
+
+    public function test_list_versions_classifies_bare_v_directories_as_compatible(): void
+    {
+        $repo = new TemplateMatchesRepository($this->tempBaseDir);
+
+        mkdir($this->tempBaseDir . DIRECTORY_SEPARATOR . 'v3');
+        mkdir($this->tempBaseDir . DIRECTORY_SEPARATOR . 'v4');
+
+        $versions = $repo->listVersions();
+
+        $this->assertCount(2, $versions);
+        foreach ($versions as $entry) {
+            $this->assertTrue($entry['isCompatible'], "Expected compatible: {$entry['directoryName']}");
+            $this->assertIsInt($entry['version']);
+        }
+        $this->assertSame(3, $versions[0]['version']);
+        $this->assertSame(4, $versions[1]['version']);
+    }
+
+    public function test_list_versions_classifies_non_bare_directories_as_incompatible(): void
+    {
+        $repo = new TemplateMatchesRepository($this->tempBaseDir);
+
+        mkdir($this->tempBaseDir . DIRECTORY_SEPARATOR . 'v1-no-compatibility');
+        mkdir($this->tempBaseDir . DIRECTORY_SEPARATOR . 'v2-experimental');
+        mkdir($this->tempBaseDir . DIRECTORY_SEPARATOR . 'foo-bar');
+        mkdir($this->tempBaseDir . DIRECTORY_SEPARATOR . 'archived');
+
+        $versions = $repo->listVersions();
+
+        $this->assertCount(4, $versions);
+        foreach ($versions as $entry) {
+            $this->assertFalse($entry['isCompatible'], "Expected incompatible: {$entry['directoryName']}");
+            $this->assertNull($entry['version']);
+        }
+    }
+
+    public function test_list_versions_sorts_by_natural_directory_name_order(): void
+    {
+        $repo = new TemplateMatchesRepository($this->tempBaseDir);
+
+        // Create out of order; v10 must sort AFTER v2/v3 (natural sort, not lex sort).
+        mkdir($this->tempBaseDir . DIRECTORY_SEPARATOR . 'v10');
+        mkdir($this->tempBaseDir . DIRECTORY_SEPARATOR . 'v2');
+        mkdir($this->tempBaseDir . DIRECTORY_SEPARATOR . 'v3');
+        mkdir($this->tempBaseDir . DIRECTORY_SEPARATOR . 'v1-no-compatibility');
+
+        $versions = $repo->listVersions();
+        $names = array_column($versions, 'directoryName');
+
+        $this->assertSame(['v1-no-compatibility', 'v2', 'v3', 'v10'], $names);
+    }
+
+    public function test_list_versions_mixes_compatible_and_incompatible_rows(): void
+    {
+        $repo = new TemplateMatchesRepository($this->tempBaseDir);
+
+        mkdir($this->tempBaseDir . DIRECTORY_SEPARATOR . 'v3');
+        mkdir($this->tempBaseDir . DIRECTORY_SEPARATOR . 'v1-no-compatibility');
+        mkdir($this->tempBaseDir . DIRECTORY_SEPARATOR . 'v2-old');
+
+        $versions = $repo->listVersions();
+
+        $byName = [];
+        foreach ($versions as $entry) {
+            $byName[$entry['directoryName']] = $entry;
+        }
+        $this->assertTrue($byName['v3']['isCompatible']);
+        $this->assertSame(3, $byName['v3']['version']);
+        $this->assertFalse($byName['v1-no-compatibility']['isCompatible']);
+        $this->assertNull($byName['v1-no-compatibility']['version']);
+        $this->assertFalse($byName['v2-old']['isCompatible']);
+        $this->assertNull($byName['v2-old']['version']);
+    }
+
+    public function test_list_versions_returns_empty_when_base_dir_does_not_exist(): void
+    {
+        $missingBaseDir = $this->tempBaseDir . DIRECTORY_SEPARATOR . 'does-not-exist';
+        $repo = new TemplateMatchesRepository($missingBaseDir);
+
+        $this->assertSame([], $repo->listVersions());
+    }
+
+    public function test_has_at_returns_true_when_template_file_exists(): void
+    {
+        $repo = new TemplateMatchesRepository($this->tempBaseDir);
+        $repo->save(3, $this->makeTemplate(8, 4, 1, false));
+
+        $this->assertTrue($repo->hasAt(3, 8, 4, 1, false));
+    }
+
+    public function test_has_at_returns_false_when_template_file_is_missing(): void
+    {
+        $repo = new TemplateMatchesRepository($this->tempBaseDir);
+
+        $this->assertFalse($repo->hasAt(3, 8, 4, 1, false));
+    }
+
+    public function test_has_at_returns_false_when_version_directory_does_not_exist(): void
+    {
+        $repo = new TemplateMatchesRepository($this->tempBaseDir);
+
+        $this->assertFalse($repo->hasAt(99, 8, 4, 1, false));
+    }
+
+    public function test_has_at_distinguishes_fixed_teams_variant(): void
+    {
+        $repo = new TemplateMatchesRepository($this->tempBaseDir);
+        $repo->save(3, $this->makeTemplate(8, 2, 1, true));
+
+        $this->assertTrue($repo->hasAt(3, 8, 2, 1, true));
+        $this->assertFalse($repo->hasAt(3, 8, 2, 1, false));
     }
 
     private function makeTemplate(int $players, int $partners, int $repeat, bool $fixedTeams): TemplateMatches

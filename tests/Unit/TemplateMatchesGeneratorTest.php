@@ -482,14 +482,14 @@ final class TemplateMatchesGeneratorTest extends TestCase
 
     public function test_default_difference_limit_is_one(): void
     {
-        $this->assertSame(1, TemplateMatchesGenerator::DEFAULT_DIFFERENCE_LIMIT);
+        $this->assertSame(1, TemplateMatchesGenerator::DEFAULT_MEETINGS_VARIATION_LIMIT);
     }
 
     public function test_players_met_too_much_rejects_gap_above_limit(): void
     {
         // Player 0 already has a gap of 2 between most-met (player 1, count = 2) and least-met
         // (player 2, count = 0). Adding a match whose participants include player 1 (the
-        // most-met partner) is rejected at differenceLimit = 1 because the resulting per-player
+        // most-met partner) is rejected at meetingsVariationLimit = 1 because the resulting per-player
         // gap would be strictly greater than the limit.
         $playersMet = [0 => [1 => 2, 2 => 0]];
 
@@ -501,7 +501,7 @@ final class TemplateMatchesGeneratorTest extends TestCase
     public function test_players_met_too_much_allows_gap_at_limit(): void
     {
         // Player 0 has a gap of exactly 1 (most-met = 1 with count 1, least-met = 2 with count
-        // 0). At differenceLimit = 1, the check passes because the condition rejects only gaps
+        // 0). At meetingsVariationLimit = 1, the check passes because the condition rejects only gaps
         // strictly greater than the limit. This pins the R1 off-by-one fix: the previous `>=`
         // would have rejected here, leaving no headroom for partial imbalance.
         $playersMet = [0 => [1 => 1, 2 => 0]];
@@ -513,7 +513,7 @@ final class TemplateMatchesGeneratorTest extends TestCase
 
     public function test_players_met_too_much_strict_mode_rejects_any_gap(): void
     {
-        // At differenceLimit = 0, even a gap of 1 is rejected when the most-met partner is one
+        // At meetingsVariationLimit = 0, even a gap of 1 is rejected when the most-met partner is one
         // of the four players about to join the match. This exercises the "strictly balanced"
         // mode tests can opt into.
         $playersMet = [0 => [1 => 1, 2 => 0]];
@@ -537,7 +537,7 @@ final class TemplateMatchesGeneratorTest extends TestCase
 
     public function test_pairing_meeting_constraint_bounds_variation_for_8_2(): void
     {
-        // With the constraint re-enabled at differenceLimit = 1, an eligible 8/2 template must
+        // With the constraint re-enabled at meetingsVariationLimit = 1, an eligible 8/2 template must
         // have meetingsVariation <= 1.0 (the constraint forbids per-player gaps strictly above
         // the limit during the build, and 8/2 is small enough that the constraint reliably
         // produces a balanced template).
@@ -551,7 +551,7 @@ final class TemplateMatchesGeneratorTest extends TestCase
         $this->assertLessThanOrEqual(
             1.0,
             $template->getPairingMeetingsVariation(),
-            'differenceLimit = 1 must bound the average per-player meetings gap at 1.0.'
+            'meetingsVariationLimit = 1 must bound the average per-player meetings gap at 1.0.'
         );
     }
 
@@ -769,26 +769,26 @@ final class TemplateMatchesGeneratorTest extends TestCase
         $this->assertSame(0.0, $score);
     }
 
-    public function test_default_difference_limit_max_is_two(): void
+    public function test_default_meetings_variation_limit_max_is_three(): void
     {
-        $this->assertSame(2, TemplateMatchesGenerator::DEFAULT_DIFFERENCE_LIMIT_MAX);
+        $this->assertSame(3, TemplateMatchesGenerator::DEFAULT_MEETINGS_VARIATION_LIMIT_MAX);
     }
 
     public function test_pairing_does_not_relax_when_strict_succeeds(): void
     {
         // 4/2 finds a template under dl=1 in microseconds. The relaxAttempts trail must have
-        // length 1 and the surfaced differenceLimit must stay at 1.
+        // length 1 and the surfaced meetingsVariationLimit must stay at 1.
         $generator = new TemplateMatchesGenerator();
         $generator->setPerComboBudgetsNs([]);
 
         $template = $generator->generate(4, 2, 1, false);
 
         $this->assertTrue($template->isEligible());
-        $this->assertSame(1, $template->getPairingDifferenceLimit());
+        $this->assertSame(1, $template->getPairingMeetingsVariationLimit());
         $attempts = $template->getPairingRelaxAttempts();
         $this->assertNotNull($attempts);
         $this->assertCount(1, $attempts);
-        $this->assertSame(1, $attempts[0]['differenceLimit']);
+        $this->assertSame(1, $attempts[0]['meetingsVariationLimit']);
         $this->assertGreaterThan(0, $attempts[0]['templatesGenerated']);
     }
 
@@ -796,7 +796,7 @@ final class TemplateMatchesGeneratorTest extends TestCase
     {
         // Force every pairing attempt to exit with 0 templates by giving it a zero outer
         // budget (the deadline fires before the first iteration of the lex walk). With
-        // differenceLimitMax = 2 and starting dl = 1, the relax loop should fire once and
+        // meetingsVariationLimitMax = 2 and starting dl = 1, the relax loop should fire once and
         // accumulate exactly two attempts in the trail (dl=1 then dl=2).
         $generator = new TemplateMatchesGenerator(
             static function (): int { return 0; },
@@ -815,15 +815,15 @@ final class TemplateMatchesGeneratorTest extends TestCase
         $attempts = $template->getPairingRelaxAttempts();
         $this->assertNotNull($attempts);
         $this->assertCount(2, $attempts);
-        $this->assertSame(1, $attempts[0]['differenceLimit']);
-        $this->assertSame(2, $attempts[1]['differenceLimit']);
-        $this->assertSame(2, $template->getPairingDifferenceLimit());
+        $this->assertSame(1, $attempts[0]['meetingsVariationLimit']);
+        $this->assertSame(2, $attempts[1]['meetingsVariationLimit']);
+        $this->assertSame(2, $template->getPairingMeetingsVariationLimit());
     }
 
     public function test_pairing_returns_null_matches_when_all_dls_exhausted(): void
     {
         // Zero outer budget forces every dl attempt to exit immediately on the first deadline
-        // check. With differenceLimitMax clamped to the starting dl (no relaxation headroom)
+        // check. With meetingsVariationLimitMax clamped to the starting dl (no relaxation headroom)
         // the loop runs exactly once and the result is null matches with a single-entry
         // relaxAttempts trail.
         $generator = new TemplateMatchesGenerator(
@@ -845,7 +845,7 @@ final class TemplateMatchesGeneratorTest extends TestCase
         $attempts = $template->getPairingRelaxAttempts();
         $this->assertNotNull($attempts);
         $this->assertCount(1, $attempts);
-        $this->assertSame(1, $template->getPairingDifferenceLimit());
+        $this->assertSame(1, $template->getPairingMeetingsVariationLimit());
     }
 
     public function test_pairing_relax_attempts_round_trip_through_json(): void
@@ -879,22 +879,22 @@ final class TemplateMatchesGeneratorTest extends TestCase
             0.05,
             2,
             [
-                ['differenceLimit' => 1, 'permutationsIterated' => 3, 'templatesGenerated' => 0, 'time' => 0.04],
-                ['differenceLimit' => 2, 'permutationsIterated' => 5, 'templatesGenerated' => 5, 'time' => 0.06],
+                ['meetingsVariationLimit' => 1, 'permutationsIterated' => 3, 'templatesGenerated' => 0, 'time' => 0.04],
+                ['meetingsVariationLimit' => 2, 'permutationsIterated' => 5, 'templatesGenerated' => 5, 'time' => 0.06],
             ]
         );
 
         $round = TemplateMatches::fromArray($template->toArray());
 
-        $this->assertSame(2, $round->getPairingDifferenceLimit());
+        $this->assertSame(2, $round->getPairingMeetingsVariationLimit());
         $attempts = $round->getPairingRelaxAttempts();
         $this->assertNotNull($attempts);
         $this->assertCount(2, $attempts);
-        $this->assertSame(1, $attempts[0]['differenceLimit']);
+        $this->assertSame(1, $attempts[0]['meetingsVariationLimit']);
         $this->assertSame(3, $attempts[0]['permutationsIterated']);
         $this->assertSame(0, $attempts[0]['templatesGenerated']);
         $this->assertSame(0.04, $attempts[0]['time']);
-        $this->assertSame(2, $attempts[1]['differenceLimit']);
+        $this->assertSame(2, $attempts[1]['meetingsVariationLimit']);
         $this->assertSame(5, $attempts[1]['templatesGenerated']);
     }
 
@@ -919,14 +919,14 @@ final class TemplateMatchesGeneratorTest extends TestCase
      * @param array{0:int,1:int} $pair2
      * @param array<int, array<int, int>> $playersMet
      */
-    private function invokePlayersMetTooMuch(array $pair1, array $pair2, array $playersMet, int $differenceLimit): bool
+    private function invokePlayersMetTooMuch(array $pair1, array $pair2, array $playersMet, int $meetingsVariationLimit): bool
     {
         $generator = new TemplateMatchesGenerator();
         $reflection = new \ReflectionClass(TemplateMatchesGenerator::class);
         $method = $reflection->getMethod('playersMetTooMuch');
         $method->setAccessible(true);
 
-        return (bool) $method->invoke($generator, $pair1, $pair2, $playersMet, $differenceLimit);
+        return (bool) $method->invoke($generator, $pair1, $pair2, $playersMet, $meetingsVariationLimit);
     }
 
     /**
@@ -1242,7 +1242,7 @@ final class TemplateMatchesGeneratorTest extends TestCase
     private function invokeBuildTemplateByBacktracking(
         array $orderedPairs,
         int $deadlineNs,
-        int $differenceLimit,
+        int $meetingsVariationLimit,
         int $branchCap,
         int $playersCount,
         ?int $bestMinMetSoFar
@@ -1256,7 +1256,7 @@ final class TemplateMatchesGeneratorTest extends TestCase
             $generator,
             $orderedPairs,
             $deadlineNs,
-            $differenceLimit,
+            $meetingsVariationLimit,
             $branchCap,
             $playersCount,
             $bestMinMetSoFar

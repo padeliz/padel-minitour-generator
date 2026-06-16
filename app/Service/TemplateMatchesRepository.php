@@ -13,16 +13,18 @@ use Arshavinel\PadelMiniTour\Service\Exception\TemplateMatchesNotFoundException;
  *
  *     <baseDir>/v{version}/players-{P}-partners-{O}-repeat-{R}[-fixedteams].json
  *
- * Runtime always reads from {@see TemplateMatchesRepository::TEMPLATES_VERSION}. The regenerate CLI
- * always writes to the next version (`TEMPLATES_VERSION + 1`). To promote a freshly generated set,
- * commit the new `v{N+1}/` files together with a one-line bump of {@see TEMPLATES_VERSION}.
+ * Runtime always reads from {@see TemplateMatchesRepository::DEFAULT_TEMPLATE_VERSION} unless an
+ * explicit version is requested (see {@see findAt()}). The regenerate CLI always writes to the next
+ * version (`DEFAULT_TEMPLATE_VERSION + 1`). To promote a freshly generated set, commit the new
+ * `v{N+1}/` files together with a one-line bump of {@see DEFAULT_TEMPLATE_VERSION}.
  */
 final class TemplateMatchesRepository
 {
     /**
-     * Currently in-use template version. Bump after committing a new `v{N+1}/` directory.
+     * Default template version used by {@see find()} and the stats/regenerate CLI when no explicit
+     * version is supplied. Bump after committing a new `v{N+1}/` directory.
      */
-    public const TEMPLATES_VERSION = 3;
+    public const DEFAULT_TEMPLATE_VERSION = 3;
 
     private string $baseDir;
 
@@ -49,7 +51,7 @@ final class TemplateMatchesRepository
      */
     public function find(int $players, int $partners, int $repeat, bool $fixedTeams): TemplateMatches
     {
-        return $this->findAt(self::TEMPLATES_VERSION, $players, $partners, $repeat, $fixedTeams);
+        return $this->findAt(self::DEFAULT_TEMPLATE_VERSION, $players, $partners, $repeat, $fixedTeams);
     }
 
     /**
@@ -181,6 +183,74 @@ final class TemplateMatchesRepository
         }
 
         return $deleted;
+    }
+
+    /**
+     * Enumerates every subdirectory under the base path, regardless of name. Non-directory entries
+     * (files, symlinks) are skipped.
+     *
+     * `isCompatible = true` iff `directoryName` matches `/^v(\d+)$/` exactly -- the runtime
+     * {@see path()} builder only constructs `v{N}/...` paths, so any other directory name (e.g.
+     * `v1-no-compatibility/`, `v2-experimental/`, `foo/`) is unreachable for {@see find()} /
+     * {@see findAt()} and reported with `isCompatible = false`. The `version` field is the integer
+     * captured from the bare `v{N}` form, or `null` when the directory name doesn't match that
+     * shape -- callers use it as the URL value for selectable rows; disabled rows ignore it.
+     *
+     * Natural-sorted by `directoryName` (so `v2` precedes `v10`, and incompatible rows interleave
+     * deterministically).
+     *
+     * @return list<array{version: ?int, directoryName: string, isCompatible: bool}>
+     */
+    public function listVersions(): array
+    {
+        if (!is_dir($this->baseDir)) {
+            return [];
+        }
+
+        $entries = scandir($this->baseDir);
+        if ($entries === false) {
+            return [];
+        }
+
+        $versions = [];
+        foreach ($entries as $entry) {
+            if ($entry === '.' || $entry === '..') {
+                continue;
+            }
+            $path = $this->baseDir . DIRECTORY_SEPARATOR . $entry;
+            if (!is_dir($path)) {
+                continue;
+            }
+            if (preg_match('/^v(\d+)$/', $entry, $matches) === 1) {
+                $versions[] = [
+                    'version'       => (int) $matches[1],
+                    'directoryName' => $entry,
+                    'isCompatible'  => true,
+                ];
+            } else {
+                $versions[] = [
+                    'version'       => null,
+                    'directoryName' => $entry,
+                    'isCompatible'  => false,
+                ];
+            }
+        }
+
+        usort($versions, static fn(array $a, array $b): int => strnatcmp($a['directoryName'], $b['directoryName']));
+
+        return $versions;
+    }
+
+    /**
+     * Probe (without throwing) whether the bare `v{N}/` directory has the requested combo on disk.
+     *
+     * Always returns `false` for any directory layout other than the bare `v{N}` form, because
+     * {@see path()} only constructs `v{N}/...` paths -- non-bare directories (e.g.
+     * `v1-no-compatibility/`, `v2-experimental/`) are simply unreachable through this method.
+     */
+    public function hasAt(int $version, int $players, int $partners, int $repeat, bool $fixedTeams): bool
+    {
+        return is_file($this->path($version, $players, $partners, $repeat, $fixedTeams));
     }
 
     public function path(int $version, int $players, int $partners, int $repeat, bool $fixedTeams): string

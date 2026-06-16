@@ -94,12 +94,14 @@ final class OrderingProgress extends GenerationProgress
      * Cross-player minimum of each player's shortest INNER consecutive break run in the
      * best-so-far ordering.
      *
-     * An inner break run is a maximal stretch of consecutive matches in which the player does
-     * not appear, bracketed by appearances on BOTH sides. Lead runs (before the player's first
-     * appearance) and trail runs (after the player's last appearance) are EXCLUDED. When a
-     * player has no inner break runs (plays every match, plays only once, or never plays at
-     * all), their per-player value is `0`, which means the aggregate becomes `0` whenever any
-     * player has no inner runs. `null` before any leaf has been visited.
+     * An inner break run is the stretch of consecutive matches in which the player does not
+     * appear between two of their own appearances. Lead runs (before the player's first
+     * appearance) and trail runs (after the player's last appearance) are EXCLUDED. Sit-out
+     * semantics apply: when a player plays in two consecutive matches the inner run length is
+     * `0`, and that `0` counts -- the player's contribution to `Min Break` becomes `0`. A
+     * player with no closed inner run at all (plays only once, or never plays) also
+     * contributes `0`. Either way, whenever any player's contribution is `0` the aggregate
+     * becomes `0` too. `null` before any leaf has been visited.
      */
     public function getBestMinBreak(): ?int
     {

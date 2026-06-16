@@ -49,7 +49,7 @@ final class StatsTemplatesCommandTest extends TestCase
     {
         $repository = new TemplateMatchesRepository($this->tempBaseDir);
         $repository->save(
-            TemplateMatchesRepository::TEMPLATES_VERSION,
+            TemplateMatchesRepository::DEFAULT_TEMPLATE_VERSION,
             $this->makeTemplate(4, 1, 1, false)
         );
 
@@ -67,7 +67,7 @@ final class StatsTemplatesCommandTest extends TestCase
     {
         $repository = new TemplateMatchesRepository($this->tempBaseDir);
         $repository->save(
-            TemplateMatchesRepository::TEMPLATES_VERSION,
+            TemplateMatchesRepository::DEFAULT_TEMPLATE_VERSION,
             $this->makeTemplate(4, 1, 1, false)
         );
 
@@ -90,8 +90,8 @@ final class StatsTemplatesCommandTest extends TestCase
     public function test_fixed_stats_default_combinations_is_eight_two_three(): void
     {
         $repository = new TemplateMatchesRepository($this->tempBaseDir);
-        $repository->save(TemplateMatchesRepository::TEMPLATES_VERSION, $this->makeTemplate(8, 2, 1, true));
-        $repository->save(TemplateMatchesRepository::TEMPLATES_VERSION, $this->makeTemplate(8, 3, 1, true));
+        $repository->save(TemplateMatchesRepository::DEFAULT_TEMPLATE_VERSION, $this->makeTemplate(8, 2, 1, true));
+        $repository->save(TemplateMatchesRepository::DEFAULT_TEMPLATE_VERSION, $this->makeTemplate(8, 3, 1, true));
 
         $tester = $this->makeFixedTester($repository);
         $tester->execute([]);
@@ -104,8 +104,8 @@ final class StatsTemplatesCommandTest extends TestCase
     public function test_unified_table_renders_repeat_and_fixed_columns_for_fixed_run(): void
     {
         $repository = new TemplateMatchesRepository($this->tempBaseDir);
-        $repository->save(TemplateMatchesRepository::TEMPLATES_VERSION, $this->makeTemplate(8, 2, 1, true));
-        $repository->save(TemplateMatchesRepository::TEMPLATES_VERSION, $this->makeTemplate(8, 3, 1, true));
+        $repository->save(TemplateMatchesRepository::DEFAULT_TEMPLATE_VERSION, $this->makeTemplate(8, 2, 1, true));
+        $repository->save(TemplateMatchesRepository::DEFAULT_TEMPLATE_VERSION, $this->makeTemplate(8, 3, 1, true));
 
         $tester = $this->makeFixedTester($repository);
         $tester->execute([]);
@@ -129,7 +129,7 @@ final class StatsTemplatesCommandTest extends TestCase
     {
         $repository = new TemplateMatchesRepository($this->tempBaseDir);
         $repository->save(
-            TemplateMatchesRepository::TEMPLATES_VERSION,
+            TemplateMatchesRepository::DEFAULT_TEMPLATE_VERSION,
             $this->makeTemplate(4, 1, 1, false)
         );
         $tester = $this->makeMixedTester($repository);
@@ -137,14 +137,14 @@ final class StatsTemplatesCommandTest extends TestCase
         $tester->execute(['--combinations' => '4:1']);
 
         $output = $tester->getDisplay();
-        $this->assertStringContainsString('Reading: v' . TemplateMatchesRepository::TEMPLATES_VERSION, $output);
+        $this->assertStringContainsString('Reading: v' . TemplateMatchesRepository::DEFAULT_TEMPLATE_VERSION, $output);
         $this->assertStringContainsString('(in use)', $output);
         $this->assertStringNotContainsString('(in use: v', $output);
     }
 
     public function test_mixed_stats_with_explicit_version_reads_from_that_directory(): void
     {
-        $otherVersion = TemplateMatchesRepository::TEMPLATES_VERSION + 1;
+        $otherVersion = TemplateMatchesRepository::DEFAULT_TEMPLATE_VERSION + 1;
         $repository = new TemplateMatchesRepository($this->tempBaseDir);
 
         $repository->save($otherVersion, $this->makeTemplate(4, 1, 1, false));
@@ -158,15 +158,15 @@ final class StatsTemplatesCommandTest extends TestCase
         $this->assertSame(0, $tester->getStatusCode());
         $output = $tester->getDisplay();
         $this->assertStringContainsString('Reading: v' . $otherVersion, $output);
-        $this->assertStringContainsString('(in use: v' . TemplateMatchesRepository::TEMPLATES_VERSION . ')', $output);
+        $this->assertStringContainsString('(in use: v' . TemplateMatchesRepository::DEFAULT_TEMPLATE_VERSION . ')', $output);
         $this->assertStringNotContainsString('missing', $output);
     }
 
     public function test_mixed_stats_with_unknown_version_reports_missing(): void
     {
-        $otherVersion = TemplateMatchesRepository::TEMPLATES_VERSION + 1;
+        $otherVersion = TemplateMatchesRepository::DEFAULT_TEMPLATE_VERSION + 1;
         $repository = new TemplateMatchesRepository($this->tempBaseDir);
-        $repository->save(TemplateMatchesRepository::TEMPLATES_VERSION, $this->makeTemplate(4, 1, 1, false));
+        $repository->save(TemplateMatchesRepository::DEFAULT_TEMPLATE_VERSION, $this->makeTemplate(4, 1, 1, false));
 
         $tester = $this->makeMixedTester($repository);
         $tester->execute([
@@ -200,7 +200,7 @@ final class StatsTemplatesCommandTest extends TestCase
 
     public function test_fixed_stats_explicit_version_routes_to_that_directory(): void
     {
-        $otherVersion = TemplateMatchesRepository::TEMPLATES_VERSION + 1;
+        $otherVersion = TemplateMatchesRepository::DEFAULT_TEMPLATE_VERSION + 1;
         $repository = new TemplateMatchesRepository($this->tempBaseDir);
         $repository->save($otherVersion, $this->makeTemplate(8, 2, 1, true));
         $repository->save($otherVersion, $this->makeTemplate(8, 3, 1, true));
@@ -211,7 +211,7 @@ final class StatsTemplatesCommandTest extends TestCase
         $this->assertSame(0, $tester->getStatusCode());
         $output = $tester->getDisplay();
         $this->assertStringContainsString('Reading: v' . $otherVersion, $output);
-        $this->assertStringContainsString('(in use: v' . TemplateMatchesRepository::TEMPLATES_VERSION . ')', $output);
+        $this->assertStringContainsString('(in use: v' . TemplateMatchesRepository::DEFAULT_TEMPLATE_VERSION . ')', $output);
         $this->assertStringNotContainsString('missing', $output);
     }
 

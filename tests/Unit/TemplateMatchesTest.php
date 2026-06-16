@@ -78,7 +78,7 @@ final class TemplateMatchesTest extends TestCase
             'meetingsVariation', 'permutationsIterated', 'permutationIndex',
             'templatesGenerated', 'templateIndex', 'partnersCount', 'playersMet',
             'partnersCountVariation', 'bestMatchesCount', 'stopReason', 'time',
-            'differenceLimit', 'relaxAttempts',
+            'meetingsVariationLimit', 'relaxAttempts',
         ];
         $this->assertSame($expectedPairingKeys, array_keys($array['pairing']));
 

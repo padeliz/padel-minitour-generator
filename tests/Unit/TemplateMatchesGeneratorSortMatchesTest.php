@@ -258,7 +258,7 @@ final class TemplateMatchesGeneratorSortMatchesTest extends TestCase
             5,
             TemplateMatchesGenerator::DEFAULT_MULTI_SEED_COUNT_PAIRING,
             TemplateMatchesGenerator::DEFAULT_MULTI_SEED_THRESHOLD_PAIRS,
-            TemplateMatchesGenerator::DEFAULT_DIFFERENCE_LIMIT,
+            TemplateMatchesGenerator::DEFAULT_MEETINGS_VARIATION_LIMIT,
             PHP_INT_MAX
         );
 
@@ -277,10 +277,11 @@ final class TemplateMatchesGeneratorSortMatchesTest extends TestCase
     {
         // 4 matches over 5 players. Each match uses 4 of 5 players, so per match exactly one
         // player sits out. Under the asymmetric break contract player 2 (who plays in every
-        // match) has zero break runs at all, contributing `perPlayerMin = 0` regardless of
-        // ordering -- the aggregate `minBreak` is therefore always `0`. The DFS still finds an
-        // ordering where the `Max Break` ceiling at `ceil(5/4) = 2` is respected; the prune
-        // keeps every player's longest run at most 2 (alternating sit-out orderings achieve 1).
+        // match) closes a length-`0` inner run on every subsequent appearance (back-to-back
+        // sit-out semantics), pinning `perPlayerMin[2] = 0` regardless of ordering -- the
+        // aggregate `minBreak` is therefore always `0`. The DFS still finds an ordering where
+        // the `Max Break` ceiling at `ceil(5/4) = 2` is respected; the prune keeps every
+        // player's longest run at most 2 (alternating sit-out orderings achieve 1).
         $generator = $this->makeGenerator(60_000_000_000);
 
         $matches = [
@@ -299,9 +300,9 @@ final class TemplateMatchesGeneratorSortMatchesTest extends TestCase
 
         $this->assertNotNull($result['minBreak']);
         $this->assertNotNull($result['maxBreak']);
-        // Player 2 plays every match so has zero inner break runs → perPlayerMin = 0, forcing
-        // aggregate minBreak = 0. Max <= 1 because the alternating optimum keeps every
-        // sit-out non-adjacent.
+        // Player 2 plays every match, so every inner gap is a length-`0` back-to-back run →
+        // perPlayerMin[2] = 0, forcing aggregate minBreak = 0. Max <= 1 because the
+        // alternating optimum keeps every sit-out non-adjacent.
         $this->assertSame(0, $result['minBreak']);
         $this->assertLessThanOrEqual(1, $result['maxBreak']);
     }
@@ -309,13 +310,16 @@ final class TemplateMatchesGeneratorSortMatchesTest extends TestCase
     public function test_sort_dfs_tie_break_prefers_break_avg_closer_to_target(): void
     {
         // 8 players, 4 matches. Players 0 and 1 occupy the first slot of EVERY match, so they
-        // play in all 4 positions and always score 1.0. Players 2 and 3 occupy the second slot
-        // of M0 and M3 (identical matches); players 4-5 only appear in M1; players 6-7 only
-        // appear in M2. Under sit-out semantics the tied-at-top set carries 12 distinct
-        // permutations (every (pos(M0), pos(M3)) pair from `{0,3}, {0,2}, {1,3}` keeps P2,P3
-        // inside the neutral band, and the remaining 4 single-match players always score 1.0
-        // by the count<=1 short-circuit). Target break-balance = `m / playerMatches` = `4 /
-        // ((4 * 4) / 8)` = `2.0`.
+        // play in all 4 positions and always score 1.0; under sit-out semantics each of their
+        // 3 subsequent appearances closes a length-`0` back-to-back inner run, pinning
+        // `perPlayerMin[0] = perPlayerMin[1] = 0` for every ordering (and thereby forcing
+        // aggregate `minBreak = 0` on every leaf). Players 2 and 3 occupy the second slot of
+        // M0 and M3 (identical matches); players 4-5 only appear in M1; players 6-7 only
+        // appear in M2. The tied-at-top set carries 12 distinct permutations (every
+        // (pos(M0), pos(M3)) pair from `{0,3}, {0,2}, {1,3}` keeps P2,P3 inside the neutral
+        // band, and the remaining 4 single-match players always score 1.0 by the count<=1
+        // short-circuit). Target break-balance = `m / playerMatches` = `4 / ((4 * 4) / 8)` =
+        // `2.0`.
         //
         // The 12 tied leaves split by `(M0, M3)` position pair:
         //   - {0, 3} -- inner sit-outs for P2/P3 = 2, no edges -> max break = 2 -> break-avg
@@ -421,7 +425,7 @@ final class TemplateMatchesGeneratorSortMatchesTest extends TestCase
             $sortBudgetNs,
             TemplateMatchesGenerator::DEFAULT_MULTI_SEED_COUNT_PAIRING,
             TemplateMatchesGenerator::DEFAULT_MULTI_SEED_THRESHOLD_PAIRS,
-            TemplateMatchesGenerator::DEFAULT_DIFFERENCE_LIMIT,
+            TemplateMatchesGenerator::DEFAULT_MEETINGS_VARIATION_LIMIT,
             $maxBreakThreshold
         );
     }
@@ -596,7 +600,10 @@ final class TemplateMatchesGeneratorSortMatchesTest extends TestCase
                     ];
                     $playsThisMatch = in_array((int) $p, array_map(static fn($x) => (int) $x, array_filter($seats, static fn($x) => $x !== null)), true);
                     if ($playsThisMatch) {
-                        if ($hasPlayed && $currentRun > 0) {
+                        if ($hasPlayed) {
+                            // Subsequent appearance: record the inner run (length 0 for
+                            // back-to-back appearances, matching the production tracker's
+                            // sit-out semantics).
                             $innerRuns[] = $currentRun;
                         }
                         if ($currentRun > $longest) {
