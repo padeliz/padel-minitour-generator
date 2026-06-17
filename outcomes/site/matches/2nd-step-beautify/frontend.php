@@ -79,6 +79,7 @@
                     $pdfPlayer3 = new Arshavinel\PadelMiniTour\DTO\PdfPlayer($match[1][0], in_array($match[1][0], $_GET['players-collecting-points']));
                     $pdfPlayer4 = new Arshavinel\PadelMiniTour\DTO\PdfPlayer($match[1][1], in_array($match[1][1], $_GET['players-collecting-points']));
                 ?>
+                    <?php /** @var array<int, int> $matchesWithoutMarginTop */ ?>
                     <table <?= (!in_array($m, $matchesWithoutMarginTop) ? 'style="margin-top: ' . $marginTop . 'px;"' : '') ?>>
                         <tr>
                             <td style="width: 21%; text-align: right; padding-right: 17px;">
@@ -134,6 +135,7 @@
                     </table>
 
                     <?php
+                    /** @var int $matchBreakColumn */
                     if ($m == $matchBreakColumn) { ?>
             </td>
             <td class="column" style="width: 50%; border-left: 1px solid gray;">
@@ -141,6 +143,7 @@
         <?php } ?>
 
         <?php
+        /** @var int $marginTop */
         if (!empty($_GET['include-final'])) { ?>
             <!-- final match -->
             <table style="margin-top: <?= $marginTop ?>px;">

@@ -55,6 +55,7 @@
     </tr>
 </table>
 
+<?php /** @var int $marginTop */ ?>
 <table cellspacing="0" style="width: 100%; margin-top: <?= $marginTop ?>px;" autosize="1">
     <?php
 
@@ -87,6 +88,7 @@
         <?php
         /** @var \Arshavinel\PadelMiniTour\DTO\PdfPlayer[] $pdfPlayers */
         foreach ($pdfPlayers as $pdfPlayer) {
+            /** @var array<int, int> $matchesRows */
             foreach ($matchesRows as $mr => $matchRow) { ?>
                 <tr>
                     <?php

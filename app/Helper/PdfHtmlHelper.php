@@ -74,9 +74,9 @@ final class PdfHtmlHelper
             } elseif ($countPlayers == 11) {
                 $marginTop = 60;
             } elseif ($countPlayers == 12) {
-                $marginTop = 50;
+                $marginTop = 22;
             } else {
-                $marginTop = 40;
+                $marginTop = 15;
             }
         } elseif ($nrOfPlayerRows == 2) {
             if ($countPlayers <= 6) {
