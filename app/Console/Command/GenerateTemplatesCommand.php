@@ -3,6 +3,7 @@
 namespace Arshavinel\PadelMiniTour\Console\Command;
 
 use Arshavinel\PadelMiniTour\Console\StatsFormatterTrait;
+use Arshavinel\PadelMiniTour\Console\TemplateComboResolver;
 use Arshavinel\PadelMiniTour\Service\PlayerDistributionScorer;
 use Arshavinel\PadelMiniTour\Service\Progress\GenerationProgress;
 use Arshavinel\PadelMiniTour\Service\Progress\OrderingProgress;
@@ -27,16 +28,13 @@ use Symfony\Component\Console\Style\SymfonyStyle;
  *
  * Two mutually exclusive invocation modes:
  *
- * - **Bulk mode** (no options): iterates every (players => partners) entry of
- *   {@see TemplateMatchesGenerator::COMBINATIONS} with `repeat = 1, fixedTeams = false`, filters
- *   out combos already present in `v{DEFAULT_TEMPLATE_VERSION + 1}/`, then generates the rest.
- *   No wipe step, so unrelated sibling files (READMEs, .gitkeep, foreign artefacts) and any
- *   already-generated combo files are preserved untouched.
- * - **Single-combo mode** (all four options provided): generates exactly that combo if its file
- *   is missing from `v{DEFAULT_TEMPLATE_VERSION + 1}/`. If the file already exists, the command
- *   logs a brief "already exists" line and exits with status 0 (no-op).
- *
- * Mixing 1, 2 or 3 of the four options is an input-validation error.
+ * - **Bulk mode** (no combo filters): iterates every entry of
+ *   {@see TemplateMatchesGenerator::COMBINATIONS} with default `repeat=1, fixedTeams=false, courts=1`,
+ *   filters out combos already present in `v{DEFAULT_TEMPLATE_VERSION + 1}/`, then generates the rest.
+ * - **Filtered bulk** (any subset of --players, --partners, --repeat, --fixed-teams, --courts):
+ *   same additive behaviour over the matching subset.
+ * - **Single-combo idempotency**: when filters resolve to exactly one combo and its file already
+ *   exists, logs "already exists" and exits 0.
  *
  * Use this command instead of `templates:regenerate` when adding a new combo to
  * {@see TemplateMatchesGenerator::COMBINATIONS} and the existing files in
@@ -68,16 +66,15 @@ final class GenerateTemplatesCommand extends Command
             ->setHelp(implode("\n", [
                 'Only generates combos whose v{DEFAULT_TEMPLATE_VERSION+1}/ JSON file is missing;',
                 'existing files (and unrelated sibling files) are left untouched. Safe to re-run.',
-                'With no options, iterates the entire TemplateMatchesGenerator::COMBINATIONS set',
-                '(fixedTeams=false, repeat=1) and fills the gaps. Provide all four options to',
-                'generate a single combo if its file is missing; the command no-ops when the file',
-                'already exists.',
-                'Omitting some of the four options is rejected.',
+                'With no combo filters, iterates the entire TemplateMatchesGenerator::COMBINATIONS set',
+                '(fixedTeams=false, repeat=1, courts=1) and fills missing files. Any subset of',
+                '--players, --partners, --repeat, --fixed-teams, --courts narrows the target set.',
             ]))
-            ->addOption('players', null, InputOption::VALUE_REQUIRED, 'Players count')
-            ->addOption('partners', null, InputOption::VALUE_REQUIRED, 'Opponents per player')
-            ->addOption('repeat', null, InputOption::VALUE_REQUIRED, 'Repeat opponents')
-            ->addOption('fixed-teams', null, InputOption::VALUE_REQUIRED, 'Fixed teams (0 or 1)');
+            ->addOption('players', null, InputOption::VALUE_REQUIRED, 'Filter by players count')
+            ->addOption('partners', null, InputOption::VALUE_REQUIRED, 'Filter by opponents per player')
+            ->addOption('repeat', null, InputOption::VALUE_REQUIRED, 'Filter by repeat opponents (default 1)')
+            ->addOption('fixed-teams', null, InputOption::VALUE_REQUIRED, 'Filter by fixed teams (0 or 1; default 0)')
+            ->addOption('courts', null, InputOption::VALUE_REQUIRED, 'Filter by court count (default 1)');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -90,115 +87,81 @@ final class GenerateTemplatesCommand extends Command
 
         $io = new SymfonyStyle($input, $output);
 
-        $provided = [
-            'players' => $input->getOption('players'),
-            'partners' => $input->getOption('partners'),
-            'repeat' => $input->getOption('repeat'),
-            'fixed-teams' => $input->getOption('fixed-teams'),
-        ];
-        $providedCount = count(array_filter(
-            $provided,
-            static fn($v) => $v !== null && $v !== ''
-        ));
-
-        if ($providedCount !== 0 && $providedCount !== 4) {
-            $missing = [];
-            foreach ($provided as $name => $value) {
-                if ($value === null || $value === '') {
-                    $missing[] = '--' . $name;
-                }
-            }
-            $io->error(sprintf(
-                'All-or-nothing: provide either no options or all four (--players, --partners, --repeat, --fixed-teams). Missing: %s',
-                implode(', ', $missing)
-            ));
+        $resolver = new TemplateComboResolver();
+        try {
+            $resolved = $resolver->resolve($input, TemplateMatchesGenerator::COMBINATIONS, false);
+        } catch (\InvalidArgumentException $e) {
+            $io->error($e->getMessage());
             return 1;
         }
 
         $inUseVersion = TemplateMatchesRepository::DEFAULT_TEMPLATE_VERSION;
         $writeVersion = $inUseVersion + 1;
+        $combos = $resolved['combos'];
 
         $io->writeln(sprintf(
-            '<info>Currently in use:</info> v%d   <comment>Writing to:</comment> v%d',
+            '<info>Currently in use:</info> v%d   <comment>Writing to:</comment> v%d   <comment>Combos:</comment> %d',
             $inUseVersion,
-            $writeVersion
+            $writeVersion,
+            count($combos)
         ));
         $io->writeln('<info>Base dir:</info> ' . $this->repository->getBaseDir());
         $io->newLine();
 
-        if ($providedCount === 4) {
-            $combo = [
-                'players' => (int) $provided['players'],
-                'partners' => (int) $provided['partners'],
-                'repeat' => (int) $provided['repeat'],
-                'fixedTeams' => $this->parseBool($provided['fixed-teams']),
-            ];
-
-            // Single-combo idempotency: if the target file already exists, exit cleanly without
-            // overwriting it. The user can fall back to `templates:regenerate` when they
-            // explicitly want to redo a combo.
+        if (count($combos) === 1) {
+            $combo = $combos[0];
             if ($this->repository->hasAt(
                 $writeVersion,
                 $combo['players'],
                 $combo['partners'],
                 $combo['repeat'],
+                $combo['courts'],
                 $combo['fixedTeams']
             )) {
                 $io->writeln(sprintf(
-                    '<info>%s already exists -- skipping (use templates:regenerate to overwrite).</info>',
+                    '<info>%s already exists in v%d (not in-use v%d) -- skipping.</info>',
                     $this->repository->path(
                         $writeVersion,
                         $combo['players'],
                         $combo['partners'],
                         $combo['repeat'],
+                        $combo['courts'],
                         $combo['fixedTeams']
-                    )
-                ));
-                return 0;
-            }
-
-            $combos = [$combo];
-        } else {
-            // Bulk mode: enumerate COMBINATIONS then filter out combos already on disk under
-            // v{writeVersion}/. No wipe step, so already-generated files and unrelated siblings
-            // (READMEs, .gitkeep, foreign artefacts) survive the run.
-            $rawCombos = [];
-            foreach (TemplateMatchesGenerator::COMBINATIONS as $players => $partnersList) {
-                foreach ($partnersList as $partners) {
-                    $rawCombos[] = [
-                        'players' => (int) $players,
-                        'partners' => (int) $partners,
-                        'repeat' => 1,
-                        'fixedTeams' => false,
-                    ];
-                }
-            }
-
-            $combos = array_values(array_filter(
-                $rawCombos,
-                fn(array $c): bool => !$this->repository->hasAt(
+                    ),
                     $writeVersion,
-                    $c['players'],
-                    $c['partners'],
-                    $c['repeat'],
-                    $c['fixedTeams']
-                )
-            ));
-            $skipped = count($rawCombos) - count($combos);
-            if ($skipped > 0) {
-                $io->writeln(sprintf(
-                    '<comment>Skipped %d combo%s already present in v%d/.</comment>',
-                    $skipped,
-                    $skipped === 1 ? '' : 's',
-                    $writeVersion
+                    $inUseVersion
                 ));
-                $io->newLine();
-            }
-
-            if (empty($combos)) {
-                $io->writeln('<info>Nothing to generate -- every combo is already present.</info>');
+                $io->writeln('<comment>Use templates:regenerate with the same filters to overwrite.</comment>');
                 return 0;
             }
+        }
+
+        $rawCount = count($combos);
+        $combos = array_values(array_filter(
+            $combos,
+            fn(array $c): bool => !$this->repository->hasAt(
+                $writeVersion,
+                $c['players'],
+                $c['partners'],
+                $c['repeat'],
+                $c['courts'],
+                $c['fixedTeams']
+            )
+        ));
+        $skipped = $rawCount - count($combos);
+        if ($skipped > 0) {
+            $io->writeln(sprintf(
+                '<comment>Skipped %d combo%s already present in v%d/.</comment>',
+                $skipped,
+                $skipped === 1 ? '' : 's',
+                $writeVersion
+            ));
+            $io->newLine();
+        }
+
+        if ($combos === []) {
+            $io->writeln('<info>Nothing to generate -- every matching combo is already present.</info>');
+            return 0;
         }
 
         // All combos share one (repeat, fixed) per command invocation - bulk mode hard-codes
@@ -262,6 +225,7 @@ final class GenerateTemplatesCommand extends Command
                     $combo['players'],
                     $combo['partners'],
                     $combo['repeat'],
+                    $combo['courts'],
                     $combo['fixedTeams']
                 );
             } finally {
@@ -269,6 +233,23 @@ final class GenerateTemplatesCommand extends Command
             }
 
             $this->repository->save($writeVersion, $template);
+
+            $savedPath = $this->repository->path(
+                $writeVersion,
+                $combo['players'],
+                $combo['partners'],
+                $combo['repeat'],
+                $combo['courts'],
+                $combo['fixedTeams']
+            );
+            if ($template->isEligible()) {
+                $io->writeln(sprintf('<info>Saved:</info> %s', $savedPath));
+            } else {
+                $io->writeln(sprintf(
+                    '<comment>Saved infeasible record (matches=null):</comment> %s',
+                    $savedPath
+                ));
+            }
 
             // Finalize the per-combo sections so they stay in scrollback as a permanent trail.
             // The counter line is overwritten to a final (done) / (failed) status and the live
@@ -458,6 +439,7 @@ final class GenerateTemplatesCommand extends Command
                 $combo['players'],
                 $combo['partners'],
                 $combo['repeat'],
+                $combo['courts'],
                 $combo['fixedTeams'],
                 $latestPairing,
                 $latestOrdering

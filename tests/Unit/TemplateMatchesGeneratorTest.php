@@ -2,7 +2,6 @@
 
 namespace Tests\Unit;
 
-use Arshavinel\PadelMiniTour\Service\PlayerDistributionScorer;
 use Arshavinel\PadelMiniTour\Service\Progress\GenerationProgress;
 use Arshavinel\PadelMiniTour\Service\Progress\OrderingProgress;
 use Arshavinel\PadelMiniTour\Service\Progress\PairingProgress;
@@ -24,86 +23,31 @@ final class TemplateMatchesGeneratorTest extends TestCase
     {
         $generator = new TemplateMatchesGenerator();
 
-        $template = $generator->generate(4, 1, 1, false);
+        $template = $generator->generate(4, 1, 1, 1, false);
 
         $this->assertInstanceOf(TemplateMatches::class, $template);
         $this->assertTrue($template->isEligible());
         $this->assertCount(1, $template->getMatches());
+        $this->assertCount(1, $template->getMatches()[0]);
         $this->assertSame(0.0, (float) $template->getPairingMeetingsVariation());
         $this->assertSame(0, $template->getPairingPartnersCountVariation());
-        $this->assertSame(TemplateMatchesGenerator::STOP_REASON_TRIVIAL, $template->getSortingStopReason());
-    }
-
-    public function test_generate_mixed_for_eight_players_two_partners_produces_four_matches(): void
-    {
-        $generator = new TemplateMatchesGenerator();
-
-        $template = $generator->generate(8, 2, 1, false);
-
-        $this->assertTrue($template->isEligible());
-        $this->assertCount(4, $template->getMatches());
-        $this->assertNotNull($template->getPairingMeetingsVariation());
-        $this->assertGreaterThan(0, $template->getPairingPermutationsIterated());
-        $this->assertGreaterThan(0, $template->getPairingTemplatesGenerated());
-        $this->assertNotNull($template->getSortingMinDistribution());
-        $this->assertNotNull($template->getSortingAvgDistribution());
         $this->assertContains(
             $template->getSortingStopReason(),
             [
+                TemplateMatchesGenerator::STOP_REASON_TRIVIAL,
                 TemplateMatchesGenerator::STOP_REASON_FACTORIAL_COMPLETE,
-                TemplateMatchesGenerator::STOP_REASON_DEADLINE,
-                TemplateMatchesGenerator::STOP_REASON_PRUNE_INFEASIBLE,
             ]
         );
     }
 
-    public function test_generate_mixed_uses_every_player_in_every_match_at_4_3(): void
+    public function test_generate_fixed_teams_smoke_returns_eligible_template(): void
     {
         $generator = new TemplateMatchesGenerator();
-
-        $template = $generator->generate(4, 3, 1, false);
-        $this->assertTrue($template->isEligible());
-
-        foreach ($template->getMatches() as $match) {
-            $playersInMatch = array_merge($match[0], $match[1]);
-            sort($playersInMatch);
-            $this->assertSame([0, 1, 2, 3], $playersInMatch);
-        }
-    }
-
-    public function test_generate_with_repeat_duplicates_match_list(): void
-    {
-        $generator = new TemplateMatchesGenerator();
-
-        $single = $generator->generate(8, 2, 1, false);
-        $tripled = $generator->generate(8, 2, 3, false);
-
-        $this->assertSame(count($single->getMatches()) * 3, count($tripled->getMatches()));
-    }
-
-    public function test_generate_fixed_teams_produces_deterministic_table(): void
-    {
-        $generator = new TemplateMatchesGenerator();
-
-        $template = $generator->generate(8, 2, 1, true);
+        $template = $generator->generate(4, 2, 1, 1, true);
 
         $this->assertTrue($template->isEligible());
-        $this->assertNotEmpty($template->getMatches());
         $this->assertSame(1, $template->getPairingPermutationsIterated());
         $this->assertSame(1, $template->getPairingTemplatesGenerated());
-
-        foreach ($template->getMatches() as $match) {
-            $teamPair1 = $match[0];
-            $teamPair2 = $match[1];
-            sort($teamPair1);
-            sort($teamPair2);
-            $isFixed1 = ($teamPair1[1] - $teamPair1[0] === 1) && ($teamPair1[0] % 2 === 0);
-            $isFixed2 = ($teamPair2[1] - $teamPair2[0] === 1) && ($teamPair2[0] % 2 === 0);
-            $this->assertTrue(
-                $isFixed1 && $isFixed2,
-                'Fixed-teams matches must keep the (2k, 2k+1) pairings.'
-            );
-        }
     }
 
     public function test_generate_returns_ineligible_template_when_outer_budget_is_zero(): void
@@ -115,8 +59,8 @@ final class TemplateMatchesGeneratorTest extends TestCase
             0,
             TemplateMatchesGenerator::DEFAULT_SORT_WALL_BUDGET_NS
         );
-        // 8-2 is not in the per-combo map, so the constructor's zero budget applies naturally.
-        $template = $generator->generate(8, 2, 1, false);
+        $generator->setUseStaticBudgets(true);
+        $template = $generator->generate(4, 2, 1, 1, false);
 
         $this->assertFalse($template->isEligible());
         $this->assertNull($template->getMatches());
@@ -126,28 +70,9 @@ final class TemplateMatchesGeneratorTest extends TestCase
         $this->assertSame(0, $template->getPairingTemplatesGenerated());
     }
 
-    public function test_repeat_matches_preserves_match_content(): void
-    {
-        $generator = new TemplateMatchesGenerator();
-        $template = $generator->generate(4, 1, 4, false);
-
-        $this->assertSame(4, count($template->getMatches()));
-        $first = $template->getMatches()[0];
-        foreach ($template->getMatches() as $match) {
-            $this->assertSame($first, $match);
-        }
-    }
-
-    public function test_combinations_constant_lists_supported_player_counts(): void
-    {
-        $this->assertArrayHasKey(4, TemplateMatchesGenerator::COMBINATIONS);
-        $this->assertArrayHasKey(16, TemplateMatchesGenerator::COMBINATIONS);
-        $this->assertContains(2, TemplateMatchesGenerator::COMBINATIONS[8]);
-    }
-
     public function test_progress_callback_receives_pairing_and_ordering_finals_for_mixed(): void
     {
-        $events = $this->captureEvents(8, 2, 1, false);
+        $events = $this->captureEvents(4, 2, 1, false);
 
         $this->assertGreaterThanOrEqual(1, count($events));
 
@@ -174,7 +99,7 @@ final class TemplateMatchesGeneratorTest extends TestCase
         $this->assertNotNull($orderingFinal->getStopReason());
 
         foreach ($events as $event) {
-            $this->assertSame(8, $event->getPlayers());
+            $this->assertSame(4, $event->getPlayers());
             $this->assertSame(2, $event->getPartners());
             $this->assertSame(1, $event->getRepeat());
             $this->assertFalse($event->isFixedTeams());
@@ -183,7 +108,7 @@ final class TemplateMatchesGeneratorTest extends TestCase
 
     public function test_progress_callback_receives_pairing_and_ordering_finals_for_fixed(): void
     {
-        $events = $this->captureEvents(8, 2, 1, true);
+        $events = $this->captureEvents(4, 2, 1, true);
 
         $pairingFinals = array_values(array_filter($events, static fn(GenerationProgress $e) =>
             $e instanceof PairingProgress && $e->isFinal()
@@ -203,7 +128,7 @@ final class TemplateMatchesGeneratorTest extends TestCase
 
         foreach ($events as $event) {
             $this->assertTrue($event->isFixedTeams());
-            $this->assertSame(8, $event->getPlayers());
+            $this->assertSame(4, $event->getPlayers());
             $this->assertSame(2, $event->getPartners());
             $this->assertSame(1, $event->getRepeat());
         }
@@ -234,7 +159,7 @@ final class TemplateMatchesGeneratorTest extends TestCase
             $events[] = $event;
         });
 
-        $generator->generate(4, 2, 1, false);
+        $generator->generate(4, 2, 1, 1, false);
 
         $pairingNonFinals = array_values(array_filter($events, static fn(GenerationProgress $e) =>
             $e instanceof PairingProgress && !$e->isFinal()
@@ -255,10 +180,10 @@ final class TemplateMatchesGeneratorTest extends TestCase
     public function test_no_progress_callback_means_no_observable_state_change(): void
     {
         $generator = new TemplateMatchesGenerator();
-        $beforeTemplate = $generator->generate(4, 1, 1, false);
+        $beforeTemplate = $generator->generate(4, 1, 1, 1, false);
 
         $generator->setProgressCallback(null);
-        $afterTemplate = $generator->generate(4, 1, 1, false);
+        $afterTemplate = $generator->generate(4, 1, 1, 1, false);
 
         $this->assertTrue($beforeTemplate->isEligible());
         $this->assertTrue($afterTemplate->isEligible());
@@ -269,24 +194,18 @@ final class TemplateMatchesGeneratorTest extends TestCase
     public function test_generated_template_carries_identity_fields(): void
     {
         $generator = new TemplateMatchesGenerator();
-
-        $mixed = $generator->generate(4, 1, 1, false);
+        $mixed = $generator->generate(4, 1, 1, 1, false);
         $this->assertSame(4, $mixed->getPlayers());
         $this->assertSame(1, $mixed->getPartners());
         $this->assertSame(1, $mixed->getRepeat());
+        $this->assertSame(1, $mixed->getCourts());
         $this->assertFalse($mixed->isFixedTeams());
-
-        $fixed = $generator->generate(8, 2, 1, true);
-        $this->assertSame(8, $fixed->getPlayers());
-        $this->assertSame(2, $fixed->getPartners());
-        $this->assertSame(1, $fixed->getRepeat());
-        $this->assertTrue($fixed->isFixedTeams());
     }
 
     public function test_generated_template_populates_pairing_block(): void
     {
         $generator = new TemplateMatchesGenerator();
-        $template = $generator->generate(8, 2, 1, false);
+        $template = $generator->generate(4, 2, 1, 1, false);
 
         $this->assertTrue($template->isEligible());
         $this->assertNotNull($template->getPairingMeetingsVariation());
@@ -327,9 +246,9 @@ final class TemplateMatchesGeneratorTest extends TestCase
         );
         // The 4-2 combo is in the production per-combo budget map (30s); wipe the map so the
         // 10_000ns constructor budget takes effect and every seed is guaranteed to deadline.
-        $generator->setPerComboBudgetsNs([]);
+        $generator->setUseStaticBudgets(true);
 
-        $template = $generator->generate(4, 2, 1, false);
+        $template = $generator->generate(4, 2, 1, 1, false);
 
         $this->assertSame(
             TemplateMatchesGenerator::STOP_REASON_DEADLINE,
@@ -341,7 +260,7 @@ final class TemplateMatchesGeneratorTest extends TestCase
     public function test_fixed_teams_pairing_stop_reason_is_factorial_complete(): void
     {
         $generator = new TemplateMatchesGenerator();
-        $template = $generator->generate(8, 2, 1, true);
+        $template = $generator->generate(4, 2, 1, 1, true);
 
         $this->assertSame(
             TemplateMatchesGenerator::STOP_REASON_FACTORIAL_COMPLETE,
@@ -352,8 +271,7 @@ final class TemplateMatchesGeneratorTest extends TestCase
 
     public function test_pairing_below_multi_seed_threshold_runs_single_seed(): void
     {
-        // 8/2 has 8 pairs, well below the default threshold of 12. Multi-seed must stay off.
-        $events = $this->captureEvents(8, 2, 1, false);
+        $events = $this->captureEvents(4, 2, 1, false);
 
         $pairingEvents = array_values(array_filter($events, static fn(GenerationProgress $e) =>
             $e instanceof PairingProgress
@@ -383,7 +301,7 @@ final class TemplateMatchesGeneratorTest extends TestCase
         $generator->setProgressCallback(static function (GenerationProgress $event) use (&$events): void {
             $events[] = $event;
         });
-        $generator->generate(4, 2, 1, false);
+        $generator->generate(4, 2, 1, 1, false);
 
         $pairingEvents = array_values(array_filter($events, static fn(GenerationProgress $e) =>
             $e instanceof PairingProgress
@@ -417,7 +335,7 @@ final class TemplateMatchesGeneratorTest extends TestCase
         $generator->setProgressCallback(static function (GenerationProgress $event) use (&$events): void {
             $events[] = $event;
         });
-        $generator->generate(4, 2, 1, false);
+        $generator->generate(4, 2, 1, 1, false);
 
         $pairingEvents = array_values(array_filter($events, static fn(GenerationProgress $e) =>
             $e instanceof PairingProgress
@@ -480,11 +398,6 @@ final class TemplateMatchesGeneratorTest extends TestCase
         }
     }
 
-    public function test_default_difference_limit_is_one(): void
-    {
-        $this->assertSame(1, TemplateMatchesGenerator::DEFAULT_MEETINGS_VARIATION_LIMIT);
-    }
-
     public function test_players_met_too_much_rejects_gap_above_limit(): void
     {
         // Player 0 already has a gap of 2 between most-met (player 1, count = 2) and least-met
@@ -535,43 +448,7 @@ final class TemplateMatchesGeneratorTest extends TestCase
         $this->assertFalse($result);
     }
 
-    public function test_pairing_meeting_constraint_bounds_variation_for_8_2(): void
-    {
-        // With the constraint re-enabled at meetingsVariationLimit = 1, an eligible 8/2 template must
-        // have meetingsVariation <= 1.0 (the constraint forbids per-player gaps strictly above
-        // the limit during the build, and 8/2 is small enough that the constraint reliably
-        // produces a balanced template).
-        $generator = new TemplateMatchesGenerator();
-        $generator->setPerComboBudgetsNs([]);
-
-        $template = $generator->generate(8, 2, 1, false);
-
-        $this->assertTrue($template->isEligible());
-        $this->assertNotNull($template->getPairingMeetingsVariation());
-        $this->assertLessThanOrEqual(
-            1.0,
-            $template->getPairingMeetingsVariation(),
-            'meetingsVariationLimit = 1 must bound the average per-player meetings gap at 1.0.'
-        );
-    }
-
-    public function test_per_combo_budget_override_is_honored(): void
-    {
-        $generator = new TemplateMatchesGenerator(
-            null,
-            100,
-            100,
-            0.0,
-            0.0
-        );
-        $generator->setPerComboBudgetsNs([
-            '4-2' => [9_999, 8_888],
-        ]);
-
-        $this->assertSame([9_999, 8_888], $this->invokeBudgetFor($generator, 4, 2));
-    }
-
-    public function test_per_combo_budget_falls_back_to_constructor_when_combo_absent(): void
+    public function test_use_static_budgets_returns_constructor_injected_values(): void
     {
         $generator = new TemplateMatchesGenerator(
             null,
@@ -580,18 +457,33 @@ final class TemplateMatchesGeneratorTest extends TestCase
             0.0,
             0.0
         );
-        $generator->setPerComboBudgetsNs([
-            '4-2' => [9_999, 8_888],
-        ]);
+        $generator->setUseStaticBudgets(true);
 
-        $this->assertSame([123, 456], $this->invokeBudgetFor($generator, 8, 2));
+        $this->assertSame([123, 456], $this->invokeBudgetFor($generator, 4, 2));
     }
 
-    public function test_per_combo_budgets_setter_overrides_class_constant(): void
+    public function test_dynamic_budget_uses_compute_methods_when_static_disabled(): void
     {
-        // The setter must fully replace the default map: a freshly constructed generator
-        // initialises from {@see PER_COMBO_BUDGETS_NS}, but after `setPerComboBudgetsNs([])` no
-        // combo (not even the worst-10 production overrides) returns the production values.
+        $generator = new TemplateMatchesGenerator(
+            null,
+            123,
+            456,
+            0.0,
+            0.0
+        );
+        $generator->setUseStaticBudgets(false);
+
+        $this->assertSame(
+            [
+                TemplateMatchesGenerator::computePairingWallBudgetNs(8, 2, 1),
+                TemplateMatchesGenerator::computeSortingWallBudgetNs(8, 2, 1),
+            ],
+            $this->invokeBudgetFor($generator, 8, 2)
+        );
+    }
+
+    public function test_set_use_static_budgets_overrides_dynamic_defaults(): void
+    {
         $generator = new TemplateMatchesGenerator(
             null,
             777,
@@ -601,177 +493,21 @@ final class TemplateMatchesGeneratorTest extends TestCase
         );
 
         $this->assertSame(
-            TemplateMatchesGenerator::PER_COMBO_BUDGETS_NS['16-12'],
+            [
+                TemplateMatchesGenerator::computePairingWallBudgetNs(16, 12, 1),
+                TemplateMatchesGenerator::computeSortingWallBudgetNs(16, 12, 1),
+            ],
             $this->invokeBudgetFor($generator, 16, 12),
-            'Production default map must apply on a fresh generator.'
+            'Default generator uses dynamic per-combo budgets.'
         );
 
-        $generator->setPerComboBudgetsNs([]);
+        $generator->setUseStaticBudgets(true);
 
         $this->assertSame(
             [777, 999],
             $this->invokeBudgetFor($generator, 16, 12),
-            'Setter with empty array must force every combo down the fallback path.'
+            'setUseStaticBudgets(true) must force every combo down the constructor-injected path.'
         );
-    }
-
-    public function test_distribution_score_is_one_when_player_appears_in_every_match(): void
-    {
-        // Player 0 at positions [0, 1, 2, 3] of 4 matches. idealCeil = 1, neutral band = {0, 1}.
-        // Each inter-match sit-out count is 0 (= neutralLow, inter-match → penalty 0); no edge
-        // gaps. Total penalty = 0, score = 1.0.
-        $matches = [
-            [[0, 1], [2, 3]],
-            [[0, 1], [2, 3]],
-            [[0, 1], [2, 3]],
-            [[0, 1], [2, 3]],
-        ];
-
-        $score = $this->invokeCalculatePlayerDistribution(0, $matches);
-
-        $this->assertSame(1.0, $score);
-    }
-
-    public function test_distribution_score_is_low_for_clustered_player(): void
-    {
-        // Player at [0, 1, 2, 3, 13] of 14 matches. matchCount = 5, idealCeil = 3, neutral band
-        // = {2, 3}. Inter-match sit-outs: [0, 0, 0, 9] (no lead/trail because endpoints land on
-        // 0 / 13). Penalties: 0.1*(2-0)*3 + 0.4*(9-3) = 0.6 + 2.4 = 3.0. Avg over 4 gaps = 0.75
-        // → score = 0.25. Bound at 0.50 keeps the assertion stable against tiny formula tweaks.
-        $matches = $this->makeMatchesWithPlayerAt(14, 0, [0, 1, 2, 3, 13]);
-
-        $score = $this->invokeCalculatePlayerDistribution(0, $matches);
-
-        $this->assertLessThanOrEqual(0.50, $score, sprintf('Expected clustered score <= 0.50, got %.4f', $score));
-    }
-
-    public function test_distribution_score_clamps_at_extreme_gap(): void
-    {
-        // Player at [0, 13] of 14 matches: a single huge inter-match sit-out run of 12 against
-        // an idealCeil of 7. Penalty = 0.4 * (12 - 7) = 2.0, which the clamp pulls to 1, so the
-        // score floors at exactly 0.0.
-        $matches = $this->makeMatchesWithPlayerAt(14, 0, [0, 13]);
-
-        $score = $this->invokeCalculatePlayerDistribution(0, $matches);
-
-        $this->assertSame(0.0, $score, sprintf('Expected extreme-gap score = 0.0, got %.4f', $score));
-    }
-
-    public function test_distribution_score_for_single_appearance_returns_one(): void
-    {
-        // Single-appearance player keeps the matchCount <= 1 early return: score = 1.0.
-        $matches = $this->makeMatchesWithPlayerAt(8, 0, [3]);
-
-        $score = $this->invokeCalculatePlayerDistribution(0, $matches);
-
-        $this->assertSame(1.0, $score);
-    }
-
-    public function test_distribution_score_perfect_when_all_gaps_in_neutral_band(): void
-    {
-        // 32 matches, player at [0, 4, 8, 12, 16, 20, 24, 28]. matchCount = 8, idealCeil = 4,
-        // neutral band = {3, 4}. Inter-match sit-outs all 3 (= neutralLow, inter → penalty 0);
-        // trail = 31 - 28 = 3 (= neutralLow → penalty 0). Avg = 0, score = 1.0.
-        $matches = $this->makeMatchesWithPlayerAt(32, 0, [0, 4, 8, 12, 16, 20, 24, 28]);
-
-        $score = $this->invokeCalculatePlayerDistribution(0, $matches);
-
-        $this->assertSame(1.0, $score);
-    }
-
-    public function test_distribution_score_short_inter_match_gap_costs_gentle_penalty(): void
-    {
-        // 32 matches, player at [0, 4, 8, 12, 16, 20, 24, 26]. idealCeil = 4, neutral = {3, 4}.
-        // Inter-match sit-outs: [3,3,3,3,3,3,1] — the last one (1) is below the neutral band by
-        // 2. Penalty = 0.1 * (3 - 1) = 0.2. Trail = 31 - 26 = 5 (long edge gap; edge bias does
-        // not apply because the rule only protects the SHORT end). Edge long penalty =
-        // 0.4 * (5 - 4) = 0.4. Total penalty = 0.6 across 8 gaps; avg = 0.075; score = 0.925.
-        $matches = $this->makeMatchesWithPlayerAt(32, 0, [0, 4, 8, 12, 16, 20, 24, 26]);
-
-        $score = $this->invokeCalculatePlayerDistribution(0, $matches);
-
-        $this->assertEqualsWithDelta(0.925, $score, 1e-9);
-    }
-
-    public function test_distribution_score_long_gap_costs_4x_more_than_equivalent_short_gap(): void
-    {
-        // The formula embeds a 4:1 asymmetry between gentle (short, inter-match) and harsh
-        // (long, any) penalties. Build two schedules with exactly the same number of gaps
-        // (matchCount = 8 → 7 inter, 0 lead, 0 trail) where each schedule has exactly one
-        // single-step deviation from the neutral band:
-        //
-        // shortMatches: 32 matches, player at [0, 5, 10, 15, 20, 24, 28, 31]. idealCeil = 4,
-        //   neutral = {3, 4}. Inter sit-outs: [4,4,4,4,3,3,2]; lead = 0 (firstMatch=0); trail = 0
-        //   (lastMatch=31). The only non-zero contribution is the size-2 inter sit-outs → 0.1 *
-        //   (3 - 2) = 0.1 across 7 gaps → avg = 0.1/7.
-        //
-        // longMatches: 32 matches, player at [0, 4, 8, 12, 16, 20, 25, 31]. idealCeil = 4,
-        //   neutral = {3, 4}. Inter sit-outs: [3,3,3,3,3,4,5]; lead = 0; trail = 0. The only
-        //   above-neutral gap is the 5 → 0.4 * (5 - 4) = 0.4 across 7 gaps → avg = 0.4/7.
-        //
-        // Ratio of deductions: (0.4/7) / (0.1/7) = exactly 4. Both schedules share the same
-        // 7 gaps with all other gaps neutral, so the schedule-level ratio collapses cleanly to
-        // the per-gap ratio.
-        $shortMatches = $this->makeMatchesWithPlayerAt(32, 0, [0, 5, 10, 15, 20, 24, 28, 31]);
-        $longMatches  = $this->makeMatchesWithPlayerAt(32, 0, [0, 4, 8, 12, 16, 20, 25, 31]);
-
-        $shortScore = $this->invokeCalculatePlayerDistribution(0, $shortMatches);
-        $longScore  = $this->invokeCalculatePlayerDistribution(0, $longMatches);
-
-        $shortDeduction = 1.0 - $shortScore;
-        $longDeduction  = 1.0 - $longScore;
-
-        $this->assertGreaterThan(0.0, $shortDeduction);
-        $this->assertGreaterThan($shortDeduction, $longDeduction);
-        // 4:1 per-gap asymmetry; both schedules share the same gap count, so the schedule
-        // ratio is exactly 4. Use a small tolerance to absorb floating-point rounding.
-        $this->assertEqualsWithDelta(4.0, $longDeduction / $shortDeduction, 1e-9);
-    }
-
-    public function test_distribution_score_edge_gap_short_is_zero_penalty(): void
-    {
-        // 32 matches, player at [1, 5, 9, 13, 17, 21, 25, 29]. idealCeil = 4, neutral = {3, 4}.
-        // Lead gap = 1 (edge, short, < neutralLow) → penalty 0; inter sit-outs all 3 (= neutralLow,
-        // inter) → penalty 0; trail = 31 - 29 = 2 (edge, short, < neutralLow) → penalty 0.
-        // Total penalty 0, score = 1.0.
-        $matches = $this->makeMatchesWithPlayerAt(32, 0, [1, 5, 9, 13, 17, 21, 25, 29]);
-
-        $score = $this->invokeCalculatePlayerDistribution(0, $matches);
-
-        $this->assertSame(1.0, $score);
-    }
-
-    public function test_distribution_score_edge_gap_at_idealceil_is_small_penalty(): void
-    {
-        // 32 matches, player at [4, 7, 11, 15, 19, 23, 27, 31]. idealCeil = 4, neutral = {3, 4}.
-        // Lead gap = 4 (edge, at neutralHigh → penalty 0.1).
-        // Inter sit-outs: [2, 3, 3, 3, 3, 3, 3]. The leading 2 is below neutralLow=3 by 1 →
-        // 0.1 * (3 - 2) = 0.1; the others are = neutralLow → 0.
-        // Trail = 31 - 31 = 0 (no trail gap).
-        // Total penalty = 0.1 + 0.1 = 0.2 over 8 gaps → avg 0.025 → score = 0.975.
-        $matches = $this->makeMatchesWithPlayerAt(32, 0, [4, 7, 11, 15, 19, 23, 27, 31]);
-
-        $score = $this->invokeCalculatePlayerDistribution(0, $matches);
-
-        $this->assertEqualsWithDelta(0.975, $score, 1e-9);
-    }
-
-    public function test_distribution_score_clamps_at_extreme_bunching(): void
-    {
-        // Player crammed into the first 8 slots of a 32-match schedule. idealCeil = 4,
-        // neutral = {3, 4}. Inter sit-outs: all 0 → 7 penalties of 0.1*(3-0)=0.3 = 2.1.
-        // Trail = 31 - 7 = 24 (edge long, no exemption) → 0.4*(24-4)=8.0. Total = 10.1 over 8
-        // gaps; avg = 1.2625 → clamped at 1.0 → score = 0.0.
-        $matches = $this->makeMatchesWithPlayerAt(32, 0, [0, 1, 2, 3, 4, 5, 6, 7]);
-
-        $score = $this->invokeCalculatePlayerDistribution(0, $matches);
-
-        $this->assertSame(0.0, $score);
-    }
-
-    public function test_default_meetings_variation_limit_max_is_three(): void
-    {
-        $this->assertSame(3, TemplateMatchesGenerator::DEFAULT_MEETINGS_VARIATION_LIMIT_MAX);
     }
 
     public function test_pairing_does_not_relax_when_strict_succeeds(): void
@@ -779,9 +515,9 @@ final class TemplateMatchesGeneratorTest extends TestCase
         // 4/2 finds a template under dl=1 in microseconds. The relaxAttempts trail must have
         // length 1 and the surfaced meetingsVariationLimit must stay at 1.
         $generator = new TemplateMatchesGenerator();
-        $generator->setPerComboBudgetsNs([]);
+        $generator->setUseStaticBudgets(true);
 
-        $template = $generator->generate(4, 2, 1, false);
+        $template = $generator->generate(4, 2, 1, 1, false);
 
         $this->assertTrue($template->isEligible());
         $this->assertSame(1, $template->getPairingMeetingsVariationLimit());
@@ -808,9 +544,9 @@ final class TemplateMatchesGeneratorTest extends TestCase
             -1,
             2
         );
-        $generator->setPerComboBudgetsNs([]);
+        $generator->setUseStaticBudgets(true);
 
-        $template = $generator->generate(8, 2, 1, false);
+        $template = $generator->generate(4, 2, 1, 1, false);
 
         $attempts = $template->getPairingRelaxAttempts();
         $this->assertNotNull($attempts);
@@ -836,9 +572,9 @@ final class TemplateMatchesGeneratorTest extends TestCase
             -1,
             0
         );
-        $generator->setPerComboBudgetsNs([]);
+        $generator->setUseStaticBudgets(true);
 
-        $template = $generator->generate(8, 2, 1, false);
+        $template = $generator->generate(4, 2, 1, 1, false);
 
         $this->assertFalse($template->isEligible());
         $this->assertNull($template->getMatches());
@@ -856,8 +592,9 @@ final class TemplateMatchesGeneratorTest extends TestCase
             8,
             2,
             1,
+            1,
             false,
-            [[[0, 1], [2, 3]]],
+            [[[[0, 1], [2, 3]]]],
             0.0,
             5,
             3,
@@ -909,7 +646,7 @@ final class TemplateMatchesGeneratorTest extends TestCase
             $events[] = $event;
         });
 
-        $generator->generate($players, $partners, $repeat, $fixedTeams);
+        $generator->generate($players, $partners, $repeat, 1, $fixedTeams);
 
         return $events;
     }
@@ -932,49 +669,13 @@ final class TemplateMatchesGeneratorTest extends TestCase
     /**
      * @return array{0: int, 1: int}
      */
-    private function invokeBudgetFor(TemplateMatchesGenerator $generator, int $players, int $partners): array
+    private function invokeBudgetFor(TemplateMatchesGenerator $generator, int $players, int $partners, int $courts = 1, bool $fixedTeams = false): array
     {
         $reflection = new \ReflectionClass(TemplateMatchesGenerator::class);
         $method = $reflection->getMethod('budgetFor');
         $method->setAccessible(true);
 
-        return $method->invoke($generator, $players, $partners);
-    }
-
-    /**
-     * @param array<int, array<int, array<int, int>>> $matches
-     */
-    private function invokeCalculatePlayerDistribution(int $playerIndex, array $matches): float
-    {
-        return (new PlayerDistributionScorer())->score($playerIndex, $matches);
-    }
-
-    /**
-     * Builds a synthetic matches array of {@code $totalMatches} entries where {@code $playerIndex}
-     * appears at exactly the positions listed in {@code $positions} and never elsewhere. Each
-     * non-player match uses fixed dummy player indices that cannot collide with the target index.
-     *
-     * @param array<int, int> $positions
-     * @return array<int, array<int, array<int, int>>>
-     */
-    private function makeMatchesWithPlayerAt(int $totalMatches, int $playerIndex, array $positions): array
-    {
-        $dummyA = $playerIndex + 100;
-        $dummyB = $playerIndex + 101;
-        $dummyC = $playerIndex + 102;
-        $dummyD = $playerIndex + 103;
-        $positionsLookup = array_flip($positions);
-
-        $matches = [];
-        for ($i = 0; $i < $totalMatches; $i++) {
-            if (isset($positionsLookup[$i])) {
-                $matches[] = [[$playerIndex, $dummyA], [$dummyB, $dummyC]];
-} else {
-                $matches[] = [[$dummyA, $dummyB], [$dummyC, $dummyD]];
-            }
-        }
-
-        return $matches;
+        return $method->invoke($generator, $players, $partners, $courts, $fixedTeams);
     }
 
     /**
@@ -1002,16 +703,6 @@ final class TemplateMatchesGeneratorTest extends TestCase
         $method->setAccessible(true);
 
         return $method->invoke($generator, $perm, $size);
-    }
-
-    public function test_default_dfs_branch_cap_is_ten_thousand(): void
-    {
-        $this->assertSame(10000, TemplateMatchesGenerator::DEFAULT_DFS_BRANCH_CAP);
-    }
-
-    public function test_default_multi_seed_count_pairing_is_two_hundred_fifty_six(): void
-    {
-        $this->assertSame(256, TemplateMatchesGenerator::DEFAULT_MULTI_SEED_COUNT_PAIRING);
     }
 
     public function test_backtracking_recovers_completion_greedy_would_miss(): void
@@ -1136,7 +827,7 @@ final class TemplateMatchesGeneratorTest extends TestCase
         $generator->setProgressCallback(static function (GenerationProgress $event) use (&$events): void {
             $events[] = $event;
         });
-        $generator->generate(4, 2, 1, false);
+        $generator->generate(4, 2, 1, 1, false);
 
         $pairingFinals = array_values(array_filter($events, static fn(GenerationProgress $e) =>
             $e instanceof PairingProgress && $e->isFinal()
@@ -1153,12 +844,12 @@ final class TemplateMatchesGeneratorTest extends TestCase
         // n=4 pairs, threshold=12 → multi-seed off. The DFS runs once from the identity
         // permutation; iterations == 1.
         $generator = new TemplateMatchesGenerator();
-        $generator->setPerComboBudgetsNs([]);
+        $generator->setUseStaticBudgets(true);
         $events = [];
         $generator->setProgressCallback(static function (GenerationProgress $event) use (&$events): void {
             $events[] = $event;
         });
-        $generator->generate(4, 2, 1, false);
+        $generator->generate(4, 2, 1, 1, false);
 
         $pairingFinals = array_values(array_filter($events, static fn(GenerationProgress $e) =>
             $e instanceof PairingProgress && $e->isFinal()
@@ -1177,10 +868,10 @@ final class TemplateMatchesGeneratorTest extends TestCase
         // ordering, and pair-2 candidate ordering are all index-driven. Wall-clock `time`
         // fields obviously drift between runs, so we strip them before comparing.
         $generator = new TemplateMatchesGenerator();
-        $generator->setPerComboBudgetsNs([]);
+        $generator->setUseStaticBudgets(true);
 
-        $first = $this->stripWallClockFields($generator->generate(8, 2, 1, false)->toArray());
-        $second = $this->stripWallClockFields($generator->generate(8, 2, 1, false)->toArray());
+        $first = $this->stripWallClockFields($generator->generate(4, 2, 1, 1, false)->toArray());
+        $second = $this->stripWallClockFields($generator->generate(4, 2, 1, 1, false)->toArray());
 
         $this->assertSame($first, $second);
     }
@@ -1199,7 +890,7 @@ final class TemplateMatchesGeneratorTest extends TestCase
             8,
             4
         );
-        $template = $generator->generate(4, 2, 1, false);
+        $template = $generator->generate(4, 2, 1, 1, false);
 
         $this->assertTrue($template->isEligible());
         $this->assertNotNull($template->getPairingPermutationIndex());

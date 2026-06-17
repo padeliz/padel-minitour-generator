@@ -3,8 +3,11 @@
 namespace Tests\Unit;
 
 use Arshavinel\PadelMiniTour\Service\PlayerDistributionScorer;
+use Arshavinel\PadelMiniTour\Service\Progress\OrderingProgress;
 use Arshavinel\PadelMiniTour\Service\Progress\ProgressReporter;
+use Arshavinel\PadelMiniTour\Service\TemplateMatches;
 use Arshavinel\PadelMiniTour\Service\TemplateMatchesGenerator;
+use Arshavinel\PadelMiniTour\Service\TemplateMatchesRepository;
 use PHPUnit\Framework\TestCase;
 
 require_once __DIR__ . '/../../vendor/autoload.php';
@@ -36,7 +39,7 @@ final class TemplateMatchesGeneratorSortMatchesTest extends TestCase
 
         $result = $this->invokeSortMatches($generator, $matches, [0, 1, 2, 3]);
 
-        $this->assertSame($matches, $result['ordered']);
+        $this->assertNull($result['ordered']);
         $this->assertSame(TemplateMatchesGenerator::STOP_REASON_DEADLINE, $result['stopReason']);
         $this->assertNull($result['min']);
         $this->assertNull($result['avg']);
@@ -97,29 +100,6 @@ final class TemplateMatchesGeneratorSortMatchesTest extends TestCase
         $this->assertSame(TemplateMatchesGenerator::STOP_REASON_FACTORIAL_COMPLETE, $result['stopReason']);
     }
 
-    public function test_lex_scan_is_deterministic_for_six_matches(): void
-    {
-        $matches = $this->makeSyntheticMatchesSix();
-        $mockPlayers = range(0, 5);
-
-        $first = $this->invokeSortMatches(
-            $this->makeGenerator(60_000_000_000),
-            $matches,
-            $mockPlayers
-        );
-        $second = $this->invokeSortMatches(
-            $this->makeGenerator(60_000_000_000),
-            $matches,
-            $mockPlayers
-        );
-
-        $this->assertSame($first['ordered'], $second['ordered']);
-        $this->assertSame($first['stopReason'], $second['stopReason']);
-        $this->assertSame($first['min'], $second['min']);
-        $this->assertSame($first['avg'], $second['avg']);
-        $this->assertSame(TemplateMatchesGenerator::STOP_REASON_FACTORIAL_COMPLETE, $first['stopReason']);
-    }
-
     public function test_lex_scan_does_not_worsen_minimum_distribution_vs_identity(): void
     {
         $generator = $this->makeGenerator(60_000_000_000);
@@ -127,7 +107,7 @@ final class TemplateMatchesGeneratorSortMatchesTest extends TestCase
         $matches = $this->makeSyntheticMatchesSix();
         $mockPlayers = range(0, 5);
 
-        $identityScores = $this->invokeScore($matches, $mockPlayers);
+        $identityScores = $this->invokeScore($this->wrapSingleCourt($matches), $mockPlayers);
         $result = $this->invokeSortMatches($generator, $matches, $mockPlayers);
         $optimizedScores = $this->invokeScore($result['ordered'], $mockPlayers);
 
@@ -139,14 +119,13 @@ final class TemplateMatchesGeneratorSortMatchesTest extends TestCase
         $generator = $this->makeGenerator(1_000_000_000);
 
         $resultEmpty = $this->invokeSortMatches($generator, [], []);
-        $this->assertSame([], $resultEmpty['ordered']);
-        $this->assertSame(TemplateMatchesGenerator::STOP_REASON_TRIVIAL, $resultEmpty['stopReason']);
+        $this->assertSame([[]], $resultEmpty['ordered']);
         $this->assertNull($resultEmpty['minBreak']);
         $this->assertNull($resultEmpty['maxBreak']);
 
         $single = [[[0, 1], [2, 3]]];
         $resultSingle = $this->invokeSortMatches($generator, $single, [0, 1, 2, 3]);
-        $this->assertSame($single, $resultSingle['ordered']);
+        $this->assertSame($this->wrapSingleCourt($single), $resultSingle['ordered']);
         $this->assertSame(TemplateMatchesGenerator::STOP_REASON_TRIVIAL, $resultSingle['stopReason']);
     }
 
@@ -192,7 +171,7 @@ final class TemplateMatchesGeneratorSortMatchesTest extends TestCase
         $result = $this->invokeSortMatches($generator, $matches, $mockPlayers);
 
         $this->assertSame(TemplateMatchesGenerator::STOP_REASON_PRUNE_INFEASIBLE, $result['stopReason']);
-        $this->assertSame($matches, $result['ordered']);
+        $this->assertNull($result['ordered']);
         $this->assertSame(0, $result['permutationsIterated'], 'No leaf must be reached when every branch is pruned.');
         $this->assertNull($result['minBreak']);
         $this->assertNull($result['maxBreak']);
@@ -406,6 +385,289 @@ final class TemplateMatchesGeneratorSortMatchesTest extends TestCase
         $this->assertSame(24, $result['permutationsIterated'], 'Every leaf must be visited when there is no deadline and no infeasible prune.');
     }
 
+    public function test_sort_matches_emits_interim_ordering_during_exploration_before_deadline(): void
+    {
+        $now = 0;
+        $tickNs = 300_000_000;
+        $generator = new TemplateMatchesGenerator(
+            static function () use (&$now, $tickNs): int {
+                return ($now += $tickNs);
+            },
+            TemplateMatchesGenerator::DEFAULT_OUTER_WALL_BUDGET_NS,
+            2_000_000_000,
+            TemplateMatchesGenerator::DEFAULT_MULTI_SEED_COUNT_PAIRING,
+            TemplateMatchesGenerator::DEFAULT_MULTI_SEED_THRESHOLD_PAIRS,
+            TemplateMatchesGenerator::DEFAULT_MEETINGS_VARIATION_LIMIT,
+            PHP_INT_MAX
+        );
+        $generator->setUseStaticBudgets(true);
+
+        $events = [];
+        $reporter = new ProgressReporter(
+            static function ($event) use (&$events): void {
+                $events[] = $event;
+            },
+            250_000_000,
+            8,
+            2,
+            1,
+            false,
+            0
+        );
+        $reporter->setPhaseStart(0);
+
+        $result = $this->invokeSortMatches(
+            $generator,
+            $this->makeSyntheticMatchesSix(),
+            range(0, 5),
+            $reporter
+        );
+
+        $interimOrdering = array_values(array_filter(
+            $events,
+            static fn ($event) => $event instanceof OrderingProgress && !$event->isFinal()
+        ));
+        $finalOrdering = array_values(array_filter(
+            $events,
+            static fn ($event) => $event instanceof OrderingProgress && $event->isFinal()
+        ));
+
+        $this->assertGreaterThanOrEqual(2, count($interimOrdering), 'DFS exploration must emit throttled interim ordering ticks before the final event.');
+        $this->assertCount(1, $finalOrdering);
+        $this->assertSame(TemplateMatchesGenerator::STOP_REASON_DEADLINE, $finalOrdering[0]->getStopReason());
+        $this->assertGreaterThan(
+            $interimOrdering[0]->getElapsedNs(),
+            $interimOrdering[count($interimOrdering) - 1]->getElapsedNs(),
+            'Interim ordering elapsed time must advance across ticks.'
+        );
+    }
+
+    public function test_sort_matches_interim_ordering_reflects_post_merge_best_state_on_leaf(): void
+    {
+        $generator = $this->makeGenerator(60_000_000_000, PHP_INT_MAX);
+
+        $events = [];
+        $reporter = new ProgressReporter(
+            static function ($event) use (&$events): void {
+                $events[] = $event;
+            },
+            0,
+            4,
+            1,
+            1,
+            false,
+            0
+        );
+        $reporter->setPhaseStart(0);
+
+        $matches = [
+            [[0, 1], [2, 3]],
+            [[0, 2], [1, 3]],
+            [[0, 3], [1, 2]],
+        ];
+
+        $result = $this->invokeSortMatches($generator, $matches, [0, 1, 2, 3], $reporter);
+
+        $leafInterim = null;
+        foreach ($events as $event) {
+            if (!$event instanceof OrderingProgress || $event->isFinal()) {
+                continue;
+            }
+            if ($event->getBestMin() !== null) {
+                $leafInterim = $event;
+            }
+        }
+
+        $this->assertNotNull($leafInterim, 'A completed leaf must emit an interim ordering tick with scored metrics.');
+        $this->assertSame($result['min'], $leafInterim->getBestMin());
+        $this->assertSame($result['avg'], $leafInterim->getBestAvg());
+        $this->assertSame($result['permutationIndex'], $leafInterim->getBestPermutationIndex());
+        $this->assertSame($result['minBreak'], $leafInterim->getBestMinBreak());
+        $this->assertSame($result['maxBreak'], $leafInterim->getBestMaxBreak());
+        $this->assertSame($result['courtSwitches'], $leafInterim->getBestCourtSwitches());
+    }
+
+    public function test_sort_matches_reports_nodes_explored_and_seed_metadata(): void
+    {
+        $generator = $this->makeGenerator(60_000_000_000, PHP_INT_MAX);
+
+        $result = $this->invokeSortMatches(
+            $generator,
+            [
+                [[0, 1], [2, 3]],
+                [[0, 2], [1, 3]],
+                [[0, 3], [1, 2]],
+            ],
+            [0, 1, 2, 3]
+        );
+
+        $this->assertArrayHasKey('nodesExplored', $result);
+        $this->assertGreaterThan(0, $result['nodesExplored']);
+        $this->assertSame(1, $result['seedsTotal']);
+        $this->assertSame(1, $result['seedIndex']);
+    }
+
+    public function test_sort_matches_uses_multi_seed_when_courts_are_two(): void
+    {
+        $generator = $this->makeGenerator(60_000_000_000, PHP_INT_MAX, 4);
+        $reflection = new \ReflectionClass(TemplateMatchesGenerator::class);
+        $activeCourts = $reflection->getProperty('activeCourts');
+        $activeCourts->setAccessible(true);
+        $activeCourts->setValue($generator, 2);
+
+        $result = $this->invokeSortMatches(
+            $generator,
+            [
+                [[0, 1], [2, 3]],
+                [[0, 2], [1, 3]],
+                [[0, 3], [1, 2]],
+                [[4, 5], [6, 7]],
+            ],
+            range(0, 7)
+        );
+
+        $this->assertSame(4, $result['seedsTotal']);
+        $this->assertGreaterThan(0, $result['nodesExplored']);
+    }
+
+    public function test_sort_matches_stays_single_seed_for_small_combo(): void
+    {
+        $generator = $this->makeGenerator(60_000_000_000, PHP_INT_MAX, 256);
+
+        $result = $this->invokeSortMatches(
+            $generator,
+            [
+                [[0, 1], [2, 3]],
+                [[0, 2], [1, 3]],
+                [[0, 3], [1, 2]],
+            ],
+            [0, 1, 2, 3]
+        );
+
+        $this->assertSame(1, $result['seedsTotal']);
+        $this->assertSame(1, $result['seedIndex']);
+    }
+
+    public function test_sort_nodes_explored_respects_branch_cap_per_seed(): void
+    {
+        $generator = $this->makeGenerator(
+            60_000_000_000,
+            PHP_INT_MAX,
+            1,
+            5
+        );
+
+        $result = $this->invokeSortMatches(
+            $generator,
+            $this->makeSyntheticMatchesSix(),
+            range(0, 5)
+        );
+
+        $this->assertLessThanOrEqual(5, $result['nodesExplored']);
+    }
+
+    public function test_sort_matches_multi_court_output_passes_round_schedule_validation(): void
+    {
+        $generator = $this->makeGenerator(60_000_000_000, PHP_INT_MAX, 4);
+        $reflection = new \ReflectionClass(TemplateMatchesGenerator::class);
+        $activeCourts = $reflection->getProperty('activeCourts');
+        $activeCourts->setAccessible(true);
+        $activeCourts->setValue($generator, 2);
+
+        $matches = [
+            [[0, 1], [2, 3]],
+            [[4, 5], [6, 7]],
+            [[0, 2], [1, 3]],
+            [[4, 6], [5, 7]],
+            [[0, 3], [2, 4]],
+            [[1, 5], [6, 7]],
+            [[0, 4], [1, 5]],
+            [[2, 6], [3, 7]],
+        ];
+
+        $result = $this->invokeSortMatches($generator, $matches, range(0, 7));
+
+        $this->assertNotNull($result['ordered']);
+        $this->assertTrue(TemplateMatches::hasValidRoundSchedule($result['ordered']));
+        $this->assertSame(TemplateMatchesGenerator::STOP_REASON_FACTORIAL_COMPLETE, $result['stopReason']);
+    }
+
+    public function test_sort_matches_multi_court_zero_budget_returns_deadline_without_pairing(): void
+    {
+        $generator = new TemplateMatchesGenerator(
+            static function (): int {
+                return 0;
+            },
+            TemplateMatchesGenerator::DEFAULT_OUTER_WALL_BUDGET_NS,
+            0
+        );
+        $reflection = new \ReflectionClass(TemplateMatchesGenerator::class);
+        $activeCourts = $reflection->getProperty('activeCourts');
+        $activeCourts->setAccessible(true);
+        $activeCourts->setValue($generator, 2);
+
+        $result = $this->invokeSortMatches(
+            $generator,
+            [
+                [[0, 1], [2, 3]],
+                [[4, 5], [6, 7]],
+            ],
+            range(0, 7)
+        );
+
+        $this->assertNull($result['ordered']);
+        $this->assertSame(TemplateMatchesGenerator::STOP_REASON_DEADLINE, $result['stopReason']);
+    }
+
+    public function test_sort_dfs_records_zero_inner_break_on_back_to_back_rounds(): void
+    {
+        // Player 1 plays rounds 0-1 consecutively (inner run 0) but also has a longer inner gap
+        // later in the schedule. Under the asymmetric contract the back-to-back stretch must pin
+        // perPlayerMin[1] = 0 and therefore aggregate minBreak = 0.
+        $generator = $this->makeGenerator(60_000_000_000, PHP_INT_MAX, 1);
+        $reflection = new \ReflectionClass(TemplateMatchesGenerator::class);
+        $activeCourts = $reflection->getProperty('activeCourts');
+        $activeCourts->setAccessible(true);
+        $activeCourts->setValue($generator, 2);
+
+        $matches = [
+            [[1, 2], [3, 4]],
+            [[5, 6], [7, 0]],
+            [[1, 3], [2, 4]],
+            [[5, 7], [6, 0]],
+            [[1, 4], [2, 5]],
+            [[3, 6], [7, 0]],
+            [[1, 5], [2, 6]],
+            [[3, 7], [4, 0]],
+        ];
+
+        $result = $this->invokeSortMatches($generator, $matches, range(0, 7));
+
+        $this->assertNotNull($result['ordered']);
+        $this->assertSame(0, $result['minBreak']);
+        $metrics = $this->computeBreakMetricsFromRoundSchedule($result['ordered'], range(0, 7));
+        $this->assertSame(0, $metrics['minBreak']);
+        $this->assertSame($result['minBreak'], $metrics['minBreak']);
+        $this->assertSame($result['maxBreak'], $metrics['maxBreak']);
+    }
+
+    public function test_twelve_eight_courts_two_committed_schedule_has_min_break_zero(): void
+    {
+        $repo = new TemplateMatchesRepository();
+        $path = $repo->path(5, 12, 8, 1, 2, false);
+        if (!is_file($path)) {
+            $this->markTestSkipped('v5 12/8/courts=2 template not present on disk.');
+        }
+
+        $template = $repo->findAt(5, 12, 8, 1, 2, false);
+        $metrics = $this->computeBreakMetricsFromRoundSchedule(
+            $template->getMatches(),
+            range(0, 11)
+        );
+
+        $this->assertSame(0, $metrics['minBreak']);
+    }
+
     /**
      * Builds a generator with the standard outer wall budget and a caller-supplied sort budget.
      * The sort DFS always runs to factorial completion or deadline.
@@ -415,8 +677,12 @@ final class TemplateMatchesGeneratorSortMatchesTest extends TestCase
      * meaningful for synthetic inputs that don't satisfy `ceil(playersCount / 4)`. Default
      * `-1` keeps the production behaviour (derive threshold from playersCount at runtime).
      */
-    private function makeGenerator(int $sortBudgetNs, int $maxBreakThreshold = -1): TemplateMatchesGenerator
-    {
+    private function makeGenerator(
+        int $sortBudgetNs,
+        int $maxBreakThreshold = -1,
+        int $multiSeedCountSort = TemplateMatchesGenerator::DEFAULT_MULTI_SEED_COUNT_SORT,
+        int $dfsBranchCap = TemplateMatchesGenerator::DEFAULT_DFS_BRANCH_CAP
+    ): TemplateMatchesGenerator {
         return new TemplateMatchesGenerator(
             static function (): int {
                 return 0;
@@ -426,7 +692,10 @@ final class TemplateMatchesGeneratorSortMatchesTest extends TestCase
             TemplateMatchesGenerator::DEFAULT_MULTI_SEED_COUNT_PAIRING,
             TemplateMatchesGenerator::DEFAULT_MULTI_SEED_THRESHOLD_PAIRS,
             TemplateMatchesGenerator::DEFAULT_MEETINGS_VARIATION_LIMIT,
-            $maxBreakThreshold
+            $maxBreakThreshold,
+            TemplateMatchesGenerator::DEFAULT_MEETINGS_VARIATION_LIMIT_MAX,
+            $dfsBranchCap,
+            $multiSeedCountSort
         );
     }
 
@@ -435,27 +704,46 @@ final class TemplateMatchesGeneratorSortMatchesTest extends TestCase
      * @param array<int, int>                         $mockPlayers
      * @return array{ordered: array, stopReason: string, min: float|null, avg: float|null}
      */
-    private function invokeSortMatches(TemplateMatchesGenerator $generator, array $matches, array $mockPlayers): array
-    {
+    private function invokeSortMatches(
+        TemplateMatchesGenerator $generator,
+        array $matches,
+        array $mockPlayers,
+        ?ProgressReporter $reporter = null
+    ): array {
         $reflection = new \ReflectionClass(TemplateMatchesGenerator::class);
         $method = $reflection->getMethod('sortMatches');
         $method->setAccessible(true);
 
-        $reporter = ProgressReporter::noop(0, 0, 0, false);
+        $activeCourts = $reflection->getProperty('activeCourts');
+        $activeCourts->setAccessible(true);
+        if ($activeCourts->getValue($generator) < 1) {
+            $activeCourts->setValue($generator, 1);
+        }
+
+        $reporter ??= ProgressReporter::noop(0, 0, 0, false);
 
         return $method->invoke($generator, $matches, $mockPlayers, $reporter);
     }
 
     /**
-     * @param array<int, array<int, array<int, int>>> $matches
+     * @param array<int, array<int, array<int, int>>> $flatMatches
+     * @return array<int, array<int, array<int, array<int, int>>>>
+     */
+    private function wrapSingleCourt(array $flatMatches): array
+    {
+        return [$flatMatches];
+    }
+
+    /**
+     * @param array<int, array<int, array<int, array<int, int>>>> $matchesByCourt
      * @param array<int, int>                         $mockPlayers
      * @return array{min: float, avg: float}
      */
-    private function invokeScore(array $matches, array $mockPlayers): array
+    private function invokeScore(array $matchesByCourt, array $mockPlayers): array
     {
         // The generator delegates to PlayerDistributionScorer; calling the scorer directly avoids
         // reflection on a now-trivial private method without changing the asserted values.
-        $aggregate = (new PlayerDistributionScorer())->scoreAll($mockPlayers, $matches);
+        $aggregate = (new PlayerDistributionScorer())->scoreAll($mockPlayers, $matchesByCourt);
 
         return ['min' => $aggregate['min'], 'avg' => $aggregate['avg']];
     }
@@ -512,7 +800,7 @@ final class TemplateMatchesGeneratorSortMatchesTest extends TestCase
                 $ordered[] = $matches[$i];
             }
 
-            $aggregate = $scorer->scoreAll($mockPlayers, $ordered);
+            $aggregate = $scorer->scoreAll($mockPlayers, [$ordered]);
             $min = $aggregate['min'];
             $avg = $aggregate['avg'];
 
@@ -523,7 +811,7 @@ final class TemplateMatchesGeneratorSortMatchesTest extends TestCase
             }
         } while (($perm = $next->invoke($generator, $perm, $size)) !== false && $perm !== $permCopy);
 
-        return $bestOrdered;
+        return [$bestOrdered];
     }
 
     /**
@@ -575,7 +863,7 @@ final class TemplateMatchesGeneratorSortMatchesTest extends TestCase
                 $ordered[] = $matches[$i];
             }
 
-            $aggregate = $scorer->scoreAll($mockPlayers, $ordered);
+            $aggregate = $scorer->scoreAll($mockPlayers, [$ordered]);
             $min = $aggregate['min'];
             $avg = $aggregate['avg'];
 
@@ -643,13 +931,78 @@ final class TemplateMatchesGeneratorSortMatchesTest extends TestCase
         } while (($perm = $next->invoke($generator, $perm, $size)) !== false && $perm !== $permCopy);
 
         return [
-            'ordered' => $bestOrdered,
+            'ordered' => [$bestOrdered],
             'min' => $bestMin,
             'avg' => $bestAvg,
             'minBreak' => $bestMinBreak,
             'maxBreak' => $bestMaxBreak,
             'breakDistance' => $bestBreakDistance,
             'leaves' => $leaves,
+        ];
+    }
+
+    /**
+     * Round-aware break metrics reference for per-court schedules (multi-court DFS output).
+     *
+     * @param array<int, array<int, array<int, array<int, int>>>> $matchesByCourt
+     * @param array<int, int>                                     $mockPlayers
+     * @return array{minBreak: int, maxBreak: int}
+     */
+    private function computeBreakMetricsFromRoundSchedule(array $matchesByCourt, array $mockPlayers): array
+    {
+        $roundsTotal = 0;
+        foreach ($matchesByCourt as $courtRounds) {
+            $roundsTotal = max($roundsTotal, count($courtRounds));
+        }
+
+        $perPlayerMin = [];
+        $perPlayerMax = [];
+        foreach ($mockPlayers as $p) {
+            $currentRun = 0;
+            $longest = 0;
+            $hasPlayed = false;
+            $innerRuns = [];
+            for ($r = 0; $r < $roundsTotal; $r++) {
+                $playsThisRound = false;
+                foreach ($matchesByCourt as $courtRounds) {
+                    if (!isset($courtRounds[$r])) {
+                        continue;
+                    }
+                    $match = $courtRounds[$r];
+                    $seats = [
+                        (int) $match[0][0],
+                        (int) $match[0][1],
+                        (int) $match[1][0],
+                        (int) $match[1][1],
+                    ];
+                    if (in_array((int) $p, $seats, true)) {
+                        $playsThisRound = true;
+                        break;
+                    }
+                }
+                if ($playsThisRound) {
+                    if ($hasPlayed) {
+                        $innerRuns[] = $currentRun;
+                    }
+                    if ($currentRun > $longest) {
+                        $longest = $currentRun;
+                    }
+                    $hasPlayed = true;
+                    $currentRun = 0;
+                } else {
+                    $currentRun++;
+                }
+            }
+            if ($currentRun > $longest) {
+                $longest = $currentRun;
+            }
+            $perPlayerMin[] = $innerRuns === [] ? 0 : min($innerRuns);
+            $perPlayerMax[] = $longest;
+        }
+
+        return [
+            'minBreak' => min($perPlayerMin),
+            'maxBreak' => max($perPlayerMax),
         ];
     }
 }

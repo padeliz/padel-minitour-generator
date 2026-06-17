@@ -282,4 +282,87 @@ $(document).ready(function () {
 
     // Initialize sortable when document is ready
     initializeSortable();
+
+    // Dynamic court names (max 4, unique)
+    const MAX_COURTS = 4;
+    const $courtNamesContainer = $('#court-names-container');
+    const $addCourtBtn = $('#add-court-btn');
+    const $courtNamesError = $('#court-names-error');
+    const $divisionForm = $courtNamesContainer.closest('form');
+
+    function courtCount() {
+        return $courtNamesContainer.find('.court-name-row').length;
+    }
+
+    function updateCourtButtons() {
+        const count = courtCount();
+        $addCourtBtn.prop('disabled', count >= MAX_COURTS);
+        $courtNamesContainer.find('.remove-court-btn').prop('disabled', count <= 1);
+    }
+
+    function validateCourtNames() {
+        const names = [];
+        let hasEmpty = false;
+        $courtNamesContainer.find('.court-name-input').each(function() {
+            const trimmed = $(this).val().trim();
+            if (trimmed === '') {
+                hasEmpty = true;
+            } else {
+                names.push(trimmed.toLowerCase());
+            }
+        });
+
+        if (hasEmpty) {
+            $courtNamesError.removeClass('d-none').text('Each court needs a name.');
+            return false;
+        }
+
+        if (names.length !== new Set(names).size) {
+            $courtNamesError.removeClass('d-none').text('Court names must be unique.');
+            return false;
+        }
+
+        $courtNamesError.addClass('d-none').text('');
+        return true;
+    }
+
+    function addCourtRow(name) {
+        const $row = $(`
+            <div class="court-name-row input-group mb-1">
+                <input type="text" class="form-control court-name-input" name="court-names[]" value="${name}" required>
+                <button type="button" class="btn btn-outline-danger remove-court-btn" title="Remove court">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        `);
+        $courtNamesContainer.append($row);
+        updateCourtButtons();
+    }
+
+    $addCourtBtn.on('click', function() {
+        if (courtCount() >= MAX_COURTS) {
+            return;
+        }
+        addCourtRow('Court ' + (courtCount() + 1));
+        validateCourtNames();
+    });
+
+    $courtNamesContainer.on('click', '.remove-court-btn', function() {
+        if (courtCount() <= 1) {
+            return;
+        }
+        $(this).closest('.court-name-row').remove();
+        updateCourtButtons();
+        validateCourtNames();
+    });
+
+    $courtNamesContainer.on('input', '.court-name-input', validateCourtNames);
+
+    $divisionForm.on('submit', function(e) {
+        if (!validateCourtNames()) {
+            e.preventDefault();
+        }
+    });
+
+    updateCourtButtons();
 });

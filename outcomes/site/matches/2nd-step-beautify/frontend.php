@@ -46,7 +46,7 @@
                             <?php
                             if (!empty($_GET['include-scores'])) { ?>
                                 <b style="font-size: 24px;">
-                                    <?= $_GET['court'] ?>
+                                    <?= htmlspecialchars($courtName) ?>
                                     •
                                     <?= $pointsPerMatch + (int)($_GET['adjust-points-per-match'] ?? 0) ?> points per match
                                 </b>
@@ -66,13 +66,14 @@
                     <img height="180px" src="<?= Arshwell\Monolith\Web::site() . 'statics/media/MiniTour-prints/MiniTour-step-stretching.jpg' ?>" />
                     <br>
                     <span style="font-size: 18px;">
-                        <?= date('H:i', strtotime($_GET['matches'][0][2] . ' -15 minutes')) ?>
+                        <?= date('H:i', strtotime($matches[0][2] . ' -15 minutes')) ?>
                         - we start with stretching
                     </span>
                 <?php } ?>
 
                 <?php
-                foreach ($_GET['matches'] as $m => $match) {
+                /** @var array<int, array<int, array<int, int>>> $matches */
+                foreach ($matches as $m => $match) {
                     $pdfPlayer1 = new Arshavinel\PadelMiniTour\DTO\PdfPlayer($match[0][0], in_array($match[0][0], $_GET['players-collecting-points']));
                     $pdfPlayer2 = new Arshavinel\PadelMiniTour\DTO\PdfPlayer($match[0][1], in_array($match[0][1], $_GET['players-collecting-points']));
                     $pdfPlayer3 = new Arshavinel\PadelMiniTour\DTO\PdfPlayer($match[1][0], in_array($match[1][0], $_GET['players-collecting-points']));
@@ -110,6 +111,7 @@
                             <?php } else { ?>
                                 <td style="width: 22%;">
                                     <!-- timestamp -->
+                                    <?php /** @var array<int, int> $match */ ?>
                                     <span style="font-size: 30px;"><?= $match[2] ?></span>
                                 </td>
                             <?php } ?>

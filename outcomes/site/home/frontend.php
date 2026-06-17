@@ -62,10 +62,21 @@
                     </div>
 
                     <div class="col-md-3 mb-3">
-                        <!-- court -->
+                        <!-- courts -->
                         <div class="padding-0-1st">
-                            <label for="court" class="form-label">Court</label>
-                            <input type="text" class="form-control" name="court" id="court" placeholder="e.g: Court 1, etc." required>
+                            <label class="form-label">Courts</label>
+                            <div id="court-names-container">
+                                <div class="court-name-row input-group mb-1">
+                                    <input type="text" class="form-control court-name-input" name="court-names[]" value="Court 1" required>
+                                    <button type="button" class="btn btn-outline-danger remove-court-btn" disabled title="Remove court">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="add-court-btn">
+                                <i class="fas fa-plus"></i> Add court
+                            </button>
+                            <div id="court-names-error" class="form-text text-danger d-none"></div>
                         </div>
                     </div>
 

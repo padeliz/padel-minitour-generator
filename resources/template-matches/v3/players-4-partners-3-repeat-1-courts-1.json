@@ -1,0 +1,104 @@
+{
+    "players": 4,
+    "partners": 3,
+    "repeat": 1,
+    "courts": 1,
+    "fixedTeams": false,
+    "matches": [
+        [
+            [
+                [
+                    0,
+                    3
+                ],
+                [
+                    1,
+                    2
+                ]
+            ],
+            [
+                [
+                    0,
+                    2
+                ],
+                [
+                    1,
+                    3
+                ]
+            ],
+            [
+                [
+                    0,
+                    1
+                ],
+                [
+                    2,
+                    3
+                ]
+            ]
+        ]
+    ],
+    "pairing": {
+        "meetingsVariation": 0,
+        "permutationsIterated": 1,
+        "permutationIndex": 1,
+        "templatesGenerated": 1,
+        "templateIndex": 1,
+        "partnersCount": [
+            3,
+            3,
+            3,
+            3
+        ],
+        "playersMet": {
+            "0": {
+                "3": 3,
+                "1": 3,
+                "2": 3
+            },
+            "3": [
+                3,
+                3,
+                3
+            ],
+            "1": {
+                "0": 3,
+                "3": 3,
+                "2": 3
+            },
+            "2": {
+                "0": 3,
+                "3": 3,
+                "1": 3
+            }
+        },
+        "partnersCountVariation": 0,
+        "bestMatchesCount": 3,
+        "stopReason": "FACTORIAL_COMPLETE",
+        "time": 0.0066294,
+        "meetingsVariationLimit": 1,
+        "relaxAttempts": [
+            {
+                "meetingsVariationLimit": 1,
+                "permutationsIterated": 1,
+                "templatesGenerated": 1,
+                "time": 0.0066294
+            }
+        ]
+    },
+    "sorting": {
+        "stopReason": "FACTORIAL_COMPLETE",
+        "minDistribution": 1,
+        "avgDistribution": 1,
+        "permutationsIterated": 6,
+        "permutationIndex": 1,
+        "minBreak": 0,
+        "maxBreak": 0,
+        "courtSwitches": 0,
+        "courtBalance": 0,
+        "nodesExplored": 16,
+        "seedIndex": 1,
+        "seedsTotal": 1,
+        "time": 0.0051449
+    }
+}

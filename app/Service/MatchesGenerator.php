@@ -7,40 +7,58 @@ use DateTime;
 
 class MatchesGenerator
 {
-    private array $matches;
-    private int $matchesCount;
+    /** @var array<int, array<int, array<int, array<int, int|string>>>> */
+    private array $matchesByCourt;
+    private int $roundsTotal;
     private array $partnersCount;
     private array $playersMet;
     private int $partnersCountVariation;
 
+  /**
+     * @param array<int, int|string> $players
+     */
     public function __construct(
         array $players,
         int $opponentsPerPlayer,
         int $repeatPartners,
+        int $courts,
         string $timeStart,
         string $timeEnd,
         bool $includeFinal,
         bool $hasDemonstrativeMatch = false,
         bool $fixedTeams = false,
         ?int $templateVersion = null
-    )
-    {
+    ) {
         $repository = new TemplateMatchesRepository();
         $templateMatches = $templateVersion === null
-            ? $repository->find(count($players), $opponentsPerPlayer, $repeatPartners, $fixedTeams)
-            : $repository->findAt($templateVersion, count($players), $opponentsPerPlayer, $repeatPartners, $fixedTeams);
+            ? $repository->find(count($players), $opponentsPerPlayer, $repeatPartners, $courts, $fixedTeams)
+            : $repository->findAt($templateVersion, count($players), $opponentsPerPlayer, $repeatPartners, $courts, $fixedTeams);
 
-        $matches = $templateMatches->getMatches();
-        array_walk_recursive($matches, function (int &$playerIndex) use ($players) {
-            $playerIndex = $players[$playerIndex];
+        if (!$templateMatches->isEligible() || !TemplateMatches::hasValidRoundSchedule($templateMatches->getMatches())) {
+            throw new \RuntimeException(sprintf(
+                'Template for %d players, %d opponents, repeat %d, %d courts is missing or has no valid sorted schedule.',
+                count($players),
+                $opponentsPerPlayer,
+                $repeatPartners,
+                $courts
+            ));
+        }
+
+        $matchesByCourt = $templateMatches->getMatches() ?? [];
+        array_walk_recursive($matchesByCourt, function (&$playerIndex) use ($players) {
+            if (is_int($playerIndex)) {
+                $playerIndex = $players[$playerIndex];
+            }
         });
 
-        $this->matchesCount = count($matches);
+        $this->roundsTotal = 0;
+        foreach ($matchesByCourt as $courtRounds) {
+            $this->roundsTotal = max($this->roundsTotal, count($courtRounds));
+        }
 
-        $segments = $this->matchesCount;
-
+        $segments = $this->roundsTotal;
         if ($includeFinal) {
-            $segments = $segments + 1;
+            $segments++;
         }
 
         $dateTime1 = DateTime::createFromFormat('H:i', $timeStart);
@@ -51,19 +69,27 @@ class MatchesGenerator
         }
 
         $totalMinutes = ($dateTime2->getTimestamp() - $dateTime1->getTimestamp()) / 60;
-        $segmentDuration = $totalMinutes / $segments;
+        $segmentDuration = $segments > 0 ? $totalMinutes / $segments : 0;
 
-        for ($i = 0; $i < $this->matchesCount; $i++) {
+        for ($r = 0; $r < $this->roundsTotal; $r++) {
             $startTime = clone $dateTime1;
-            $startTime->add(new DateInterval('PT' . floor($segmentDuration * $i) . 'M'));
+            $startTime->add(new DateInterval('PT' . floor($segmentDuration * $r) . 'M'));
 
             $endTime = clone $dateTime1;
-            $endTime->add(new DateInterval('PT' . floor($segmentDuration * ($i + 1)) . 'M'));
+            $endTime->add(new DateInterval('PT' . floor($segmentDuration * ($r + 1)) . 'M'));
 
-            $matches[$i][2] = $startTime->format('H:i');
-            $matches[$i][3] = $endTime->format('H:i');
+            $startStr = $startTime->format('H:i');
+            $endStr = $endTime->format('H:i');
+
+            foreach ($matchesByCourt as $courtIdx => &$courtRounds) {
+                if (!isset($courtRounds[$r])) {
+                    continue;
+                }
+                $courtRounds[$r][2] = $startStr;
+                $courtRounds[$r][3] = $endStr;
+            }
+            unset($courtRounds);
         }
-
 
         $countPartners = [];
         $templateCountPartners = $templateMatches->getPairingPartnersCount() ?? [];
@@ -74,23 +100,40 @@ class MatchesGenerator
         $countPlayersMet = [];
         $templateCountPlayersMet = $templateMatches->getPairingPlayersMet() ?? [];
         array_walk($templateCountPlayersMet, function (array $value, int $key) use (&$countPlayersMet, $players) {
-            $countPlayersMet[$players[$key]] = $value;
+            $mapped = [];
+            foreach ($value as $opponent => $count) {
+                $mapped[$players[$opponent]] = $count;
+            }
+            $countPlayersMet[$players[$key]] = $mapped;
         });
 
-        $this->matches = $matches;
+        $this->matchesByCourt = $matchesByCourt;
         $this->partnersCountVariation = (int) $templateMatches->getPairingPartnersCountVariation();
         $this->partnersCount = $countPartners;
         $this->playersMet = $countPlayersMet;
     }
 
+    /**
+     * @return array<int, array<int, array<int, array<int, int|string>>>>
+     */
     public function getMatches(): array
     {
-        return $this->matches;
+        return $this->matchesByCourt;
+    }
+
+    public function getRoundsTotal(): int
+    {
+        return $this->roundsTotal;
     }
 
     public function getMatchesCount(): int
     {
-        return $this->matchesCount;
+        $total = 0;
+        foreach ($this->matchesByCourt as $courtRounds) {
+            $total += count($courtRounds);
+        }
+
+        return $total;
     }
 
     public function getPartnersCount(): array
@@ -108,11 +151,6 @@ class MatchesGenerator
         return $this->playersMet;
     }
 
-    /**
-     * Returns empty array if the player doesn't have any matches.
-     *
-     * This is an error representing that the number of total players is invalid.
-     */
     public function getPlayersMetBy(string $player): array
     {
         return $this->playersMet[$player] ?? [];

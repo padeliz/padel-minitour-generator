@@ -2,6 +2,8 @@
 
 namespace Arshavinel\PadelMiniTour\Service;
 
+use Arshavinel\PadelMiniTour\DTO\PdfPlayer;
+use Arshavinel\PadelMiniTour\Service\Exception\TemplateMatchesNotFoundException;
 use Arshavinel\PadelMiniTour\Table\Player;
 use DateTime;
 
@@ -41,14 +43,15 @@ class EventDivision
     private int $pointsPerMatch;
     private int $pointsPerPlayer;
     private bool $hasDemonstrativeMatch;
-    private string $court;
+    /** @var array<int, string> */
+    private array $courtNames;
 
     public function __construct(
         string $edition,
         int $organizerId,
         string $partnerId,
         string $title,
-        string $court,
+        array $courtNames,
         array $playerIds,
         int $opponentsPerPlayer,
         int $repeatPartners,
@@ -71,13 +74,14 @@ class EventDivision
         // Create mapping of player ID to name
         $this->playerNamesById = [];
         foreach ($this->players as $player) {
-            $this->playerNamesById[$player->id()] = $player->name;
+            $this->playerNamesById[$player->id()] = (new PdfPlayer($player->id()))->getHtmlShortName();
         }
 
         $matchesGenerator = new MatchesGenerator(
             $playerIds,
             $opponentsPerPlayer,
             $repeatPartners,
+            count($courtNames),
             $timeStart,
             $timeEnd,
             $includeFinal,
@@ -90,7 +94,7 @@ class EventDivision
         $this->organizerId = $organizerId;
         $this->partnerId = $partnerId;
         $this->title = $title;
-        $this->court = $court;
+        $this->courtNames = $courtNames;
         $this->timeStart = $timeStart;
         $this->timeEnd = $timeEnd;
         $this->hasDemonstrativeMatch = $hasDemonstrativeMatch;
@@ -100,7 +104,9 @@ class EventDivision
             throw new \Exception('Players count mismatch: ' . $this->playersCount . ' != ' . count($this->players));
         }
 
-        $this->pointsPerMatch = floor(ceil(110 * $this->eventDuration - 1 + (20 / 60)) / $matchesGenerator->getMatchesCount());
+        $this->pointsPerMatch = $matchesGenerator->getRoundsTotal() > 0
+            ? (int) floor(ceil(110 * $this->eventDuration - 1 + (20 / 60)) / $matchesGenerator->getRoundsTotal())
+            : 0;
         $this->pointsPerPlayer = $this->pointsPerMatch * $opponentsPerPlayer * $repeatPartners;
         $this->opponentsPerPlayer = $opponentsPerPlayer;
         $this->repeatPartners = $repeatPartners;
@@ -139,9 +145,22 @@ class EventDivision
         return $this->title;
     }
 
-    public function getCourt(): string
+    /**
+     * @return array<int, string>
+     */
+    public function getCourtNames(): array
     {
-        return $this->court;
+        return $this->courtNames;
+    }
+
+    public function getCourtsCount(): int
+    {
+        return count($this->courtNames);
+    }
+
+    public function getCourtName(int $courtIndex): string
+    {
+        return $this->courtNames[$courtIndex] ?? ('Court ' . ($courtIndex + 1));
     }
 
     public function getTimeStart(): string
@@ -248,7 +267,8 @@ class EventDivision
      * - `isCompatible: bool` -- `true` iff the directory name matches `/^v(\d+)$/` exactly.
      * - `hasCombo: bool` -- whether the current combo's file exists in this directory. Always
      *   `false` for incompatible rows (the runtime can't open them anyway).
-     * - `isSelectable: bool` -- shortcut for `isCompatible && hasCombo`.
+     * - `isUsable: bool` -- file exists and has a valid sorted schedule for this combo.
+     * - `isSelectable: bool` -- shortcut for `isCompatible && isUsable`.
      * - `isCurrent: bool` -- `true` iff this row's version equals the resolved
      *   {@see getTemplateVersion()}.
      *
@@ -258,6 +278,7 @@ class EventDivision
      *     label: string,
      *     isCompatible: bool,
      *     hasCombo: bool,
+     *     isUsable: bool,
      *     isSelectable: bool,
      *     isCurrent: bool,
      * }>
@@ -270,23 +291,32 @@ class EventDivision
         $rows = [];
         foreach ($repository->listVersions() as $entry) {
             $isCompatible = $entry['isCompatible'];
-            $hasCombo = $isCompatible
-                ? $repository->hasAt(
-                    $entry['version'],
-                    $this->playersCount,
-                    $this->opponentsPerPlayer,
-                    $this->repeatPartners,
-                    $this->fixedTeams
-                )
-                : false;
+            $hasCombo = false;
+            $isUsable = false;
+            if ($isCompatible) {
+                try {
+                    $template = $repository->findAt(
+                        $entry['version'],
+                        $this->playersCount,
+                        $this->opponentsPerPlayer,
+                        $this->repeatPartners,
+                        $this->getCourtsCount(),
+                        $this->fixedTeams
+                    );
+                    $hasCombo = true;
+                    $isUsable = $template->isUsable();
+                } catch (TemplateMatchesNotFoundException $e) {
+                    $hasCombo = false;
+                    $isUsable = false;
+                }
+            }
 
             if (!$isCompatible) {
-                // Directory name isn't the bare `v{N}` form; the runtime loader can't open it.
-                // Show the full directory name verbatim so the user knows which directory the row
-                // refers to.
                 $label = $entry['directoryName'] . ' (incompatible)';
             } elseif (!$hasCombo) {
                 $label = 'v' . $entry['version'] . ' (not generated)';
+            } elseif (!$isUsable) {
+                $label = 'v' . $entry['version'] . ' (not feasible)';
             } else {
                 $label = 'v' . $entry['version'];
             }
@@ -297,7 +327,8 @@ class EventDivision
                 'label'         => $label,
                 'isCompatible'  => $isCompatible,
                 'hasCombo'      => $hasCombo,
-                'isSelectable'  => $isCompatible && $hasCombo,
+                'isUsable'      => $isUsable,
+                'isSelectable'  => $isCompatible && $isUsable,
                 'isCurrent'     => $entry['version'] !== null && $entry['version'] === $resolved,
             ];
         }

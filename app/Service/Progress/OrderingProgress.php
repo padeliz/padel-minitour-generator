@@ -3,7 +3,7 @@
 namespace Arshavinel\PadelMiniTour\Service\Progress;
 
 /**
- * Progress event emitted during the ordering phase (lex factorial walk over match orderings).
+ * Progress event emitted during the ordering phase (round-slice DFS over match placements).
  *
  * Always emitted at least once per {@see \Arshavinel\PadelMiniTour\Service\TemplateMatchesGenerator::generate()}
  * call, regardless of mode or input size. The trivial branch (matches count <= 1) emits a single
@@ -25,6 +25,9 @@ final class OrderingProgress extends GenerationProgress
     private ?int $bestPermutationIndex;
     private ?int $bestMinBreak;
     private ?int $bestMaxBreak;
+    private ?int $bestCourtSwitches;
+    private int $currentSeed;
+    private int $totalSeeds;
 
     public function __construct(
         int $players,
@@ -40,7 +43,10 @@ final class OrderingProgress extends GenerationProgress
         ?string $stopReason = null,
         ?int $bestPermutationIndex = null,
         ?int $bestMinBreak = null,
-        ?int $bestMaxBreak = null
+        ?int $bestMaxBreak = null,
+        ?int $bestCourtSwitches = null,
+        int $currentSeed = 1,
+        int $totalSeeds = 1
     ) {
         parent::__construct(
             self::PHASE_ORDERING,
@@ -59,6 +65,9 @@ final class OrderingProgress extends GenerationProgress
         $this->bestPermutationIndex = $bestPermutationIndex;
         $this->bestMinBreak = $bestMinBreak;
         $this->bestMaxBreak = $bestMaxBreak;
+        $this->bestCourtSwitches = $bestCourtSwitches;
+        $this->currentSeed = $currentSeed;
+        $this->totalSeeds = $totalSeeds;
     }
 
     public function getIterations(): int
@@ -94,10 +103,12 @@ final class OrderingProgress extends GenerationProgress
      * Cross-player minimum of each player's shortest INNER consecutive break run in the
      * best-so-far ordering.
      *
-     * An inner break run is the stretch of consecutive matches in which the player does not
-     * appear between two of their own appearances. Lead runs (before the player's first
-     * appearance) and trail runs (after the player's last appearance) are EXCLUDED. Sit-out
-     * semantics apply: when a player plays in two consecutive matches the inner run length is
+     * An inner break run is the stretch of consecutive schedule steps in which the player does
+     * not appear between two of their own appearances. For single-court templates each step is
+     * one match; for multi-court templates each step is one round (all courts advance together).
+     * Lead runs (before the player's first appearance) and trail runs (after the player's last
+     * appearance) are EXCLUDED. Sit-out semantics apply: when a player plays in two consecutive
+     * steps the inner run length is
      * `0`, and that `0` counts -- the player's contribution to `Min Break` becomes `0`. A
      * player with no closed inner run at all (plays only once, or never plays) also
      * contributes `0`. Either way, whenever any player's contribution is `0` the aggregate
@@ -116,5 +127,24 @@ final class OrderingProgress extends GenerationProgress
     public function getBestMaxBreak(): ?int
     {
         return $this->bestMaxBreak;
+    }
+
+    /**
+     * Cross-player maximum court-switch count in the best-so-far ordering. `null` before any
+     * leaf has improved the best state.
+     */
+    public function getBestCourtSwitches(): ?int
+    {
+        return $this->bestCourtSwitches;
+    }
+
+    public function getCurrentSeed(): int
+    {
+        return $this->currentSeed;
+    }
+
+    public function getTotalSeeds(): int
+    {
+        return $this->totalSeeds;
     }
 }

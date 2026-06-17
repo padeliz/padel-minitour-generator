@@ -13,7 +13,7 @@ use Arshavinel\PadelMiniTour\Service\Progress\PairingProgress;
  *
  * Field layout mirrors the JSON shape persisted by {@see TemplateMatchesRepository}:
  *
- * - Identity (required, non-nullable): players, partners, repeat, fixedTeams.
+ * - Identity (required, non-nullable): players, partners, repeat, courts, fixedTeams.
  * - Top-level result: matches (null when no eligible permutation was found).
  * - Pairing-phase diagnostics (prefixed `pairing*`): the outer pair-ordering loop's outputs.
  * - Sorting-phase diagnostics (prefixed `sorting*`): the sortMatches() outputs.
@@ -25,9 +25,15 @@ final class TemplateMatches
     private int $players;
     private int $partners;
     private int $repeat;
+    private int $courts;
     private bool $fixedTeams;
 
-    /** @var array<int, array<int, array<int, int>>>|null */
+    /**
+     * Per-court ordered match lists. `matches[courtIndex][roundIndex]` is one match
+     * `[[p1,p2],[p3,p4]]`. Round `r` across all courts is one simultaneous time slot.
+     *
+     * @var array<int, array<int, array<int, array<int, int>>>>|null
+     */
     private ?array $matches;
 
     private ?float $pairingMeetingsVariation;
@@ -54,10 +60,15 @@ final class TemplateMatches
     private ?int $sortingPermutationIndex;
     private ?int $sortingMinBreak;
     private ?int $sortingMaxBreak;
+    private ?int $sortingCourtSwitches;
+    private ?float $sortingCourtBalance;
     private ?float $sortingTime;
+    private ?int $sortingNodesExplored;
+    private ?int $sortingSeedIndex;
+    private ?int $sortingSeedsTotal;
 
     /**
-     * @param array<int, array<int, array<int, int>>>|null $matches
+     * @param array<int, array<int, array<int, array<int, int>>>>|null $matches
      * @param array<int, int>|null                         $pairingPartnersCount
      * @param array<int, array<int, int>>|null             $pairingPlayersMet
      * @param array<int, array{meetingsVariationLimit:int,permutationsIterated:int,templatesGenerated:int,time:float}>|null $pairingRelaxAttempts
@@ -66,6 +77,7 @@ final class TemplateMatches
         int $players,
         int $partners,
         int $repeat,
+        int $courts,
         bool $fixedTeams,
         ?array $matches,
         ?float $pairingMeetingsVariation,
@@ -88,11 +100,17 @@ final class TemplateMatches
         ?int $sortingMaxBreak,
         ?float $sortingTime,
         ?int $pairingMeetingsVariationLimit = null,
-        ?array $pairingRelaxAttempts = null
+        ?array $pairingRelaxAttempts = null,
+        ?int $sortingCourtSwitches = null,
+        ?float $sortingCourtBalance = null,
+        ?int $sortingNodesExplored = null,
+        ?int $sortingSeedIndex = null,
+        ?int $sortingSeedsTotal = null
     ) {
         $this->players = $players;
         $this->partners = $partners;
         $this->repeat = $repeat;
+        $this->courts = $courts;
         $this->fixedTeams = $fixedTeams;
         $this->matches = $matches;
         $this->pairingMeetingsVariation = $pairingMeetingsVariation;
@@ -116,6 +134,11 @@ final class TemplateMatches
         $this->sortingTime = $sortingTime;
         $this->pairingMeetingsVariationLimit = $pairingMeetingsVariationLimit;
         $this->pairingRelaxAttempts = $pairingRelaxAttempts;
+        $this->sortingCourtSwitches = $sortingCourtSwitches;
+        $this->sortingCourtBalance = $sortingCourtBalance;
+        $this->sortingNodesExplored = $sortingNodesExplored;
+        $this->sortingSeedIndex = $sortingSeedIndex;
+        $this->sortingSeedsTotal = $sortingSeedsTotal;
     }
 
     public function getPlayers(): int
@@ -131,6 +154,11 @@ final class TemplateMatches
     public function getRepeat(): int
     {
         return $this->repeat;
+    }
+
+    public function getCourts(): int
+    {
+        return $this->courts;
     }
 
     public function isFixedTeams(): bool
@@ -266,10 +294,12 @@ final class TemplateMatches
     /**
      * Cross-player minimum of each player's shortest INNER consecutive break run.
      *
-     * An inner break run is the stretch of consecutive matches in which the player does not
-     * appear between two of their own appearances. Lead runs (before the player's first
-     * appearance) and trail runs (after the player's last appearance) are EXCLUDED. Sit-out
-     * semantics apply: when a player plays in two consecutive matches the inner run length is
+     * An inner break run is the stretch of consecutive schedule steps in which the player does
+     * not appear between two of their own appearances. For single-court templates each step is
+     * one match; for multi-court templates each step is one round (all courts advance together).
+     * Lead runs (before the player's first appearance) and trail runs (after the player's last
+     * appearance) are EXCLUDED. Sit-out semantics apply: when a player plays in two consecutive
+     * steps the inner run length is
      * `0`, and that `0` counts -- the player's contribution to `Min Break` becomes `0`. A
      * player with no closed inner run at all (plays only once, or never plays) also
      * contributes `0`. Either way, whenever any player's contribution is `0` the aggregate
@@ -302,12 +332,80 @@ final class TemplateMatches
         return $this->sortingTime;
     }
 
+    public function getSortingCourtSwitches(): ?int
+    {
+        return $this->sortingCourtSwitches;
+    }
+
+    public function getSortingCourtBalance(): ?float
+    {
+        return $this->sortingCourtBalance;
+    }
+
+    public function getSortingNodesExplored(): ?int
+    {
+        return $this->sortingNodesExplored;
+    }
+
+    public function getSortingSeedIndex(): ?int
+    {
+        return $this->sortingSeedIndex;
+    }
+
+    public function getSortingSeedsTotal(): ?int
+    {
+        return $this->sortingSeedsTotal;
+    }
+
     /**
      * Whether the generator successfully produced a complete template.
      */
     public function isEligible(): bool
     {
         return $this->matches !== null;
+    }
+
+    /**
+     * Whether the template has a loadable multi-court schedule for the UI/runtime.
+     */
+    public function isUsable(): bool
+    {
+        return self::hasValidRoundSchedule($this->matches);
+    }
+
+    /**
+     * Verifies that no player appears on more than one court in the same round index.
+     *
+     * @param array<int, array<int, array<int, array<int, int>>>>|null $matchesByCourt
+     */
+    public static function hasValidRoundSchedule(?array $matchesByCourt): bool
+    {
+        if ($matchesByCourt === null || $matchesByCourt === []) {
+            return false;
+        }
+
+        $roundsTotal = 0;
+        foreach ($matchesByCourt as $courtRounds) {
+            $roundsTotal = max($roundsTotal, count($courtRounds));
+        }
+
+        for ($r = 0; $r < $roundsTotal; $r++) {
+            $seen = [];
+            foreach ($matchesByCourt as $courtRounds) {
+                if (!isset($courtRounds[$r])) {
+                    continue;
+                }
+                $match = $courtRounds[$r];
+                foreach ([$match[0][0], $match[0][1], $match[1][0], $match[1][1]] as $playerIndex) {
+                    if (isset($seen[$playerIndex])) {
+                        return false;
+                    }
+                    $seen[$playerIndex] = true;
+                }
+            }
+        }
+
+        return true;
     }
 
     /**
@@ -326,6 +424,7 @@ final class TemplateMatches
         int $players,
         int $partners,
         int $repeat,
+        int $courts,
         bool $fixedTeams,
         ?PairingProgress $pairing,
         ?OrderingProgress $ordering
@@ -362,6 +461,7 @@ final class TemplateMatches
         $sortingPermutationIndex = null;
         $sortingMinBreak = null;
         $sortingMaxBreak = null;
+        $sortingCourtSwitches = null;
         $sortingTime = null;
         if ($ordering !== null) {
             $sortingStopReason = $ordering->getStopReason();
@@ -371,6 +471,7 @@ final class TemplateMatches
             $sortingPermutationIndex = $ordering->getBestPermutationIndex();
             $sortingMinBreak = $ordering->getBestMinBreak();
             $sortingMaxBreak = $ordering->getBestMaxBreak();
+            $sortingCourtSwitches = $ordering->getBestCourtSwitches();
             $sortingTime = self::nsToSeconds($ordering->getElapsedNs());
         }
 
@@ -378,6 +479,7 @@ final class TemplateMatches
             $players,
             $partners,
             $repeat,
+            $courts,
             $fixedTeams,
             null,
             $pairingMeetingsVariation,
@@ -398,14 +500,17 @@ final class TemplateMatches
             $sortingPermutationIndex,
             $sortingMinBreak,
             $sortingMaxBreak,
-            $sortingTime
+            $sortingTime,
+            null,
+            null,
+            $sortingCourtSwitches
         );
     }
 
     /**
      * Decodes a JSON-shaped associative array into a {@see TemplateMatches} instance.
      *
-     * Strict on the identity keys (players, partners, repeat, fixedTeams) and on the presence of
+     * Strict on the identity keys (players, partners, repeat, courts, fixedTeams) and on the presence of
      * the `pairing` and `sorting` objects. Legacy keys from older schema variants (the boolean
      * `hasDifferentPartnersNumber`, the top-level `estimatedGenerationTime` / `generationTime`)
      * are rejected loudly so a stale file surfaces as an explicit error rather than silently
@@ -416,7 +521,7 @@ final class TemplateMatches
      */
     public static function fromArray(array $data): self
     {
-        foreach (['players', 'partners', 'repeat', 'fixedTeams'] as $key) {
+        foreach (['players', 'partners', 'repeat', 'courts', 'fixedTeams'] as $key) {
             if (!array_key_exists($key, $data)) {
                 throw new \InvalidArgumentException("TemplateMatches JSON missing required identity key: {$key}");
             }
@@ -443,12 +548,18 @@ final class TemplateMatches
             );
         }
 
+        $matches = null;
+        if (isset($data['matches']) && is_array($data['matches'])) {
+            $matches = self::normalizeMatchesByCourt($data['matches'], (int) $data['courts']);
+        }
+
         return new self(
             (int) $data['players'],
             (int) $data['partners'],
             (int) $data['repeat'],
+            (int) $data['courts'],
             (bool) $data['fixedTeams'],
-            isset($data['matches']) && is_array($data['matches']) ? $data['matches'] : null,
+            $matches,
             isset($pairing['meetingsVariation']) ? (float) $pairing['meetingsVariation'] : null,
             isset($pairing['permutationsIterated']) ? (int) $pairing['permutationsIterated'] : null,
             isset($pairing['permutationIndex']) ? (int) $pairing['permutationIndex'] : null,
@@ -473,7 +584,12 @@ final class TemplateMatches
             isset($pairing['meetingsVariationLimit']) ? (int) $pairing['meetingsVariationLimit'] : null,
             isset($pairing['relaxAttempts']) && is_array($pairing['relaxAttempts'])
                 ? self::normalizeRelaxAttempts($pairing['relaxAttempts'])
-                : null
+                : null,
+            isset($sorting['courtSwitches']) ? (int) $sorting['courtSwitches'] : null,
+            isset($sorting['courtBalance']) ? (float) $sorting['courtBalance'] : null,
+            isset($sorting['nodesExplored']) ? (int) $sorting['nodesExplored'] : null,
+            isset($sorting['seedIndex']) ? (int) $sorting['seedIndex'] : null,
+            isset($sorting['seedsTotal']) ? (int) $sorting['seedsTotal'] : null
         );
     }
 
@@ -486,6 +602,7 @@ final class TemplateMatches
             'players' => $this->players,
             'partners' => $this->partners,
             'repeat' => $this->repeat,
+            'courts' => $this->courts,
             'fixedTeams' => $this->fixedTeams,
             'matches' => $this->matches,
             'pairing' => [
@@ -511,9 +628,58 @@ final class TemplateMatches
                 'permutationIndex' => $this->sortingPermutationIndex,
                 'minBreak' => $this->sortingMinBreak,
                 'maxBreak' => $this->sortingMaxBreak,
+                'courtSwitches' => $this->sortingCourtSwitches,
+                'courtBalance' => $this->sortingCourtBalance,
+                'nodesExplored' => $this->sortingNodesExplored,
+                'seedIndex' => $this->sortingSeedIndex,
+                'seedsTotal' => $this->sortingSeedsTotal,
                 'time' => $this->sortingTime,
             ],
         ];
+    }
+
+    /**
+     * Validates and normalises the per-court matches shape. Rejects legacy flat lists.
+     *
+     * @param array<int, mixed> $raw
+     * @return array<int, array<int, array<int, array<int, int>>>>
+     */
+    private static function normalizeMatchesByCourt(array $raw, int $courts): array
+    {
+        if ($courts < 1) {
+            throw new \InvalidArgumentException('TemplateMatches JSON courts must be >= 1.');
+        }
+
+        if (count($raw) !== $courts) {
+            throw new \InvalidArgumentException(sprintf(
+                'TemplateMatches JSON matches must have exactly %d court list(s); got %d.',
+                $courts,
+                count($raw)
+            ));
+        }
+
+        $normalized = [];
+        foreach ($raw as $courtIndex => $courtMatches) {
+            if (!is_array($courtMatches)) {
+                throw new \InvalidArgumentException('TemplateMatches JSON matches court entry must be an array.');
+            }
+
+            $normalizedCourt = [];
+            foreach ($courtMatches as $roundIndex => $match) {
+                if (!is_array($match) || !isset($match[0], $match[1])) {
+                    throw new \InvalidArgumentException('TemplateMatches JSON match must be [[p,p],[p,p]].');
+                }
+                if (!is_array($match[0]) || !is_array($match[1])) {
+                    throw new \InvalidArgumentException(
+                        'TemplateMatches JSON uses legacy flat match list; regenerate with per-court matches shape.'
+                    );
+                }
+                $normalizedCourt[(int) $roundIndex] = $match;
+            }
+            $normalized[(int) $courtIndex] = $normalizedCourt;
+        }
+
+        return $normalized;
     }
 
     /**

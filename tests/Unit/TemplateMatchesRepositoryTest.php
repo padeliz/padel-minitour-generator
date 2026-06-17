@@ -33,23 +33,23 @@ final class TemplateMatchesRepositoryTest extends TestCase
     {
         $repo = new TemplateMatchesRepository($this->tempBaseDir);
 
-        $path = $repo->path(7, 12, 8, 1, false);
+        $path = $repo->path(7, 12, 8, 1, 1, false);
         $this->assertStringContainsString('v7', $path);
-        $this->assertStringContainsString('players-12-partners-8-repeat-1.json', $path);
+        $this->assertStringContainsString('players-12-partners-8-repeat-1-courts-1.json', $path);
         $this->assertStringNotContainsString('fixedteams', $path);
 
-        $fixedPath = $repo->path(7, 12, 8, 1, true);
-        $this->assertStringContainsString('players-12-partners-8-repeat-1-fixedteams.json', $fixedPath);
+        $fixedPath = $repo->path(7, 12, 8, 1, 1, true);
+        $this->assertStringContainsString('players-12-partners-8-repeat-1-courts-1-fixedteams.json', $fixedPath);
     }
 
     public function test_find_throws_with_expected_path_when_file_is_missing(): void
     {
         $repo = new TemplateMatchesRepository($this->tempBaseDir);
 
-        $expectedPath = $repo->path(TemplateMatchesRepository::DEFAULT_TEMPLATE_VERSION, 8, 4, 1, false);
+        $expectedPath = $repo->path(TemplateMatchesRepository::DEFAULT_TEMPLATE_VERSION, 8, 4, 1, 1, false);
 
         try {
-            $repo->find(8, 4, 1, false);
+            $repo->find(8, 4, 1, 1, false);
             $this->fail('Expected TemplateMatchesNotFoundException');
         } catch (TemplateMatchesNotFoundException $e) {
             $this->assertSame($expectedPath, $e->getExpectedPath());
@@ -63,14 +63,14 @@ final class TemplateMatchesRepositoryTest extends TestCase
     {
         $repo = new TemplateMatchesRepository($this->tempBaseDir);
 
-        $path = $repo->path(TemplateMatchesRepository::DEFAULT_TEMPLATE_VERSION, 8, 4, 1, false);
+        $path = $repo->path(TemplateMatchesRepository::DEFAULT_TEMPLATE_VERSION, 8, 4, 1, 1, false);
         if (!is_dir(dirname($path))) {
             mkdir(dirname($path), 0775, true);
         }
         file_put_contents($path, 'not-json{');
 
         $this->expectException(TemplateMatchesNotFoundException::class);
-        $repo->find(8, 4, 1, false);
+        $repo->find(8, 4, 1, 1, false);
     }
 
     public function test_save_then_find_at_round_trips_value_object(): void
@@ -79,10 +79,10 @@ final class TemplateMatchesRepositoryTest extends TestCase
         $template = $this->makeTemplate(8, 4, 1, false);
 
         $repo->save(7, $template);
-        $loaded = $repo->findAt(7, 8, 4, 1, false);
+        $loaded = $repo->findAt(7, 8, 4, 1, 1, false);
 
         $this->assertSame($template->toArray(), $loaded->toArray());
-        $this->assertTrue(is_file($repo->path(7, 8, 4, 1, false)));
+        $this->assertTrue(is_file($repo->path(7, 8, 4, 1, 1, false)));
     }
 
     public function test_save_derives_path_from_template_identity(): void
@@ -91,11 +91,11 @@ final class TemplateMatchesRepositoryTest extends TestCase
 
         $mixed = $this->makeTemplate(4, 1, 1, false);
         $repo->save(3, $mixed);
-        $this->assertFileExists($this->tempBaseDir . DIRECTORY_SEPARATOR . 'v3' . DIRECTORY_SEPARATOR . 'players-4-partners-1-repeat-1.json');
+        $this->assertFileExists($this->tempBaseDir . DIRECTORY_SEPARATOR . 'v3' . DIRECTORY_SEPARATOR . 'players-4-partners-1-repeat-1-courts-1.json');
 
         $fixed = $this->makeTemplate(8, 2, 1, true);
         $repo->save(3, $fixed);
-        $this->assertFileExists($this->tempBaseDir . DIRECTORY_SEPARATOR . 'v3' . DIRECTORY_SEPARATOR . 'players-8-partners-2-repeat-1-fixedteams.json');
+        $this->assertFileExists($this->tempBaseDir . DIRECTORY_SEPARATOR . 'v3' . DIRECTORY_SEPARATOR . 'players-8-partners-2-repeat-1-courts-1-fixedteams.json');
     }
 
     public function test_save_creates_intermediate_directories(): void
@@ -105,7 +105,7 @@ final class TemplateMatchesRepositoryTest extends TestCase
 
         $repo->save(11, $template);
 
-        $expectedPath = $this->tempBaseDir . DIRECTORY_SEPARATOR . 'v11' . DIRECTORY_SEPARATOR . 'players-16-partners-12-repeat-1-fixedteams.json';
+        $expectedPath = $this->tempBaseDir . DIRECTORY_SEPARATOR . 'v11' . DIRECTORY_SEPARATOR . 'players-16-partners-12-repeat-1-courts-1-fixedteams.json';
         $this->assertFileExists($expectedPath);
     }
 
@@ -120,8 +120,9 @@ final class TemplateMatchesRepositoryTest extends TestCase
             4,
             1,
             1,
+            1,
             false,
-            [[[3, 0], [1, 2]]],
+            [[[[3, 0], [1, 2]]]],
             5.0,
             10,
             7,
@@ -144,7 +145,7 @@ final class TemplateMatchesRepositoryTest extends TestCase
         );
         $repo->save(2, $second);
 
-        $loaded = $repo->findAt(2, 4, 1, 1, false);
+        $loaded = $repo->findAt(2, 4, 1, 1, 1, false);
         $this->assertSame(5.0, $loaded->getPairingMeetingsVariation());
         $this->assertSame(2, $loaded->getPairingPartnersCountVariation());
         $this->assertSame('DEADLINE', $loaded->getPairingStopReason());
@@ -162,7 +163,7 @@ final class TemplateMatchesRepositoryTest extends TestCase
         // Persist a template whose JSON identity says (8, 2, 1, false), then re-write its bytes
         // into the file the repository would generate for the (12, 8, 1, false) lookup.
         $foreign = $this->makeTemplate(8, 2, 1, false);
-        $foreignPath = $repo->path(5, 12, 8, 1, false);
+        $foreignPath = $repo->path(5, 12, 8, 1, 1, false);
         if (!is_dir(dirname($foreignPath))) {
             mkdir(dirname($foreignPath), 0775, true);
         }
@@ -173,7 +174,7 @@ final class TemplateMatchesRepositoryTest extends TestCase
 
         $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessageMatches('/identity mismatch/i');
-        $repo->findAt(5, 12, 8, 1, false);
+        $repo->findAt(5, 12, 8, 1, 1, false);
     }
 
     public function test_find_at_throws_on_missing_identity_in_json(): void
@@ -188,14 +189,14 @@ final class TemplateMatchesRepositoryTest extends TestCase
             'sorting' => [],
         ];
 
-        $path = $repo->path(4, 8, 4, 1, false);
+        $path = $repo->path(4, 8, 4, 1, 1, false);
         if (!is_dir(dirname($path))) {
             mkdir(dirname($path), 0775, true);
         }
         file_put_contents($path, json_encode($legacyShape));
 
         $this->expectException(\InvalidArgumentException::class);
-        $repo->findAt(4, 8, 4, 1, false);
+        $repo->findAt(4, 8, 4, 1, 1, false);
     }
 
     public function test_clear_version_deletes_only_template_files_in_target_version(): void
@@ -218,12 +219,12 @@ final class TemplateMatchesRepositoryTest extends TestCase
         $deleted = $repo->clearVersion(4);
 
         $this->assertSame(2, $deleted);
-        $this->assertFileDoesNotExist($repo->path(4, 4, 1, 1, false));
-        $this->assertFileDoesNotExist($repo->path(4, 8, 2, 1, true));
+        $this->assertFileDoesNotExist($repo->path(4, 4, 1, 1, 1, false));
+        $this->assertFileDoesNotExist($repo->path(4, 8, 2, 1, 1, true));
         $this->assertFileExists($v4Dir . DIRECTORY_SEPARATOR . 'README.md');
         $this->assertFileExists($v4Dir . DIRECTORY_SEPARATOR . '.gitkeep');
         $this->assertFileExists($v4Dir . DIRECTORY_SEPARATOR . 'other.json');
-        $this->assertFileExists($repo->path(5, 4, 1, 1, false));
+        $this->assertFileExists($repo->path(5, 4, 1, 1, 1, false));
     }
 
     public function test_clear_version_is_noop_when_directory_does_not_exist(): void
@@ -249,7 +250,7 @@ final class TemplateMatchesRepositoryTest extends TestCase
         $template = $this->makeTemplate(8, 4, 1, false);
 
         $repo->save(TemplateMatchesRepository::DEFAULT_TEMPLATE_VERSION, $template);
-        $loaded = $repo->find(8, 4, 1, false);
+        $loaded = $repo->find(8, 4, 1, 1, false);
 
         $this->assertSame($template->toArray(), $loaded->toArray());
     }
@@ -362,21 +363,21 @@ final class TemplateMatchesRepositoryTest extends TestCase
         $repo = new TemplateMatchesRepository($this->tempBaseDir);
         $repo->save(3, $this->makeTemplate(8, 4, 1, false));
 
-        $this->assertTrue($repo->hasAt(3, 8, 4, 1, false));
+        $this->assertTrue($repo->hasAt(3, 8, 4, 1, 1, false));
     }
 
     public function test_has_at_returns_false_when_template_file_is_missing(): void
     {
         $repo = new TemplateMatchesRepository($this->tempBaseDir);
 
-        $this->assertFalse($repo->hasAt(3, 8, 4, 1, false));
+        $this->assertFalse($repo->hasAt(3, 8, 4, 1, 1, false));
     }
 
     public function test_has_at_returns_false_when_version_directory_does_not_exist(): void
     {
         $repo = new TemplateMatchesRepository($this->tempBaseDir);
 
-        $this->assertFalse($repo->hasAt(99, 8, 4, 1, false));
+        $this->assertFalse($repo->hasAt(99, 8, 4, 1, 1, false));
     }
 
     public function test_has_at_distinguishes_fixed_teams_variant(): void
@@ -384,8 +385,59 @@ final class TemplateMatchesRepositoryTest extends TestCase
         $repo = new TemplateMatchesRepository($this->tempBaseDir);
         $repo->save(3, $this->makeTemplate(8, 2, 1, true));
 
-        $this->assertTrue($repo->hasAt(3, 8, 2, 1, true));
-        $this->assertFalse($repo->hasAt(3, 8, 2, 1, false));
+        $this->assertTrue($repo->hasAt(3, 8, 2, 1, 1, true));
+        $this->assertFalse($repo->hasAt(3, 8, 2, 1, 1, false));
+    }
+
+    public function test_list_combo_identities_at_parses_filenames_and_filters_by_courts(): void
+    {
+        $repo = new TemplateMatchesRepository($this->tempBaseDir);
+        $v5 = $this->tempBaseDir . DIRECTORY_SEPARATOR . 'v5';
+        mkdir($v5, 0775, true);
+        touch($v5 . DIRECTORY_SEPARATOR . 'players-12-partners-8-repeat-1-courts-1.json');
+        touch($v5 . DIRECTORY_SEPARATOR . 'players-12-partners-8-repeat-1-courts-2.json');
+        touch($v5 . DIRECTORY_SEPARATOR . 'players-4-partners-1-repeat-1-courts-1.json');
+        touch($v5 . DIRECTORY_SEPARATOR . 'players-8-partners-2-repeat-1-courts-1-fixedteams.json');
+
+        $courtsTwo = $repo->listComboIdentitiesAt(5, [
+            'repeat' => 1,
+            'courts' => 2,
+            'fixedTeams' => false,
+        ]);
+        $this->assertSame([
+            ['players' => 12, 'partners' => 8, 'repeat' => 1, 'courts' => 2, 'fixedTeams' => false],
+        ], $courtsTwo);
+
+        $playersPartners = $repo->listComboIdentitiesAt(5, [
+            'repeat' => 1,
+            'courts' => 1,
+            'fixedTeams' => false,
+            'playersPartners' => [4 => [1], 12 => [8]],
+        ]);
+        $this->assertSame([
+            ['players' => 4, 'partners' => 1, 'repeat' => 1, 'courts' => 1, 'fixedTeams' => false],
+            ['players' => 12, 'partners' => 8, 'repeat' => 1, 'courts' => 1, 'fixedTeams' => false],
+        ], $playersPartners);
+
+        $fixedOnly = $repo->listComboIdentitiesAt(5, [
+            'repeat' => 1,
+            'courts' => 1,
+            'fixedTeams' => true,
+        ]);
+        $this->assertSame([
+            ['players' => 8, 'partners' => 2, 'repeat' => 1, 'courts' => 1, 'fixedTeams' => true],
+        ], $fixedOnly);
+    }
+
+    public function test_list_combo_identities_at_returns_empty_when_version_missing(): void
+    {
+        $repo = new TemplateMatchesRepository($this->tempBaseDir);
+
+        $this->assertSame([], $repo->listComboIdentitiesAt(99, [
+            'repeat' => 1,
+            'courts' => 1,
+            'fixedTeams' => false,
+        ]));
     }
 
     private function makeTemplate(int $players, int $partners, int $repeat, bool $fixedTeams): TemplateMatches
@@ -394,8 +446,9 @@ final class TemplateMatchesRepositoryTest extends TestCase
             $players,
             $partners,
             $repeat,
+            1,
             $fixedTeams,
-            [[[0, 1], [2, 3]]],
+            [[[[0, 1], [2, 3]]]],
             0.0,
             2,
             1,

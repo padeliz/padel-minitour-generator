@@ -5,8 +5,10 @@ namespace Arshavinel\PadelMiniTour\Console;
 use Arshavinel\PadelMiniTour\Service\PlayerDistributionScorer;
 use Arshavinel\PadelMiniTour\Service\TemplateMatches;
 use Arshavinel\PadelMiniTour\Service\TemplateMatchesGenerator;
+use Arshavinel\PadelMiniTour\Service\TemplateMatchesRepository;
 use Symfony\Component\Console\Helper\Table;
 use Symfony\Component\Console\Helper\TableCell;
+use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
 /**
@@ -28,7 +30,7 @@ trait StatsFormatterTrait
     /** Total number of detail columns in the unified table. */
     protected function unifiedTotalColumns(): int
     {
-        return 18;
+        return 20;
     }
 
     /**
@@ -83,7 +85,9 @@ trait StatsFormatterTrait
             }
         }
 
-        return "<fg=$color>" . ($index ?: '-') . "</> / {$total}";
+        $indexLabel = $index !== null ? (string) $index : '-';
+
+        return "<fg=$color>{$indexLabel}</> / {$total}";
     }
 
     /**
@@ -249,6 +253,17 @@ trait StatsFormatterTrait
         return "<fg=$color>{$value}</>";
     }
 
+    protected function formatCourtSwitches(?int $value): string
+    {
+        if ($value === null) {
+            return '<fg=red>-</>';
+        }
+
+        $color = $value === 0 ? 'green' : ($value <= 2 ? 'yellow' : 'red');
+
+        return "<fg=$color>{$value}</>";
+    }
+
     /**
      * Color-coded distinct-opponents-met count for a single player (used for both the Min Met
      * and Max Met cells). The input is "how many other players share at least one match with
@@ -276,7 +291,7 @@ trait StatsFormatterTrait
     /**
      * Returns the unified two-row table header.
      *
-     * Top row groups (total colspan = 18):
+     * Top row groups (total colspan = 20):
      *
      *   | TEAMS (repeat: N, fixed: yes/no) (3) | PAIRING (4) | SORTING (4) | PAIRING STATS (4) | SORTING STATS (3) |
      *
@@ -294,15 +309,16 @@ trait StatsFormatterTrait
 
         return [
             [
-                new TableCell($teamsLabel, ['colspan' => 3]),
+                new TableCell($teamsLabel, ['colspan' => 4]),
                 new TableCell('<fg=green>PAIRING</>', ['colspan' => 4]),
-                new TableCell('<fg=green>SORTING</>', ['colspan' => 4]),
+                new TableCell('<fg=green>SORTING</>', ['colspan' => 5]),
                 new TableCell('<fg=green>PAIRING STATS</>', ['colspan' => 4]),
                 new TableCell('<fg=green>SORTING STATS</>', ['colspan' => 3]),
             ],
             [
                 'Players',
                 'Partners',
+                'Courts',
                 'Matches',
                 'Partners Var.',
                 'Min Met',
@@ -312,6 +328,7 @@ trait StatsFormatterTrait
                 'Avg Dist.',
                 'Min Break',
                 'Max Break',
+                'Court Sw.',
                 'Perm. Idx.',
                 'Pairing Idx.',
                 'Stop Reason',
@@ -358,9 +375,9 @@ trait StatsFormatterTrait
         }
 
         $matches = $template->getMatches();
-        $matchesCount = $matches !== null
-            ? count($matches)
-            : $template->getPairingBestMatchesCount();
+        $matchesCell = $matches !== null
+            ? '<fg=white>' . array_sum(array_map('count', $matches)) . '</>'
+            : '<fg=red>-</>';
 
         // Min/Max Met are *distinct-opponents-per-player* counters, not meeting-frequency
         // extrema. For each of the `players` seats we count how many other players share at
@@ -383,7 +400,8 @@ trait StatsFormatterTrait
         }
 
         return array_merge($identityCells, [
-            '<fg=white>' . ($matchesCount ?? '-') . '</>',
+            '<fg=white>' . $template->getCourts() . '</>',
+            $matchesCell,
             $this->formatPartnersVariation($template->getPairingPartnersCountVariation()),
             $this->formatOpponentsMetCount($metMin, $players),
             $this->formatOpponentsMetCount($metMax, $players),
@@ -400,6 +418,7 @@ trait StatsFormatterTrait
             ),
             $this->formatMinBreak($template->getSortingMinBreak(), $players),
             $this->formatMaxBreak($template->getSortingMaxBreak(), $players),
+            $this->formatCourtSwitches($template->getSortingCourtSwitches()),
             $this->formatIndex(
                 $template->getPairingPermutationIndex(),
                 (int) $template->getPairingPermutationsIterated()
@@ -447,5 +466,84 @@ trait StatsFormatterTrait
             $firstOfGroup
         ));
         $table->render();
+    }
+
+    /**
+     * @param mixed $raw
+     */
+    protected function parseStatsVersion($raw): int
+    {
+        if ($raw === null || $raw === '') {
+            return TemplateMatchesRepository::DEFAULT_TEMPLATE_VERSION;
+        }
+        if (!is_string($raw) && !is_int($raw)) {
+            throw new \InvalidArgumentException('Invalid --templates-version value: must be a positive integer.');
+        }
+        $stringValue = (string) $raw;
+        if (!preg_match('/^[1-9]\d*$/', $stringValue)) {
+            throw new \InvalidArgumentException(sprintf('Invalid --templates-version value: "%s" is not a positive integer.', $stringValue));
+        }
+
+        return (int) $stringValue;
+    }
+
+    /**
+     * @return array<int, array<int, int>>|null
+     */
+    protected function parseStatsCombinations(?string $raw): ?array
+    {
+        if ($raw === null || trim($raw) === '') {
+            return null;
+        }
+
+        $combinations = [];
+        foreach (preg_split('/\s+/', trim($raw)) as $param) {
+            if (strpos($param, ':') === false) {
+                throw new \InvalidArgumentException("Invalid combination token: {$param}");
+            }
+            [$players, $partnersList] = explode(':', $param, 2);
+            $combinations[(int) $players] = array_map('intval', explode(',', $partnersList));
+        }
+
+        return $combinations;
+    }
+
+    protected function hasStatsComboFilters(InputInterface $input): bool
+    {
+        $resolver = new TemplateComboResolver();
+        $filters = $resolver->parseFilters($input);
+
+        return $filters !== [] || $this->parseStatsCombinations($input->getOption('combinations')) !== null;
+    }
+
+    /**
+     * @param array<int, array<int, int>> $combinations
+     * @return list<array{players:int,partners:int,repeat:int,courts:int,fixedTeams:bool}>
+     */
+    protected function resolveStatsCombos(
+        InputInterface $input,
+        TemplateMatchesRepository $repository,
+        int $version,
+        array $combinations,
+        bool $defaultFixedTeams
+    ): array {
+        $resolver = new TemplateComboResolver();
+        $filters = $resolver->parseFilters($input);
+        $customCombinations = $this->parseStatsCombinations($input->getOption('combinations'));
+
+        if (!$this->hasStatsComboFilters($input)) {
+            return $resolver->resolve($input, $combinations, $defaultFixedTeams)['combos'];
+        }
+
+        $discoveryFilters = array_merge([
+            'repeat' => 1,
+            'courts' => 1,
+            'fixedTeams' => $defaultFixedTeams,
+        ], $filters);
+        if ($customCombinations !== null) {
+            $discoveryFilters['playersPartners'] = $customCombinations;
+        }
+
+        return $repository->listComboIdentitiesAt($version, $discoveryFilters);
     }
 }

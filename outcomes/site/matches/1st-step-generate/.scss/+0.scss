@@ -12,8 +12,8 @@ $color-good: #28a745;
 $color-fair: #ffa500;
 $color-poor: #dc3545;
 
-// Drag and drop styles for matches table
-#matches {
+// Drag and drop styles for matches tables
+.matches-table {
     tbody {
         tr {
             cursor: grab;

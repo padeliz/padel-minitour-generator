@@ -3,6 +3,7 @@
 namespace Arshavinel\PadelMiniTour\Console\Command;
 
 use Arshavinel\PadelMiniTour\Console\StatsFormatterTrait;
+use Arshavinel\PadelMiniTour\Console\TemplateComboResolver;
 use Arshavinel\PadelMiniTour\Service\PlayerDistributionScorer;
 use Arshavinel\PadelMiniTour\Service\Progress\GenerationProgress;
 use Arshavinel\PadelMiniTour\Service\Progress\OrderingProgress;
@@ -25,16 +26,10 @@ use Symfony\Component\Console\Style\SymfonyStyle;
  *
  * Two mutually exclusive invocation modes:
  *
- * - **Bulk mode** (no options): wipes `v{DEFAULT_TEMPLATE_VERSION + 1}/` first (so stale files from
- *   prior runs - including combos that have since been removed from
- *   {@see TemplateMatchesGenerator::COMBINATIONS} - are gone), then regenerates every
- *   (players => partners) entry of {@see TemplateMatchesGenerator::COMBINATIONS} with
- *   `repeat = 1, fixedTeams = false`.
- * - **Single-combo mode** (all four options provided): regenerates exactly that combo, with no
- *   requirement to exist in {@see TemplateMatchesGenerator::COMBINATIONS}. Does **not** wipe the
- *   target directory, so unrelated files committed under `v{N+1}/` survive the run.
- *
- * Mixing 1, 2 or 3 of the four options is an input-validation error.
+ * - **Full bulk** (no combo filters): wipes `v{DEFAULT_TEMPLATE_VERSION + 1}/` first, then
+ *   regenerates every COMBINATIONS entry with defaults `repeat=1, fixedTeams=false, courts=1`.
+ * - **Filtered bulk** (any subset of combo options): regenerates only matching combos and does
+ *   not wipe unrelated files in the target version directory.
  *
  * The in-use `v{DEFAULT_TEMPLATE_VERSION}/` directory is never touched, so the running app keeps
  * using the old templates while the new ones are reviewed.
@@ -62,16 +57,15 @@ final class RegenerateTemplatesCommand extends Command
         $this
             ->setDescription('Regenerate template-matches JSON files into the next-version directory.')
             ->setHelp(implode("\n", [
-                'With no options, regenerates the entire TemplateMatchesGenerator::COMBINATIONS set',
-                '(fixedTeams=false, repeat=1) and wipes v{DEFAULT_TEMPLATE_VERSION+1}/ first so stale files',
-                'from prior runs are removed. Provide all four options to regenerate a single combo;',
-                'single-combo mode only overwrites that one file (no wipe).',
-                'Omitting some of the four options is rejected.',
+                'With no combo filters, regenerates the entire COMBINATIONS set and wipes',
+                'v{DEFAULT_TEMPLATE_VERSION+1}/ first. Any subset of --players, --partners,',
+                '--repeat, --fixed-teams, --courts narrows the target set without a full wipe.',
             ]))
-            ->addOption('players', null, InputOption::VALUE_REQUIRED, 'Players count')
-            ->addOption('partners', null, InputOption::VALUE_REQUIRED, 'Opponents per player')
-            ->addOption('repeat', null, InputOption::VALUE_REQUIRED, 'Repeat opponents')
-            ->addOption('fixed-teams', null, InputOption::VALUE_REQUIRED, 'Fixed teams (0 or 1)');
+            ->addOption('players', null, InputOption::VALUE_REQUIRED, 'Filter by players count')
+            ->addOption('partners', null, InputOption::VALUE_REQUIRED, 'Filter by opponents per player')
+            ->addOption('repeat', null, InputOption::VALUE_REQUIRED, 'Filter by repeat opponents (default 1)')
+            ->addOption('fixed-teams', null, InputOption::VALUE_REQUIRED, 'Filter by fixed teams (0 or 1; default 0)')
+            ->addOption('courts', null, InputOption::VALUE_REQUIRED, 'Filter by court count (default 1)');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -84,55 +78,28 @@ final class RegenerateTemplatesCommand extends Command
 
         $io = new SymfonyStyle($input, $output);
 
-        $provided = [
-            'players' => $input->getOption('players'),
-            'partners' => $input->getOption('partners'),
-            'repeat' => $input->getOption('repeat'),
-            'fixed-teams' => $input->getOption('fixed-teams'),
-        ];
-        $providedCount = count(array_filter(
-            $provided,
-            static fn($v) => $v !== null && $v !== ''
-        ));
-
-        if ($providedCount !== 0 && $providedCount !== 4) {
-            $missing = [];
-            foreach ($provided as $name => $value) {
-                if ($value === null || $value === '') {
-                    $missing[] = '--' . $name;
-                }
-            }
-            $io->error(sprintf(
-                'All-or-nothing: provide either no options or all four (--players, --partners, --repeat, --fixed-teams). Missing: %s',
-                implode(', ', $missing)
-            ));
+        $resolver = new TemplateComboResolver();
+        try {
+            $resolved = $resolver->resolve($input, TemplateMatchesGenerator::COMBINATIONS, false);
+        } catch (\InvalidArgumentException $e) {
+            $io->error($e->getMessage());
             return 1;
         }
 
         $inUseVersion = TemplateMatchesRepository::DEFAULT_TEMPLATE_VERSION;
         $writeVersion = $inUseVersion + 1;
+        $combos = $resolved['combos'];
 
         $io->writeln(sprintf(
-            '<info>Currently in use:</info> v%d   <comment>Writing to:</comment> v%d',
+            '<info>Currently in use:</info> v%d   <comment>Writing to:</comment> v%d   <comment>Combos:</comment> %d',
             $inUseVersion,
-            $writeVersion
+            $writeVersion,
+            count($combos)
         ));
         $io->writeln('<info>Base dir:</info> ' . $this->repository->getBaseDir());
         $io->newLine();
 
-        if ($providedCount === 4) {
-            $combos = [[
-                'players' => (int) $provided['players'],
-                'partners' => (int) $provided['partners'],
-                'repeat' => (int) $provided['repeat'],
-                'fixedTeams' => $this->parseBool($provided['fixed-teams']),
-            ]];
-        } else {
-            // Bulk mode: purge the target version directory first so v{writeVersion}/ is a clean
-            // slate. Stale files from a prior run (combos that have since been removed from
-            // COMBINATIONS, or files left over from an interrupted run) are deleted; only the
-            // freshly generated files survive. Single-combo mode skips this so surgical re-runs
-            // do not destroy unrelated files.
+        if ($resolved['isFullBulk']) {
             $cleared = $this->repository->clearVersion($writeVersion);
             if ($cleared > 0) {
                 $io->writeln(sprintf(
@@ -142,18 +109,6 @@ final class RegenerateTemplatesCommand extends Command
                     $writeVersion
                 ));
                 $io->newLine();
-            }
-
-            $combos = [];
-            foreach (TemplateMatchesGenerator::COMBINATIONS as $players => $partnersList) {
-                foreach ($partnersList as $partners) {
-                    $combos[] = [
-                        'players' => (int) $players,
-                        'partners' => (int) $partners,
-                        'repeat' => 1,
-                        'fixedTeams' => false,
-                    ];
-                }
             }
         }
 
@@ -218,6 +173,7 @@ final class RegenerateTemplatesCommand extends Command
                     $combo['players'],
                     $combo['partners'],
                     $combo['repeat'],
+                    $combo['courts'],
                     $combo['fixedTeams']
                 );
             } finally {
@@ -225,6 +181,23 @@ final class RegenerateTemplatesCommand extends Command
             }
 
             $this->repository->save($writeVersion, $template);
+
+            $savedPath = $this->repository->path(
+                $writeVersion,
+                $combo['players'],
+                $combo['partners'],
+                $combo['repeat'],
+                $combo['courts'],
+                $combo['fixedTeams']
+            );
+            if ($template->isEligible()) {
+                $io->writeln(sprintf('<info>Saved:</info> %s', $savedPath));
+            } else {
+                $io->writeln(sprintf(
+                    '<comment>Saved infeasible record (matches=null):</comment> %s',
+                    $savedPath
+                ));
+            }
 
             // Finalize the per-combo sections so they stay in scrollback as a permanent trail.
             // The counter line is overwritten to a final (done) / (failed) status and the live
@@ -411,6 +384,7 @@ final class RegenerateTemplatesCommand extends Command
                 $combo['players'],
                 $combo['partners'],
                 $combo['repeat'],
+                $combo['courts'],
                 $combo['fixedTeams'],
                 $latestPairing,
                 $latestOrdering

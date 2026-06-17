@@ -12,15 +12,19 @@ if (
     !isset($_GET['allow-replacements']) || !is_numeric($_GET['allow-replacements']) ||
     empty($_GET['title']) || !is_string($_GET['title']) ||
     empty($_GET['matches']) || !is_array($_GET['matches']) ||
+    !isset($_GET['court-index']) || !is_numeric($_GET['court-index']) ||
     empty($_GET['time-start']) || !is_string($_GET['time-start']) ||
     empty($_GET['time-end']) || !is_string($_GET['time-end'])
 ) {
-    die('$_GET vars [edition], [organizer-id], [partner-id], [allow-replacements], [title], [time-start], [time-end] and [matches] are mandatory.');
+    die('$_GET vars [edition], [organizer-id], [partner-id], [allow-replacements], [title], [court-index], [time-start], [time-end] and [matches] are mandatory.');
 }
 
-ini_set('max_execution_time', ini_get('max_execution_time') + (2 * count($_GET['matches'])));
+$courtIndex = (int) $_GET['court-index'];
+$courtMatches = $_GET['matches'][$courtIndex] ?? [];
 
-$matchesCount = count($_GET['matches']);
+ini_set('max_execution_time', ini_get('max_execution_time') + (2 * count($courtMatches)));
+
+$matchesCount = count($courtMatches);
 $hasDemonstrativeMatch = (bool) ($_GET['demonstrative-match'] ?? false);
 
 if ($hasDemonstrativeMatch) {

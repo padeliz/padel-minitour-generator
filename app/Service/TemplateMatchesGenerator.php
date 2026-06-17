@@ -41,6 +41,8 @@ use Arshwell\Monolith\Func;
  */
 class TemplateMatchesGenerator
 {
+    use TemplateMatchesSortRoundDfs;
+
     /**
      * Supported `players => [partners, ...]` combinations targeted by the bulk regenerate run.
      *
@@ -69,22 +71,35 @@ class TemplateMatchesGenerator
         5 => [4],
         6 => [4],
         7 => [4],
-        8 => [2, 4, 6, 7],
+        8 => [4, 6, 7],
         9 => [8],
         10 => [8],
         11 => [8],
-        12 => [2, 3, 6, 7, 8, 9],
-        13 => [4, 8],
-        14 => [4, 8],
-        15 => [4, 9],
-        16 => [2, 3, 4, 5, 8, 11, 12],
+        12 => [7, 8, 9],
+        13 => [8],
+        14 => [8],
+        15 => [9, 12],
+        16 => [8, 11, 12],
     ];
 
-    /** 8 minutes, in nanoseconds. */
+    /** 8 minutes, in nanoseconds — fallback when dynamic formula is not used in tests. */
     public const DEFAULT_OUTER_WALL_BUDGET_NS = 480_000_000_000;
 
-    /** 8 minutes, in nanoseconds. */
+    /** 8 minutes, in nanoseconds — fallback when dynamic formula is not used in tests. */
     public const DEFAULT_SORT_WALL_BUDGET_NS = 480_000_000_000;
+
+    /** Base seconds for pairing wall-time formula. */
+    public const PAIRING_BUDGET_BASE_S = 100.0;
+    public const PAIRING_BUDGET_PER_PLAYER_S = 40.0;
+    public const PAIRING_BUDGET_PER_MATCH_S = 30.0;
+    public const PAIRING_BUDGET_MAX_S = 1800.0;
+
+    /** Base seconds for sorting wall-time formula. */
+    public const SORT_BUDGET_BASE_S = 100.0;
+    public const SORT_BUDGET_PER_ROUND_S = 40.0;
+    public const SORT_BUDGET_PER_COURT_S = 24.0;
+    public const SORT_BUDGET_PER_MATCH_S = 20;
+    public const SORT_BUDGET_MAX_S = 1800.0;
 
     /**
      * Default per-player meeting-gap tolerance used by {@see playersMetTooMuch()} during the
@@ -113,34 +128,6 @@ class TemplateMatchesGenerator
     public const DEFAULT_MEETINGS_VARIATION_LIMIT_MAX = 3;
 
     /**
-     * Per-combo wall-clock budgets, in nanoseconds, as `[outerWallBudgetNs, sortWallBudgetNs]`.
-     * Keys are stringified `players-partners` because PHP array keys cannot be tuples. Combos
-     * absent from this map fall back to the constructor-injected globals via {@see budgetFor()}.
-     *
-     * The current map gives the worst-10 combos from the bad-templates report 30 minutes per
-     * phase (3.75x the historic 8-minute budget) so R1's balanced-meeting constraint has room to
-     * find quality templates; the four-player combos get 30 seconds per phase because they
-     * exhaust in milliseconds and any larger budget just wastes wall time in CI.
-     */
-    public const PER_COMBO_BUDGETS_NS = [
-        '16-12' => [1_800_000_000_000, 1_800_000_000_000],
-        '16-11' => [1_800_000_000_000, 1_800_000_000_000],
-        '16-8'  => [1_800_000_000_000, 1_800_000_000_000],
-        '12-9'  => [1_800_000_000_000, 1_800_000_000_000],
-        '12-8'  => [1_800_000_000_000, 1_800_000_000_000],
-        '15-9'  => [1_800_000_000_000, 1_800_000_000_000],
-        '14-8'  => [1_800_000_000_000, 1_800_000_000_000],
-        '13-8'  => [1_800_000_000_000, 1_800_000_000_000],
-        '11-8'  => [1_800_000_000_000, 1_800_000_000_000],
-        '16-5'  => [1_800_000_000_000, 1_800_000_000_000],
-        '12-6'  => [1_800_000_000_000, 1_800_000_000_000],
-        '10-8'  => [1_800_000_000_000, 1_800_000_000_000],
-        '4-1'   => [30_000_000_000, 30_000_000_000],
-        '4-2'   => [30_000_000_000, 30_000_000_000],
-        '4-3'   => [30_000_000_000, 30_000_000_000],
-    ];
-
-    /**
      * Number of distant Lehmer-coded seeds the outer pair-ordering loop fans out to under the
      * S1 DFS model. Each seed runs **one** independent DFS over the permuted pair list, receives
      * `outerWallBudgetNs / K` of the per-combo wall budget, and produces at most one template;
@@ -153,6 +140,9 @@ class TemplateMatchesGenerator
      * point where the DFS branches widest.
      */
     public const DEFAULT_MULTI_SEED_COUNT_PAIRING = 256;
+
+    /** Distant Lehmer seeds for the sort-phase round-slice DFS (same K as pairing by default). */
+    public const DEFAULT_MULTI_SEED_COUNT_SORT = self::DEFAULT_MULTI_SEED_COUNT_PAIRING;
 
     /**
      * Maximum number of DFS recursion entries the pairing-phase {@see dfsExpand()} method may
@@ -184,7 +174,7 @@ class TemplateMatchesGenerator
     /**
      * S7 sort DFS pruned every complete ordering before it could reach a leaf, i.e. the Max
      * Break threshold `ceil(playersCount / 4)` is so tight that no ordering of the input matches
-     * satisfies it. The sort returns the input order verbatim (best-effort, never crash).
+     * satisfies it. Sort returns `ordered: null` with this stop reason.
      */
     public const STOP_REASON_PRUNE_INFEASIBLE = 'PRUNE_INFEASIBLE';
 
@@ -239,6 +229,7 @@ class TemplateMatchesGenerator
     private int $outerWallBudgetNs;
     private int $sortWallBudgetNs;
     private int $multiSeedCountPairing;
+    private int $multiSeedCountSort;
     private int $multiSeedThresholdPairs;
     private int $meetingsVariationLimit;
     private int $meetingsVariationLimitMax;
@@ -257,14 +248,11 @@ class TemplateMatchesGenerator
      */
     private int $maxBreakThreshold;
 
-    /**
-     * Active per-combo budget map. Defaults to {@see PER_COMBO_BUDGETS_NS} so production usage
-     * picks up the hardcoded overrides; tests call {@see setPerComboBudgetsNs()} with an empty
-     * array to fall back to the constructor-injected globals on every combo.
-     *
-     * @var array<string, array{0: int, 1: int}>
-     */
-    private array $perComboBudgetsNs;
+    /** Courts count for the active {@see generate()} call (set per invocation). */
+    private int $activeCourts = 1;
+
+    /** When true, {@see budgetFor()} uses constructor-injected globals instead of the formula. */
+    private bool $useStaticBudgets = false;
 
     /**
      * Wall-clock budgets resolved per `generate()` call by {@see budgetFor()}: either the
@@ -274,6 +262,11 @@ class TemplateMatchesGenerator
      */
     private int $effectiveOuterBudgetNs;
     private int $effectiveSortBudgetNs;
+
+    /** Live-progress context for the active sort seed (set per seed inside {@see sortMatches()}). */
+    private int $sortOrderingCurrentSeed = 1;
+    private int $sortOrderingTotalSeeds = 1;
+    private int $sortOrderingPerSeedBudgetNs = 0;
 
     /** @var callable|null function(GenerationProgress $event): void */
     private $progressCallback = null;
@@ -299,9 +292,12 @@ class TemplateMatchesGenerator
      *                                    combos.
      * @param int $meetingsVariationLimit Per-player meeting-gap tolerance for the pair-matching DFS.
      *                             See {@see DEFAULT_MEETINGS_VARIATION_LIMIT}.
+     * @param int $multiSeedCountSort Number of distant Lehmer seeds the sort-phase DFS fans out
+     *                               to. Pass `1` to force the identity match order.
      * @param int $dfsBranchCap Max recursion entries per pairing-phase DFS run (per seed); the
      *                          DFS aborts the seed and returns null once the cap is hit, leaving
-     *                          the other seeds free to explore their own subtrees.
+     *                          the other seeds free to explore their own subtrees. Also applied
+     *                          per seed in the sort-phase round-slice DFS.
      */
     public function __construct(
         ?callable $clock = null,
@@ -312,12 +308,14 @@ class TemplateMatchesGenerator
         int $meetingsVariationLimit = self::DEFAULT_MEETINGS_VARIATION_LIMIT,
         int $maxBreakThreshold = -1,
         int $meetingsVariationLimitMax = self::DEFAULT_MEETINGS_VARIATION_LIMIT_MAX,
-        int $dfsBranchCap = self::DEFAULT_DFS_BRANCH_CAP
+        int $dfsBranchCap = self::DEFAULT_DFS_BRANCH_CAP,
+        int $multiSeedCountSort = self::DEFAULT_MULTI_SEED_COUNT_SORT
     ) {
         $this->clock = $clock;
         $this->outerWallBudgetNs = $outerWallBudgetNs;
         $this->sortWallBudgetNs = $sortWallBudgetNs;
         $this->multiSeedCountPairing = max(1, $multiSeedCountPairing);
+        $this->multiSeedCountSort = max(1, $multiSeedCountSort);
         $this->multiSeedThresholdPairs = max(1, $multiSeedThresholdPairs);
         $this->meetingsVariationLimit = max(0, $meetingsVariationLimit);
         $this->maxBreakThreshold = $maxBreakThreshold;
@@ -325,26 +323,50 @@ class TemplateMatchesGenerator
         // headroom and behaves as if S6 were disabled.
         $this->meetingsVariationLimitMax = max($this->meetingsVariationLimit, $meetingsVariationLimitMax);
         $this->dfsBranchCap = max(1, $dfsBranchCap);
-        $this->perComboBudgetsNs = self::PER_COMBO_BUDGETS_NS;
         $this->effectiveOuterBudgetNs = $outerWallBudgetNs;
         $this->effectiveSortBudgetNs = $sortWallBudgetNs;
         $this->distributionScorer = new PlayerDistributionScorer();
     }
 
     /**
-     * Overrides the active per-combo budget map. Pass an empty array to disable the per-combo
-     * overrides entirely (every combo falls back to the constructor-injected globals). Pass a
-     * non-empty array to swap in a custom map - useful for tests that want to exercise the
-     * override path without the production 30-minute values.
-     *
-     * The map is keyed by `players-partners` strings and yields `[outerWallBudgetNs, sortWallBudgetNs]`
-     * tuples, identical to the format of {@see PER_COMBO_BUDGETS_NS}.
-     *
+     * Forces {@see budgetFor()} to return the constructor-injected globals (for fast tests).
+     */
+    public function setUseStaticBudgets(bool $useStaticBudgets): void
+    {
+        $this->useStaticBudgets = $useStaticBudgets;
+    }
+
+    public static function computePairingWallBudgetNs(int $players, int $partners, int $courts): int
+    {
+        $matchCount = ($players * $partners) / 4;
+        $seconds = self::PAIRING_BUDGET_BASE_S
+            + self::PAIRING_BUDGET_PER_PLAYER_S * $players
+            + self::PAIRING_BUDGET_PER_MATCH_S * $matchCount;
+        $seconds = min($seconds, self::PAIRING_BUDGET_MAX_S);
+
+        return (int) round($seconds * 1_000_000_000);
+    }
+
+    public static function computeSortingWallBudgetNs(int $players, int $partners, int $courts): int
+    {
+        $matchCount = ($players * $partners) / 4;
+        $roundsTotal = $courts > 0 ? (int) ceil($matchCount / $courts) : (int) $matchCount;
+        $seconds = self::SORT_BUDGET_BASE_S
+            + self::SORT_BUDGET_PER_ROUND_S * $roundsTotal
+            + self::SORT_BUDGET_PER_COURT_S * $courts
+            + self::SORT_BUDGET_PER_MATCH_S * $matchCount;
+        $seconds = min($seconds, self::SORT_BUDGET_MAX_S);
+
+        return (int) round($seconds * 1_000_000_000);
+    }
+
+    /**
+     * @deprecated Tests only — no-op; per-combo map removed in favour of dynamic budgets.
      * @param array<string, array{0: int, 1: int}> $budgets
      */
     public function setPerComboBudgetsNs(array $budgets): void
     {
-        $this->perComboBudgetsNs = $budgets;
+        $this->useStaticBudgets = empty($budgets);
     }
 
     /**
@@ -362,9 +384,20 @@ class TemplateMatchesGenerator
         $this->progressCallback = $callback;
     }
 
-    public function generate(int $players, int $partners, int $repeat, bool $fixedTeams = false): TemplateMatches
-    {
-        [$this->effectiveOuterBudgetNs, $this->effectiveSortBudgetNs] = $this->budgetFor($players, $partners);
+    public function generate(
+        int $players,
+        int $partners,
+        int $repeat,
+        int $courts = 1,
+        bool $fixedTeams = false
+    ): TemplateMatches {
+        $this->activeCourts = max(1, $courts);
+        [$this->effectiveOuterBudgetNs, $this->effectiveSortBudgetNs] = $this->budgetFor(
+            $players,
+            $partners,
+            $this->activeCourts,
+            $fixedTeams
+        );
 
         $reporter = new ProgressReporter(
             $this->progressCallback,
@@ -382,21 +415,18 @@ class TemplateMatchesGenerator
     }
 
     /**
-     * Returns `[outerWallBudgetNs, sortWallBudgetNs]` for the given combo, looking up the active
-     * per-combo budget map first and falling back to the constructor-injected globals when no
-     * override is registered. Tests can wipe the active map via {@see setPerComboBudgetsNs([])}
-     * to force every combo down the fallback path.
-     *
      * @return array{0: int, 1: int}
      */
-    private function budgetFor(int $players, int $partners): array
+    private function budgetFor(int $players, int $partners, int $courts, bool $fixedTeams): array
     {
-        $key = $players . '-' . $partners;
-        if (isset($this->perComboBudgetsNs[$key])) {
-            return $this->perComboBudgetsNs[$key];
+        if ($this->useStaticBudgets) {
+            return [$this->outerWallBudgetNs, $this->sortWallBudgetNs];
         }
 
-        return [$this->outerWallBudgetNs, $this->sortWallBudgetNs];
+        return [
+            self::computePairingWallBudgetNs($players, $partners, $courts),
+            self::computeSortingWallBudgetNs($players, $partners, $courts),
+        ];
     }
 
     private function generateMixed(
@@ -469,8 +499,12 @@ class TemplateMatchesGenerator
             );
         } else {
             $sortResult = $this->sortMatches($bestTemplate['matches'], $mockPlayers, $reporter);
-            $matches = $this->adjustServingOrder($sortResult['ordered'], $playersCount);
-            $matches = $this->repeatMatches($matches, $repeatOpponents);
+            if ($sortResult['ordered'] === null) {
+                $matches = null;
+            } else {
+                $matches = $this->adjustServingOrderByCourt($sortResult['ordered'], $playersCount);
+                $matches = $this->repeatMatchesByCourt($matches, $repeatOpponents);
+            }
 
             $playersMet = $bestTemplate['playersMet'];
             $partnersCountFinal = $partnersCount;
@@ -482,6 +516,7 @@ class TemplateMatchesGenerator
             $playersCount,
             $opponentsPerPlayer,
             $repeatOpponents,
+            $this->activeCourts,
             false,
             $matches,
             $bestTemplate['meetingsVariation'],
@@ -504,7 +539,12 @@ class TemplateMatchesGenerator
             $sortResult['maxBreak'],
             $sortingTime,
             $effectiveMeetingsVariationLimit,
-            $relaxAttempts
+            $relaxAttempts,
+            $sortResult['courtSwitches'] ?? null,
+            $sortResult['courtBalance'] ?? null,
+            $sortResult['nodesExplored'] ?? null,
+            $sortResult['seedIndex'] ?? null,
+            $sortResult['seedsTotal'] ?? null
         );
     }
 
@@ -1072,8 +1112,12 @@ class TemplateMatchesGenerator
         $reporter->setPhaseStart($sortingStartNs);
 
         $sortResult = $this->sortMatches($matchesList, $mockPlayers, $reporter);
-        $matchesList = $this->adjustServingOrder($sortResult['ordered'], $playersCount);
-        $matchesList = $this->repeatMatches($matchesList, $repeatOpponents);
+        if ($sortResult['ordered'] === null) {
+            $matchesList = null;
+        } else {
+            $matchesList = $this->adjustServingOrderByCourt($sortResult['ordered'], $playersCount);
+            $matchesList = $this->repeatMatchesByCourt($matchesList, $repeatOpponents);
+        }
 
         $sortingTime = $this->nsToSeconds($this->monotonicNow() - $sortingStartNs);
 
@@ -1081,6 +1125,7 @@ class TemplateMatchesGenerator
             $playersCount,
             $opponentsPerPlayer,
             $repeatOpponents,
+            $this->activeCourts,
             true,
             $matchesList,
             $meetingsVariation,
@@ -1091,7 +1136,7 @@ class TemplateMatchesGenerator
             $partnersCount,
             $playersMet,
             $partnersCountVariation,
-            count($matchesList),
+            $matchesList !== null ? array_sum(array_map('count', $matchesList)) : null,
             self::STOP_REASON_FACTORIAL_COMPLETE,
             $pairingTime,
             $sortResult['stopReason'],
@@ -1101,7 +1146,14 @@ class TemplateMatchesGenerator
             $sortResult['permutationIndex'],
             $sortResult['minBreak'],
             $sortResult['maxBreak'],
-            $sortingTime
+            $sortingTime,
+            null,
+            null,
+            $sortResult['courtSwitches'] ?? null,
+            $sortResult['courtBalance'] ?? null,
+            $sortResult['nodesExplored'] ?? null,
+            $sortResult['seedIndex'] ?? null,
+            $sortResult['seedsTotal'] ?? null
         );
     }
 
@@ -1276,480 +1328,6 @@ class TemplateMatchesGenerator
         return false;
     }
 
-    /**
-     * Permutes match order to spread each player's matches across the schedule.
-     *
-     * S7 replaces the lex walk with a deterministic backtracking DFS over match orderings. At
-     * depth `k` the DFS picks which unused match goes into position `k`, iterating candidates in
-     * ascending match index (deterministic tie-break). A per-player consecutive-break-run
-     * counter is maintained incrementally as the schedule grows; the DFS hard-prunes any branch
-     * that would push some player's counter strictly above `ceil(playersCount / 4)` (or the
-     * explicit `$maxBreakThreshold` injected via constructor).
-     *
-     * At a leaf (depth == m) the DFS scores the complete ordering with the existing piecewise
-     * asymmetric distribution scorer and updates the global best on a 3-tier lexicographic
-     * compare: `Min Dist` first, `Avg Dist` second, break-balance distance (the absolute gap
-     * between `(minBreak + maxBreak) / 2` and the per-player ideal `m / playerMatches`) as the
-     * final tie-breaker. Tie at all three tiers: the earlier leaf wins (deterministic).
-     *
-     * Stops when one of:
-     * - the wall deadline elapses (returns the best-so-far),
-     * - the DFS exhausts the (pruned) search tree (`FACTORIAL_COMPLETE`),
-     * - no leaf is reachable under the prune threshold (`PRUNE_INFEASIBLE`; the input order is
-     *   returned verbatim as a best-effort fallback so the caller never gets a crash).
-     *
-     * @param array<int, array<int, array<int, int>>> $matches
-     * @param array<int, int>                         $mockPlayers
-     * @return array{
-     *     ordered: array<int, array<int, array<int, int>>>,
-     *     stopReason: string,
-     *     min: float|null,
-     *     avg: float|null,
-     *     permutationsIterated: int,
-     *     permutationIndex: int|null,
-     *     minBreak: int|null,
-     *     maxBreak: int|null
-     * }
-     */
-    private function sortMatches(array $matches, array $mockPlayers, ProgressReporter $reporter): array
-    {
-        $matches = array_values($matches);
-        $m = count($matches);
-
-        if ($m <= 1) {
-            // Trivial input: nothing to permute. Emit one ordering-final event so the renderer
-            // contract holds (every generate() produces exactly one ordering-final event).
-            $reporter->ordering(
-                0,
-                null,
-                null,
-                $this->effectiveSortBudgetNs,
-                $this->monotonicNow(),
-                true,
-                self::STOP_REASON_TRIVIAL
-            );
-
-            return [
-                'ordered' => $matches,
-                'stopReason' => self::STOP_REASON_TRIVIAL,
-                'min' => null,
-                'avg' => null,
-                'permutationsIterated' => 0,
-                'permutationIndex' => null,
-                'minBreak' => null,
-                'maxBreak' => null,
-            ];
-        }
-
-        $playersCount = count($mockPlayers);
-        $maxBreakThreshold = $this->maxBreakThreshold >= 0
-            ? $this->maxBreakThreshold
-            : (int) ceil($playersCount / 4);
-
-        $deadlineNs = $this->monotonicNow() + $this->effectiveSortBudgetNs;
-
-        $schedule = [];
-        $used = array_fill(0, $m, false);
-        $currentRuns = [];
-        $longestRuns = [];
-        // Per-player state for the asymmetric break metrics:
-        // - `$playedAtLeastOnce[p]` distinguishes a lead run (don't record as inner) from a
-        //   closing inner run (record).
-        // - `$shortestInner[p]` accumulates the shortest closed inner break run -- including
-        //   length-`0` runs from back-to-back appearances (sit-out semantics: two consecutive
-        //   matches give a run of `0`, pinning $shortestInner to `0` for that player). Stays
-        //   `null` until the player has at least one inner run closed by a subsequent
-        //   appearance; the leaf maps `null` to `0` per the asymmetric contract.
-        $playedAtLeastOnce = [];
-        $shortestInner = [];
-        foreach ($mockPlayers as $playerIndex) {
-            $currentRuns[$playerIndex] = 0;
-            $longestRuns[$playerIndex] = 0;
-            $playedAtLeastOnce[$playerIndex] = false;
-            $shortestInner[$playerIndex] = null;
-        }
-
-        $bestState = [
-            'ordered' => null,
-            'min' => null,
-            'avg' => null,
-            'permutationIndex' => null,
-            'minBreak' => null,
-            'maxBreak' => null,
-            // Distance between the candidate's break-balance `(minBreak + maxBreak) / 2` and the
-            // per-player ideal `m / playerMatches`. Initialised to +INF so the first complete leaf
-            // wins unconditionally (matches the pairing-phase "first leaf seeds the best" pattern).
-            'breakDistance' => INF,
-        ];
-
-        $iterations = 0;
-        $exit = ['stopReason' => self::STOP_REASON_FACTORIAL_COMPLETE];
-
-        $this->sortDfsExpand(
-            $matches,
-            $mockPlayers,
-            $playersCount,
-            $schedule,
-            $currentRuns,
-            $longestRuns,
-            $playedAtLeastOnce,
-            $shortestInner,
-            $used,
-            $maxBreakThreshold,
-            $deadlineNs,
-            $bestState,
-            $iterations,
-            $reporter,
-            $exit
-        );
-
-        if ($bestState['ordered'] === null) {
-            // The DFS exited without finding any complete ordering. Two paths into this branch:
-            // (a) `FACTORIAL_COMPLETE` exit + no leaf visited → the prune killed every branch
-            //     before reaching depth m. The schedule is genuinely infeasible under the chosen
-            //     `$maxBreakThreshold`.
-            // (b) `DEADLINE` exit + no leaf visited → the deadline truncated the search before
-            //     any leaf could be reached. We surface the deadline reason so the operator can
-            //     distinguish "give me more time" from "loosen the threshold".
-            $stopReason = $exit['stopReason'] === self::STOP_REASON_DEADLINE
-                ? self::STOP_REASON_DEADLINE
-                : self::STOP_REASON_PRUNE_INFEASIBLE;
-
-            $reporter->ordering(
-                $iterations,
-                null,
-                null,
-                $this->effectiveSortBudgetNs,
-                $this->monotonicNow(),
-                true,
-                $stopReason
-            );
-
-            return [
-                'ordered' => $matches,
-                'stopReason' => $stopReason,
-                'min' => null,
-                'avg' => null,
-                'permutationsIterated' => $iterations,
-                'permutationIndex' => null,
-                'minBreak' => null,
-                'maxBreak' => null,
-            ];
-        }
-
-        $reporter->ordering(
-            $iterations,
-            $bestState['min'],
-            $bestState['avg'],
-            $this->effectiveSortBudgetNs,
-            $this->monotonicNow(),
-            true,
-            $exit['stopReason'],
-            $bestState['permutationIndex'],
-            $bestState['minBreak'],
-            $bestState['maxBreak']
-        );
-
-        return [
-            'ordered' => $bestState['ordered'],
-            'stopReason' => $exit['stopReason'],
-            'min' => $bestState['min'],
-            'avg' => $bestState['avg'],
-            'permutationsIterated' => $iterations,
-            'permutationIndex' => $bestState['permutationIndex'],
-            'minBreak' => $bestState['minBreak'],
-            'maxBreak' => $bestState['maxBreak'],
-        ];
-    }
-
-    /**
-     * Backtracking DFS over match orderings. At every depth picks the next match (lowest unused
-     * index, deterministic) and recurses; prunes a candidate when placing it would push some
-     * player's running consecutive-break counter strictly above `$maxBreakThreshold` (i.e. some
-     * player would exceed the `Max Break` ceiling). At a leaf (depth == m) scores the ordering
-     * and updates `$bestState` on a 3-tier lex compare: `Min Dist` > `Avg Dist` > break-balance
-     * distance (lower is better).
-     *
-     * Maintains four parallel per-player maps incrementally to make the leaf compute O(playersCount):
-     *   - `$currentRuns[p]` -- live consecutive-non-appearance counter (used by the prune).
-     *   - `$longestRuns[p]` -- longest break run for p across all positions (lead + inner + trail)
-     *     seen so far; the leaf's `maxBreak` is `max($longestRuns)`.
-     *   - `$playedAtLeastOnce[p]` -- flips to true on p's first appearance, so the lead run is
-     *     NOT recorded as an inner run.
-     *   - `$shortestInner[p]` -- shortest closed inner break run for p so far. A subsequent
-     *     appearance always closes an inner run, even when the previous appearance was the
-     *     immediately preceding match (length `0`, sit-out semantics: two consecutive matches
-     *     contribute a `0` and pin $shortestInner to `0`). Stays null when p has not yet had a
-     *     second appearance (single-appearance or zero-appearance player); the leaf maps null
-     *     to `0` per the asymmetric contract.
-     *
-     * Mutates `$schedule`, all four per-player maps, `$used`, `$bestState`, `$iterations`,
-     * and `$exit` by reference. Returns when the search exhausts the (pruned) tree or the
-     * wall deadline fires.
-     *
-     * @param array<int, array<int, array<int, int>>> $matches
-     * @param array<int, int>                         $mockPlayers
-     * @param array<int, int>                         $schedule
-     * @param array<int, int>                         $currentRuns
-     * @param array<int, int>                         $longestRuns
-     * @param array<int, bool>                        $playedAtLeastOnce
-     * @param array<int, int|null>                    $shortestInner
-     * @param array<int, bool>                        $used
-     * @param array{
-     *     ordered: array<int, array<int, array<int, int>>>|null,
-     *     min: float|null,
-     *     avg: float|null,
-     *     permutationIndex: int|null,
-     *     minBreak: int|null,
-     *     maxBreak: int|null,
-     *     breakDistance: float
-     * } $bestState
-     * @param array{stopReason: string} $exit
-     */
-    private function sortDfsExpand(
-        array $matches,
-        array $mockPlayers,
-        int $playersCount,
-        array &$schedule,
-        array &$currentRuns,
-        array &$longestRuns,
-        array &$playedAtLeastOnce,
-        array &$shortestInner,
-        array &$used,
-        int $maxBreakThreshold,
-        int $deadlineNs,
-        array &$bestState,
-        int &$iterations,
-        ProgressReporter $reporter,
-        array &$exit
-    ): bool {
-        $now = $this->monotonicNow();
-        if ($now >= $deadlineNs) {
-            $exit['stopReason'] = self::STOP_REASON_DEADLINE;
-            return true;
-        }
-
-        $m = count($matches);
-
-        if (count($schedule) === $m) {
-            $iterations++;
-
-            $reporter->ordering(
-                $iterations,
-                $bestState['min'],
-                $bestState['avg'],
-                $this->effectiveSortBudgetNs,
-                $now,
-                false,
-                null,
-                $bestState['permutationIndex'],
-                $bestState['minBreak'],
-                $bestState['maxBreak']
-            );
-
-            $ordered = [];
-            foreach ($schedule as $matchIndex) {
-                $ordered[] = $matches[$matchIndex];
-            }
-            $scores = $this->scoreMatchOrderDistribution($ordered, $mockPlayers);
-            $minScore = $scores['min'];
-            $avgScore = $scores['avg'];
-
-            // 3-tier lex tie-break:
-            //   1. larger `Min Dist` wins,
-            //   2. else larger `Avg Dist` wins,
-            //   3. else the candidate whose break-balance is closer to the per-player ideal wins.
-            //
-            // Asymmetric break metrics:
-            //   - `minBreak` = cross-player MIN of each player's shortest INNER break run (a
-            //     break run bracketed by appearances on both sides). Inner runs include
-            //     length-`0` back-to-back appearances (sit-out semantics: two consecutive
-            //     matches give a run of `0`), so any player with at least one back-to-back
-            //     contributes `0`. A player with no closed inner run at all (plays only once,
-            //     or never plays) also contributes `0`. Either way, whenever any player's
-            //     contribution is `0` the aggregate is `0` too.
-            //   - `maxBreak` = cross-player MAX of each player's longest break run anywhere in
-            //     the schedule (lead + inner + trail). Already encoded in `$longestRuns` because
-            //     the DFS increments the counter at every absence regardless of position.
-            //
-            // The break-balance `(minBreak + maxBreak) / 2` compares to the per-player ideal
-            // `m / playerMatches` (a float -- no ceil, since the break average itself can carry
-            // a `.5`). `playerMatches` is the mean across players, derived from
-            // `(m * 4) / playersCount` since every match seats 4 distinct players. When all
-            // three tiers tie, the earlier-discovered leaf wins, because we only adopt on
-            // strict improvement at every tier (determinism preserved).
-            $perPlayerMin = [];
-            foreach ($mockPlayers as $playerIndex) {
-                $perPlayerMin[] = $shortestInner[$playerIndex] ?? 0;
-            }
-            $currentMinBreak = min($perPlayerMin);
-            $currentMaxBreak = max($longestRuns);
-            $breakAvg = ($currentMinBreak + $currentMaxBreak) / 2.0;
-            $playerMatches = ($m * 4) / $playersCount;
-            $targetBreakAvg = $playerMatches > 0 ? ($m / $playerMatches) : 0.0;
-            $candidateBreakDistance = abs($breakAvg - $targetBreakAvg);
-
-            if (
-                $bestState['min'] === null
-                || $minScore > $bestState['min']
-                || ($minScore === $bestState['min'] && $avgScore > $bestState['avg'])
-                || (
-                    $minScore === $bestState['min']
-                    && $avgScore === $bestState['avg']
-                    && $candidateBreakDistance < $bestState['breakDistance']
-                )
-            ) {
-                $bestState['min'] = $minScore;
-                $bestState['avg'] = $avgScore;
-                $bestState['ordered'] = $ordered;
-                $bestState['permutationIndex'] = $iterations;
-                $bestState['minBreak'] = $currentMinBreak;
-                $bestState['maxBreak'] = $currentMaxBreak;
-                $bestState['breakDistance'] = $candidateBreakDistance;
-            }
-
-            return false;
-        }
-
-        for ($j = 0; $j < $m; $j++) {
-            if ($used[$j]) {
-                continue;
-            }
-
-            $match = $matches[$j];
-            $matchPlayers = [
-                $match[0][0] ?? null,
-                $match[0][1] ?? null,
-                $match[1][0] ?? null,
-                $match[1][1] ?? null,
-            ];
-            $matchPlayersLookup = array_flip(array_filter($matchPlayers, static fn($p) => $p !== null));
-
-            // Compute the post-placement state in one pass:
-            //   - appearing players reset $currentRuns to 0. If this is their first appearance,
-            //     flag $deltaPlayed so the apply step can flip $playedAtLeastOnce. Otherwise (a
-            //     subsequent appearance) the just-completed $currentRuns run is a CLOSED inner
-            //     break, so update $shortestInner if it improves, stashing the previous value
-            //     in $deltaShortest for backtrack undo.
-            //   - absent players increment $currentRuns by 1 (gated by the prune) and possibly
-            //     bump $longestRuns.
-            $deltaRun = [];
-            $deltaLongest = [];
-            $deltaPlayed = [];      // [p => true] for players whose `played` flag flipped this step
-            $deltaShortest = [];    // [p => previousShortestInner] for players whose `shortestInner` changed
-            $pruned = false;
-            foreach ($mockPlayers as $playerIndex) {
-                if (isset($matchPlayersLookup[$playerIndex])) {
-                    $deltaRun[$playerIndex] = -$currentRuns[$playerIndex];
-                    $deltaLongest[$playerIndex] = 0;
-                    if (!$playedAtLeastOnce[$playerIndex]) {
-                        // First appearance: the accumulated $currentRuns was the lead -- do NOT
-                        // record it as an inner run.
-                        $deltaPlayed[$playerIndex] = true;
-                    } else {
-                        // Subsequent appearance closing an inner break run of length
-                        // $currentRuns (a value of 0 means back-to-back appearances, matching
-                        // the scorer's sit-out semantics -- a 0 is a legitimate inner run that
-                        // pins $shortestInner to 0). Stash the previous value (for undo) only
-                        // when we actually improve, then we will apply the new value below
-                        // alongside the other deltas.
-                        $prev = $shortestInner[$playerIndex];
-                        $candidate = $currentRuns[$playerIndex];
-                        if ($prev === null || $candidate < $prev) {
-                            $deltaShortest[$playerIndex] = $prev;
-                        }
-                    }
-                } else {
-                    $newRun = $currentRuns[$playerIndex] + 1;
-                    if ($newRun > $maxBreakThreshold) {
-                        $pruned = true;
-                        break;
-                    }
-                    $deltaRun[$playerIndex] = 1;
-                    $deltaLongest[$playerIndex] = $newRun > $longestRuns[$playerIndex]
-                        ? $newRun - $longestRuns[$playerIndex]
-                        : 0;
-                }
-            }
-
-            if ($pruned) {
-                continue;
-            }
-
-            foreach ($deltaRun as $playerIndex => $delta) {
-                $currentRuns[$playerIndex] += $delta;
-                $longestRuns[$playerIndex] += $deltaLongest[$playerIndex];
-            }
-            foreach ($deltaPlayed as $playerIndex => $_unused) {
-                $playedAtLeastOnce[$playerIndex] = true;
-            }
-            foreach ($deltaShortest as $playerIndex => $prev) {
-                // The candidate inner-run length is the player's $currentRuns BEFORE we zeroed
-                // it via $deltaRun. We stored $deltaRun = -previousCurrentRuns above, so the
-                // candidate is its negation. We only stash entries in $deltaShortest when we
-                // strictly improve, so this writes the new minimum unconditionally.
-                $shortestInner[$playerIndex] = -$deltaRun[$playerIndex];
-            }
-            $used[$j] = true;
-            $schedule[] = $j;
-
-            $stop = $this->sortDfsExpand(
-                $matches,
-                $mockPlayers,
-                $playersCount,
-                $schedule,
-                $currentRuns,
-                $longestRuns,
-                $playedAtLeastOnce,
-                $shortestInner,
-                $used,
-                $maxBreakThreshold,
-                $deadlineNs,
-                $bestState,
-                $iterations,
-                $reporter,
-                $exit
-            );
-
-            array_pop($schedule);
-            $used[$j] = false;
-            foreach ($deltaRun as $playerIndex => $delta) {
-                $currentRuns[$playerIndex] -= $delta;
-                $longestRuns[$playerIndex] -= $deltaLongest[$playerIndex];
-            }
-            foreach ($deltaPlayed as $playerIndex => $_unused) {
-                $playedAtLeastOnce[$playerIndex] = false;
-            }
-            foreach ($deltaShortest as $playerIndex => $prev) {
-                $shortestInner[$playerIndex] = $prev;
-            }
-
-            if ($stop) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * Cross-player aggregate of the per-player distribution score. Delegates to
-     * {@see PlayerDistributionScorer::scoreAll()} and discards the per-player breakdown -- the
-     * sort DFS only needs `min` (worst-player score) and `avg` (mean across players) for its
-     * 3-tier lex compare.
-     *
-     * @return array{min: float, avg: float}
-     */
-    private function scoreMatchOrderDistribution(array $orderedMatches, array $mockPlayers): array
-    {
-        $aggregate = $this->distributionScorer->scoreAll($mockPlayers, $orderedMatches);
-
-        return [
-            'min' => $aggregate['min'],
-            'avg' => $aggregate['avg'],
-        ];
-    }
-
     private function adjustServingOrder(array $matches, int $playerNumber): array
     {
         $serveCounts = array_fill(0, $playerNumber, 0);
@@ -1772,18 +1350,6 @@ class TemplateMatchesGenerator
         unset($match);
 
         return $matches;
-    }
-
-    private function repeatMatches(array $matches, int $repeatOpponents): array
-    {
-        $repeated = [];
-        for ($i = 1; $i <= $repeatOpponents; $i++) {
-            foreach ($matches as $match) {
-                $repeated[] = $match;
-            }
-        }
-
-        return $repeated;
     }
 
     private function monotonicNow(): int

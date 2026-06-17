@@ -18,9 +18,10 @@ final class TemplateMatchesTest extends TestCase
         $this->assertSame(4, $template->getPlayers());
         $this->assertSame(1, $template->getPartners());
         $this->assertSame(1, $template->getRepeat());
+        $this->assertSame(1, $template->getCourts());
         $this->assertFalse($template->isFixedTeams());
 
-        $this->assertSame([[[0, 1], [2, 3]]], $template->getMatches());
+        $this->assertSame([[[[0, 1], [2, 3]]]], $template->getMatches());
 
         $this->assertSame(0.0, $template->getPairingMeetingsVariation());
         $this->assertSame([0 => 1, 1 => 1, 2 => 1, 3 => 1], $template->getPairingPartnersCount());
@@ -56,6 +57,12 @@ final class TemplateMatchesTest extends TestCase
         $this->assertFalse($ineligible->isEligible());
     }
 
+    public function test_is_usable_requires_valid_schedule(): void
+    {
+        $this->assertTrue($this->makeTemplate()->isUsable());
+        $this->assertFalse($this->makeBlankTemplate()->isUsable());
+    }
+
     public function test_round_trip_through_array_preserves_data(): void
     {
         $original = $this->makeTemplate();
@@ -69,7 +76,7 @@ final class TemplateMatchesTest extends TestCase
         $array = $this->makeTemplate()->toArray();
 
         // Identity + matches live at the root; legacy estimatedGenerationTime/generationTime are gone.
-        $this->assertSame(['players', 'partners', 'repeat', 'fixedTeams', 'matches', 'pairing', 'sorting'], array_keys($array));
+        $this->assertSame(['players', 'partners', 'repeat', 'courts', 'fixedTeams', 'matches', 'pairing', 'sorting'], array_keys($array));
 
         $this->assertIsArray($array['pairing']);
         $this->assertIsArray($array['sorting']);
@@ -85,7 +92,8 @@ final class TemplateMatchesTest extends TestCase
         $expectedSortingKeys = [
             'stopReason', 'minDistribution', 'avgDistribution',
             'permutationsIterated', 'permutationIndex',
-            'minBreak', 'maxBreak', 'time',
+            'minBreak', 'maxBreak', 'courtSwitches', 'courtBalance',
+            'nodesExplored', 'seedIndex', 'seedsTotal', 'time',
         ];
         $this->assertSame($expectedSortingKeys, array_keys($array['sorting']));
 
@@ -115,6 +123,7 @@ final class TemplateMatchesTest extends TestCase
             'players' => 4,
             'partners' => 1,
             'repeat' => 1,
+            'courts' => 1,
             'fixedTeams' => false,
             'matches' => null,
             'pairing' => [],
@@ -136,7 +145,7 @@ final class TemplateMatchesTest extends TestCase
 
     public function test_from_array_throws_when_identity_keys_are_missing(): void
     {
-        foreach (['players', 'partners', 'repeat', 'fixedTeams'] as $omittedKey) {
+        foreach (['players', 'partners', 'repeat', 'courts', 'fixedTeams'] as $omittedKey) {
             $data = $this->makeJsonArray();
             unset($data[$omittedKey]);
 
@@ -232,10 +241,11 @@ final class TemplateMatchesTest extends TestCase
             null,
             3,
             1,
-            2
+            2,
+            4
         );
 
-        $snapshot = TemplateMatches::fromProgress(8, 2, 1, false, $pairing, $ordering);
+        $snapshot = TemplateMatches::fromProgress(8, 2, 1, 1, false, $pairing, $ordering);
 
         $this->assertSame(8, $snapshot->getPlayers());
         $this->assertSame(2, $snapshot->getPartners());
@@ -263,13 +273,14 @@ final class TemplateMatchesTest extends TestCase
         $this->assertSame(3, $snapshot->getSortingPermutationIndex());
         $this->assertSame(1, $snapshot->getSortingMinBreak());
         $this->assertSame(2, $snapshot->getSortingMaxBreak());
+        $this->assertSame(4, $snapshot->getSortingCourtSwitches());
         $this->assertNull($snapshot->getSortingStopReason());
         $this->assertEquals(0.2, $snapshot->getSortingTime(), '', 1e-9);
     }
 
     public function test_from_progress_accepts_null_events_at_run_start(): void
     {
-        $snapshot = TemplateMatches::fromProgress(4, 1, 1, false, null, null);
+        $snapshot = TemplateMatches::fromProgress(4, 1, 1, 1, false, null, null);
 
         $this->assertSame(4, $snapshot->getPlayers());
         $this->assertFalse($snapshot->isEligible());
@@ -305,7 +316,7 @@ final class TemplateMatchesTest extends TestCase
             'DEADLINE'
         );
 
-        $snapshot = TemplateMatches::fromProgress(8, 2, 1, false, $finalPairing, null);
+        $snapshot = TemplateMatches::fromProgress(8, 2, 1, 1, false, $finalPairing, null);
         $this->assertSame('DEADLINE', $snapshot->getPairingStopReason());
     }
 
@@ -325,8 +336,9 @@ final class TemplateMatchesTest extends TestCase
             4,
             1,
             1,
+            1,
             false,
-            [[[0, 1], [2, 3]]],
+            [[[[0, 1], [2, 3]]]],
             0.0,
             2,
             1,
@@ -360,6 +372,7 @@ final class TemplateMatchesTest extends TestCase
             $players,
             $partners,
             $repeat,
+            1,
             $fixedTeams,
             null,
             null,

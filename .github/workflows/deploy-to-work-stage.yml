@@ -41,6 +41,9 @@ jobs:
       - name: ▶️ 3. Run "composer install"
         uses: "ramsey/composer-install@v2"
 
+      - name: ▶️ 3b. Run unit tests
+        run: composer test
+
       - name: ▶️ 4. Create .env.local file
         run: |
           touch .env.local

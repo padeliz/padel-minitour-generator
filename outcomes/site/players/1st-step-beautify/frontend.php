@@ -43,7 +43,7 @@
             <?php
             if (!empty($_GET['include-scores'])) { ?>
                 <b style="font-size: 18px;">
-                    <?= $_GET['court'] ?>
+                    <?= htmlspecialchars($courtLabel) ?>
                     •
                     <?= $pointsPerMatch + (int)($_GET['adjust-points-per-match'] ?? 0) ?> points per match
                 </b>

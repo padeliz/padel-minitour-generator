@@ -137,7 +137,10 @@ final class ProgressReporter
         ?string $stopReason = null,
         ?int $bestPermutationIndex = null,
         ?int $bestMinBreak = null,
-        ?int $bestMaxBreak = null
+        ?int $bestMaxBreak = null,
+        ?int $bestCourtSwitches = null,
+        int $currentSeed = 1,
+        int $totalSeeds = 1
     ): void {
         if ($this->callback === null) {
             return;
@@ -161,7 +164,10 @@ final class ProgressReporter
             $stopReason,
             $bestPermutationIndex,
             $bestMinBreak,
-            $bestMaxBreak
+            $bestMaxBreak,
+            $bestCourtSwitches,
+            $currentSeed,
+            $totalSeeds
         ), $now);
     }
 

@@ -1,0 +1,202 @@
+{
+    "players": 8,
+    "partners": 4,
+    "repeat": 1,
+    "courts": 1,
+    "fixedTeams": false,
+    "matches": [
+        [
+            [
+                [
+                    1,
+                    5
+                ],
+                [
+                    0,
+                    4
+                ]
+            ],
+            [
+                [
+                    2,
+                    7
+                ],
+                [
+                    3,
+                    6
+                ]
+            ],
+            [
+                [
+                    1,
+                    7
+                ],
+                [
+                    2,
+                    5
+                ]
+            ],
+            [
+                [
+                    0,
+                    6
+                ],
+                [
+                    1,
+                    4
+                ]
+            ],
+            [
+                [
+                    0,
+                    5
+                ],
+                [
+                    3,
+                    7
+                ]
+            ],
+            [
+                [
+                    3,
+                    4
+                ],
+                [
+                    2,
+                    6
+                ]
+            ],
+            [
+                [
+                    1,
+                    6
+                ],
+                [
+                    0,
+                    7
+                ]
+            ],
+            [
+                [
+                    2,
+                    4
+                ],
+                [
+                    3,
+                    5
+                ]
+            ]
+        ]
+    ],
+    "pairing": {
+        "meetingsVariation": 1,
+        "permutationsIterated": 256,
+        "permutationIndex": 75,
+        "templatesGenerated": 256,
+        "templateIndex": 75,
+        "partnersCount": [
+            4,
+            4,
+            4,
+            4,
+            4,
+            4,
+            4,
+            4
+        ],
+        "playersMet": {
+            "1": {
+                "7": 2,
+                "2": 1,
+                "5": 2,
+                "0": 3,
+                "4": 2,
+                "6": 2
+            },
+            "7": {
+                "1": 2,
+                "2": 2,
+                "5": 2,
+                "6": 2,
+                "0": 2,
+                "3": 2
+            },
+            "2": {
+                "1": 1,
+                "7": 2,
+                "5": 2,
+                "3": 3,
+                "6": 2,
+                "4": 2
+            },
+            "5": {
+                "1": 2,
+                "7": 2,
+                "2": 2,
+                "0": 2,
+                "4": 2,
+                "3": 2
+            },
+            "0": {
+                "1": 3,
+                "5": 2,
+                "4": 2,
+                "6": 2,
+                "7": 2,
+                "3": 1
+            },
+            "4": {
+                "1": 2,
+                "5": 2,
+                "0": 2,
+                "6": 2,
+                "2": 2,
+                "3": 2
+            },
+            "6": {
+                "1": 2,
+                "0": 2,
+                "7": 2,
+                "4": 2,
+                "2": 2,
+                "3": 2
+            },
+            "3": {
+                "0": 1,
+                "5": 2,
+                "7": 2,
+                "2": 3,
+                "6": 2,
+                "4": 2
+            }
+        },
+        "partnersCountVariation": 0,
+        "bestMatchesCount": 8,
+        "stopReason": "FACTORIAL_COMPLETE",
+        "time": 0.0490859,
+        "meetingsVariationLimit": 1,
+        "relaxAttempts": [
+            {
+                "meetingsVariationLimit": 1,
+                "permutationsIterated": 256,
+                "templatesGenerated": 256,
+                "time": 0.0490859
+            }
+        ]
+    },
+    "sorting": {
+        "stopReason": "FACTORIAL_COMPLETE",
+        "minDistribution": 0.975,
+        "avgDistribution": 0.9825000000000002,
+        "permutationsIterated": 1224,
+        "permutationIndex": 249,
+        "minBreak": 0,
+        "maxBreak": 2,
+        "courtSwitches": 0,
+        "courtBalance": 0,
+        "nodesExplored": 5133,
+        "seedIndex": 1,
+        "seedsTotal": 1,
+        "time": 0.0809708
+    }
+}

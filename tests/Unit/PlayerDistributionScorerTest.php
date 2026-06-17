@@ -21,11 +21,11 @@ final class PlayerDistributionScorerTest extends TestCase
     {
         $scorer = new PlayerDistributionScorer();
 
-        $matches = [
+        $matches = [[
             [[0, 1], [2, 3]],
             [[4, 5], [6, 7]],
             [[8, 9], [10, 11]],
-        ];
+        ]];
 
         $this->assertSame(1.0, $scorer->score(0, $matches));
     }
@@ -34,10 +34,10 @@ final class PlayerDistributionScorerTest extends TestCase
     {
         $scorer = new PlayerDistributionScorer();
 
-        $matches = [
+        $matches = [[
             [[1, 2], [3, 4]],
             [[5, 6], [7, 8]],
-        ];
+        ]];
 
         $this->assertSame(1.0, $scorer->score(0, $matches));
     }
@@ -58,12 +58,12 @@ final class PlayerDistributionScorerTest extends TestCase
         // inner sit-outs = 2 - 0 - 1 = 1 (inter, ==neutralLow) -> 0.
         // no lead (firstMatch=0), trail = 1 (edge, ==neutralLow) -> 0.
         // avg(0, 0) = 0 -> score = 1.0.
-        $matches = [
+        $matches = [[
             [[0, 1], [2, 3]],
             [[1, 2], [3, 4]],
             [[0, 4], [5, 6]],
             [[1, 3], [5, 6]],
-        ];
+        ]];
 
         $this->assertSame(1.0, $scorer->score(0, $matches));
     }
@@ -78,14 +78,14 @@ final class PlayerDistributionScorerTest extends TestCase
         // inner sit-outs = 5 - 0 - 1 = 4 (inter, > neutralHigh by 1) -> 0.4 * 1 = 0.4.
         // no lead (firstMatch=0), no trail (lastMatch=5=totalMatches-1).
         // avg = 0.4 -> score = 0.6.
-        $matches = [
+        $matches = [[
             [[0, 1], [2, 3]],
             [[1, 2], [3, 4]],
             [[1, 2], [3, 4]],
             [[1, 2], [3, 4]],
             [[1, 2], [3, 4]],
             [[0, 5], [6, 7]],
-        ];
+        ]];
 
         $this->assertEqualsWithDelta(0.6, $scorer->score(0, $matches), 1e-9);
     }
@@ -157,12 +157,12 @@ final class PlayerDistributionScorerTest extends TestCase
 
         // Player 0 spans the full schedule (perfect), player 1 plays only twice in close
         // succession at the start, so their scores diverge cleanly.
-        $matches = [
-            [[0, 1], [2, 3]],   // 0: P0, P1
-            [[0, 2], [4, 5]],   // 1: P0
-            [[1, 4], [3, 5]],   // 2: P1
-            [[0, 3], [4, 5]],   // 3: P0
-        ];
+        $matches = [[
+            [[0, 1], [2, 3]],
+            [[0, 2], [4, 5]],
+            [[1, 4], [3, 5]],
+            [[0, 3], [4, 5]],
+        ]];
 
         $aggregate = $scorer->scoreAll([0, 1], $matches);
 
@@ -178,9 +178,9 @@ final class PlayerDistributionScorerTest extends TestCase
     {
         $scorer = new PlayerDistributionScorer();
 
-        $matches = [
+        $matches = [[
             [[0, 1], [2, 3]],
-        ];
+        ]];
 
         $aggregate = $scorer->scoreAll([], $matches);
 
@@ -253,6 +253,6 @@ final class PlayerDistributionScorerTest extends TestCase
             }
         }
 
-        return $matches;
+        return [$matches];
     }
 }

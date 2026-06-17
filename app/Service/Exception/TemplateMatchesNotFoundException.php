@@ -8,9 +8,6 @@ use Throwable;
 /**
  * Thrown by {@see \Arshavinel\PadelMiniTour\Service\TemplateMatchesRepository::find()} when the
  * requested template JSON file does not exist or cannot be decoded.
- *
- * Carries the absolute filesystem path the repository tried to read so the message points the
- * engineer at the exact file to regenerate.
  */
 final class TemplateMatchesNotFoundException extends RuntimeException
 {
@@ -32,14 +29,16 @@ final class TemplateMatchesNotFoundException extends RuntimeException
         int $players,
         int $partners,
         int $repeat,
+        int $courts,
         bool $fixedTeams,
         ?Throwable $previous = null
     ): self {
         $combo = sprintf(
-            'players=%d, partners=%d, repeat=%d, fixedTeams=%s',
+            'players=%d, partners=%d, repeat=%d, courts=%d, fixedTeams=%s',
             $players,
             $partners,
             $repeat,
+            $courts,
             $fixedTeams ? 'true' : 'false'
         );
 
