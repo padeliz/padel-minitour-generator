@@ -2,11 +2,11 @@
 
 namespace Arshavinel\PadelMiniTour\Console\Command;
 
-use Arshavinel\PadelMiniTour\Console\StatsFormatterTrait;
+use Arshavinel\PadelMiniTour\Console\MetricsFormatterTrait;
 use Arshavinel\PadelMiniTour\Console\TemplateComboResolver;
-use Arshavinel\PadelMiniTour\Service\PlayerDistributionScorer;
 use Arshavinel\PadelMiniTour\Service\Progress\GenerationProgress;
 use Arshavinel\PadelMiniTour\Service\Progress\OrderingProgress;
+use Arshavinel\PadelMiniTour\Service\Progress\MatchMakingProgress;
 use Arshavinel\PadelMiniTour\Service\Progress\PairingProgress;
 use Arshavinel\PadelMiniTour\Service\TemplateMatches;
 use Arshavinel\PadelMiniTour\Service\TemplateMatchesGenerator;
@@ -21,29 +21,14 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
 /**
- * Additively generates template files into the next-version directory
- * (`resources/template-matches/v{DEFAULT_TEMPLATE_VERSION + 1}/`), skipping any combo whose JSON
- * file already exists in that directory. Complement to {@see RegenerateTemplatesCommand}: never
+ * Additively generates template files into an explicit version directory
+ * (`resources/template-matches/v{N}/`), skipping any combo whose JSON file already exists.
+ * Requires `--templates-version=N`. Complement to {@see RegenerateTemplatesCommand}: never
  * wipes anything and is safe to re-run.
- *
- * Two mutually exclusive invocation modes:
- *
- * - **Bulk mode** (no combo filters): iterates every entry of
- *   {@see TemplateMatchesGenerator::COMBINATIONS} with default `repeat=1, fixedTeams=false, courts=1`,
- *   filters out combos already present in `v{DEFAULT_TEMPLATE_VERSION + 1}/`, then generates the rest.
- * - **Filtered bulk** (any subset of --players, --partners, --repeat, --fixed-teams, --courts):
- *   same additive behaviour over the matching subset.
- * - **Single-combo idempotency**: when filters resolve to exactly one combo and its file already
- *   exists, logs "already exists" and exits 0.
- *
- * Use this command instead of `templates:regenerate` when adding a new combo to
- * {@see TemplateMatchesGenerator::COMBINATIONS} and the existing files in
- * `v{DEFAULT_TEMPLATE_VERSION + 1}/` are still wanted; or to safely retry an interrupted bulk
- * run without redoing combos that have already succeeded.
  */
 final class GenerateTemplatesCommand extends Command
 {
-    use StatsFormatterTrait;
+    use MetricsFormatterTrait;
 
     protected static $defaultName = 'templates:generate';
 
@@ -62,14 +47,17 @@ final class GenerateTemplatesCommand extends Command
     protected function configure(): void
     {
         $this
-            ->setDescription('Additively generate missing template-matches JSON files into the next-version directory (no wipe).')
+            ->setDescription('Additively generate missing template-matches JSON files (requires --templates-version).')
             ->setHelp(implode("\n", [
-                'Only generates combos whose v{DEFAULT_TEMPLATE_VERSION+1}/ JSON file is missing;',
-                'existing files (and unrelated sibling files) are left untouched. Safe to re-run.',
-                'With no combo filters, iterates the entire TemplateMatchesGenerator::COMBINATIONS set',
-                '(fixedTeams=false, repeat=1, courts=1) and fills missing files. Any subset of',
-                '--players, --partners, --repeat, --fixed-teams, --courts narrows the target set.',
+                'Requires --templates-version=N. Only generates combos whose v{N}/ JSON file is missing;',
+                'existing files are left untouched. Safe to re-run.',
             ]))
+            ->addOption(
+                'templates-version',
+                null,
+                InputOption::VALUE_REQUIRED,
+                'Version directory to write (required; v{N}/ is created when missing)'
+            )
             ->addOption('players', null, InputOption::VALUE_REQUIRED, 'Filter by players count')
             ->addOption('partners', null, InputOption::VALUE_REQUIRED, 'Filter by opponents per player')
             ->addOption('repeat', null, InputOption::VALUE_REQUIRED, 'Filter by repeat opponents (default 1)')
@@ -87,6 +75,14 @@ final class GenerateTemplatesCommand extends Command
 
         $io = new SymfonyStyle($input, $output);
 
+        try {
+            $writeVersion = $this->parseRequiredTemplateVersion($input->getOption('templates-version'));
+        } catch (\InvalidArgumentException $e) {
+            $io->error($e->getMessage());
+
+            return 1;
+        }
+
         $resolver = new TemplateComboResolver();
         try {
             $resolved = $resolver->resolve($input, TemplateMatchesGenerator::COMBINATIONS, false);
@@ -95,13 +91,17 @@ final class GenerateTemplatesCommand extends Command
             return 1;
         }
 
-        $inUseVersion = TemplateMatchesRepository::DEFAULT_TEMPLATE_VERSION;
-        $writeVersion = $inUseVersion + 1;
+        $this->repository->ensureVersionDirectory($writeVersion);
+        try {
+            $latestVersion = $this->repository->latestVersion();
+        } catch (\RuntimeException $e) {
+            $latestVersion = $writeVersion;
+        }
         $combos = $resolved['combos'];
 
         $io->writeln(sprintf(
-            '<info>Currently in use:</info> v%d   <comment>Writing to:</comment> v%d   <comment>Combos:</comment> %d',
-            $inUseVersion,
+            '<info>Latest version:</info> v%d   <comment>Writing to:</comment> v%d   <comment>Combos:</comment> %d',
+            $latestVersion,
             $writeVersion,
             count($combos)
         ));
@@ -119,7 +119,7 @@ final class GenerateTemplatesCommand extends Command
                 $combo['fixedTeams']
             )) {
                 $io->writeln(sprintf(
-                    '<info>%s already exists in v%d (not in-use v%d) -- skipping.</info>',
+                    '<info>%s already exists in v%d -- skipping.</info>',
                     $this->repository->path(
                         $writeVersion,
                         $combo['players'],
@@ -128,8 +128,7 @@ final class GenerateTemplatesCommand extends Command
                         $combo['courts'],
                         $combo['fixedTeams']
                     ),
-                    $writeVersion,
-                    $inUseVersion
+                    $writeVersion
                 ));
                 $io->writeln('<comment>Use templates:regenerate with the same filters to overwrite.</comment>');
                 return 0;
@@ -164,26 +163,10 @@ final class GenerateTemplatesCommand extends Command
             return 0;
         }
 
-        // All combos share one (repeat, fixed) per command invocation - bulk mode hard-codes
-        // (repeat=1, fixed=false) and single-combo mode uses the one (--repeat, --fixed-teams)
-        // input - so the TEAMS group label is constant across the whole table.
-        $tableRepeat = $combos[0]['repeat'];
-        $tableFixedTeams = $combos[0]['fixedTeams'];
-
-        $table = $this->makeUnifiedTable($output);
-        $table->setHeaders($this->unifiedHeaders($tableRepeat, $tableFixedTeams));
-
         $failures = [];
         $supportsSections = $output instanceof ConsoleOutputInterface;
         $totalCombos = count($combos);
-
-        // Track player-group transitions so the grouped Players column renders `12 / . / . / ...`
-        // across the generate combo list, mirroring the stats and regenerate commands' output.
-        $previousPlayers = null;
-        $variations = [];
-        $mins = [];
-        $avgs = [];
-        $partnersVars = [];
+        $summaryRows = [];
 
         foreach ($combos as $i => $combo) {
             $counterSection = null;
@@ -268,31 +251,14 @@ final class GenerateTemplatesCommand extends Command
                 $liveSection->clear();
                 // Standalone single-row mini-table: always show the actual Players number, never
                 // the grouped `.` continuation marker (which only makes sense in the summary).
-                $this->renderLiveSnapshotTable($liveSection, $template, true);
+                $this->renderLiveSnapshotTable(
+                    $liveSection,
+                    $template,
+                    true
+                );
             }
 
-            $firstOfGroup = ($previousPlayers !== $combo['players']);
-
-            // Mirror the stats commands' visual grouping: insert a horizontal rule whenever we
-            // cross a players-number boundary (except before the very first row, which sits flush
-            // against the header). The trailing separator emitted after the loop continues to
-            // serve as the divider between the final group and the AVG footer.
-            if ($firstOfGroup && $previousPlayers !== null) {
-                $table->addRow(array_fill(0, $this->unifiedTotalColumns(), new TableSeparator()));
-            }
-
-            $table->addRow($this->buildUnifiedRow(
-                $template,
-                $combo['players'],
-                $combo['partners'],
-                $firstOfGroup
-            ));
-
-            $variations[] = $template->getPairingMeetingsVariation();
-            $mins[] = $template->getSortingMinDistribution();
-            $avgs[] = $template->getSortingAvgDistribution();
-            $partnersVars[] = $template->getPairingPartnersCountVariation();
-            $previousPlayers = $combo['players'];
+            $summaryRows[] = ['combo' => $combo, 'template' => $template];
 
             if (!$template->isEligible()) {
                 $failures[] = $combo;
@@ -303,13 +269,49 @@ final class GenerateTemplatesCommand extends Command
             $output->writeln('');
         }
 
-        $table->addRow(array_fill(0, $this->unifiedTotalColumns(), new TableSeparator()));
-        $table->addRow($this->buildAvgRow(
-            $variations,
-            $mins,
-            $avgs,
-            $partnersVars
-        ));
+        $summaryTemplates = array_column($summaryRows, 'template');
+        $layout = $this->resolveUnifiedTableLayout($combos, $summaryTemplates);
+        $table = $this->makeUnifiedTable($output);
+        $table->setHeaders($this->unifiedHeaders($layout));
+        $this->writeTableContextLine($output, $layout);
+        $output->writeln('');
+
+        $previousPlayers = null;
+        $minPartnersFairs = [];
+        $avgPartnersFairs = [];
+        $partnersVars = [];
+        $meetingsVars = [];
+        $mins = [];
+        $avgs = [];
+
+        foreach ($summaryRows as $row) {
+            $combo = $row['combo'];
+            $template = $row['template'];
+            $firstOfGroup = ($previousPlayers !== $combo['players']);
+
+            if ($firstOfGroup && $previousPlayers !== null) {
+                $table->addRow(array_fill(0, $layout['totalColumns'], new TableSeparator()));
+            }
+
+            $table->addRow($this->buildUnifiedRow(
+                $template,
+                $combo['players'],
+                $combo['partners'],
+                $firstOfGroup,
+                $layout
+            ));
+
+            $minPartnersFairs[] = $template->getPairingQualityMinPartnersFairness();
+            $avgPartnersFairs[] = $template->getPairingQualityAvgPartnersFairness();
+            $partnersVars[] = $template->getPairingQualityPartnersCountVariation();
+            $meetingsVars[] = $template->getMatchMakingQualityMeetingsVariation();
+            $mins[] = $template->getOrderingQualityMinDistribution();
+            $avgs[] = $template->getOrderingQualityAvgDistribution();
+            $previousPlayers = $combo['players'];
+        }
+
+        $table->addRow(array_fill(0, $layout['totalColumns'], new TableSeparator()));
+        $table->addRow($this->buildAvgRow($layout, $minPartnersFairs, $avgPartnersFairs, $partnersVars, $meetingsVars, $mins, $avgs));
 
         $io->newLine();
         $table->render();
@@ -330,7 +332,7 @@ final class GenerateTemplatesCommand extends Command
         }
 
         $io->writeln(sprintf(
-            '<comment>Generated %d combo%s into v%d/. Run `templates:stats --templates-version=%d` to inspect.</comment>',
+            '<comment>Generated %d combo%s into v%d/. Run `templates:metrics --templates-version=%d` to inspect.</comment>',
             $totalCombos,
             $totalCombos === 1 ? '' : 's',
             $writeVersion,
@@ -341,65 +343,11 @@ final class GenerateTemplatesCommand extends Command
     }
 
     /**
-     * @param array<int, int|float|null> $values
-     */
-    private function average(array $values): ?float
-    {
-        $present = array_filter($values, static fn($v) => $v !== null);
-        if (empty($present)) {
-            return null;
-        }
-
-        return array_sum($present) / count($present);
-    }
-
-    /**
-     * Builds the AVG aggregate row for the end-of-run summary table. Mirrors the buildAvgRow
-     * helpers in both stats commands and {@see RegenerateTemplatesCommand} so the four CLI
-     * outputs share the same column-by-column shape. The two per-phase Time columns and the two
-     * Min/Max Break columns are intentionally left blank because the AVG footer no longer reports
-     * time or breaks aggregates.
-     *
-     * @param array<int, float|null> $variations
-     * @param array<int, float|null> $mins
-     * @param array<int, float|null> $avgs
-     * @param array<int, int|null>   $partnersVars
-     * @return array<int, string>
-     */
-    private function buildAvgRow(
-        array $variations,
-        array $mins,
-        array $avgs,
-        array $partnersVars
-    ): array {
-        $partnersVarAvg = $this->average($partnersVars);
-
-        return [
-            '', '', '',
-            $partnersVarAvg !== null ? '<fg=white>' . number_format($partnersVarAvg, 2) . '</> (AVG)' : '',
-            '',
-            '',
-            $this->formatMeetingsVariation($this->average($variations)) . ' (AVG)',
-            $this->formatDistribution($this->average($mins), PlayerDistributionScorer::DISPLAY_GOOD, PlayerDistributionScorer::DISPLAY_FAIR) . ' (AVG)',
-            $this->formatDistribution($this->average($avgs), TemplateMatchesGenerator::DISPLAY_AVG_DIST_GREEN, TemplateMatchesGenerator::DISPLAY_AVG_DIST_YELLOW) . ' (AVG)',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-        ];
-    }
-
-    /**
      * Builds the TTY callback: every progress event captures into closure state, then re-renders
      * the single-row live table into {@code $liveSection}. The counter line is updated only when
      * the seed indicator changes (multi-seed runs) so the eye can spot seed transitions.
      *
-     * @param array{players:int,partners:int,repeat:int,fixedTeams:bool} $combo
+     * @param array{players:int,partners:int,repeat:int,courts:int,fixedTeams:bool} $combo
      */
     private function liveTableCallback(
         ConsoleSectionOutput $counterSection,
@@ -409,6 +357,7 @@ final class GenerateTemplatesCommand extends Command
         int $counterTotal
     ): callable {
         $latestPairing = null;
+        $latestMatchMaking = null;
         $latestOrdering = null;
 
         return function (GenerationProgress $event) use (
@@ -418,13 +367,25 @@ final class GenerateTemplatesCommand extends Command
             $counterCurrent,
             $counterTotal,
             &$latestPairing,
+            &$latestMatchMaking,
             &$latestOrdering
         ): void {
             if ($event instanceof PairingProgress) {
                 $latestPairing = $event;
                 if ($event->getTotalSeeds() > 1) {
                     $counterSection->overwrite(sprintf(
-                        '<info>[%d/%d]</info> seed %d/%d (in progress)',
+                        '<info>[%d/%d]</info> pairing seed %d/%d (in progress)',
+                        $counterCurrent,
+                        $counterTotal,
+                        $event->getCurrentSeed(),
+                        $event->getTotalSeeds()
+                    ));
+                }
+            } elseif ($event instanceof MatchMakingProgress) {
+                $latestMatchMaking = $event;
+                if ($event->getTotalSeeds() > 1) {
+                    $counterSection->overwrite(sprintf(
+                        '<info>[%d/%d]</info> match-making seed %d/%d (in progress)',
                         $counterCurrent,
                         $counterTotal,
                         $event->getCurrentSeed(),
@@ -442,6 +403,7 @@ final class GenerateTemplatesCommand extends Command
                 $combo['courts'],
                 $combo['fixedTeams'],
                 $latestPairing,
+                $latestMatchMaking,
                 $latestOrdering
             );
 
@@ -468,7 +430,18 @@ final class GenerateTemplatesCommand extends Command
                     ? sprintf(' seed %d/%d |', $event->getCurrentSeed(), $event->getTotalSeeds())
                     : '';
                 $output->writeln(sprintf(
-                    '  pairing done |%s iter %s | templates %s | best variation %s',
+                    '  pairing done |%s nodes %s | best minBal=%s avgBal=%s',
+                    $seedTag,
+                    number_format($event->getNodesExplored(), 0, '.', ','),
+                    $event->getBestMinPartnersFairness() === null ? '-' : number_format($event->getBestMinPartnersFairness(), 4),
+                    $event->getBestAvgPartnersFairness() === null ? '-' : number_format($event->getBestAvgPartnersFairness(), 4)
+                ));
+            } elseif ($event instanceof MatchMakingProgress) {
+                $seedTag = $event->getTotalSeeds() > 1
+                    ? sprintf(' seed %d/%d |', $event->getCurrentSeed(), $event->getTotalSeeds())
+                    : '';
+                $output->writeln(sprintf(
+                    '  match-making done |%s iter %s | templates %s | best variation %s',
                     $seedTag,
                     number_format($event->getIterations(), 0, '.', ','),
                     number_format($event->getTemplatesGenerated(), 0, '.', ','),

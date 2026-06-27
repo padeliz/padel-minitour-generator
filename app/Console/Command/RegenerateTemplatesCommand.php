@@ -2,11 +2,11 @@
 
 namespace Arshavinel\PadelMiniTour\Console\Command;
 
-use Arshavinel\PadelMiniTour\Console\StatsFormatterTrait;
+use Arshavinel\PadelMiniTour\Console\MetricsFormatterTrait;
 use Arshavinel\PadelMiniTour\Console\TemplateComboResolver;
-use Arshavinel\PadelMiniTour\Service\PlayerDistributionScorer;
 use Arshavinel\PadelMiniTour\Service\Progress\GenerationProgress;
 use Arshavinel\PadelMiniTour\Service\Progress\OrderingProgress;
+use Arshavinel\PadelMiniTour\Service\Progress\MatchMakingProgress;
 use Arshavinel\PadelMiniTour\Service\Progress\PairingProgress;
 use Arshavinel\PadelMiniTour\Service\TemplateMatches;
 use Arshavinel\PadelMiniTour\Service\TemplateMatchesGenerator;
@@ -21,22 +21,19 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
 /**
- * Generates committed template files into the next-version directory
- * (`resources/template-matches/v{DEFAULT_TEMPLATE_VERSION + 1}/`).
+ * Regenerates committed template files into an explicit version directory
+ * (`resources/template-matches/v{N}/`).
  *
- * Two mutually exclusive invocation modes:
+ * Requires `--templates-version=N`. Two mutually exclusive invocation modes:
  *
- * - **Full bulk** (no combo filters): wipes `v{DEFAULT_TEMPLATE_VERSION + 1}/` first, then
- *   regenerates every COMBINATIONS entry with defaults `repeat=1, fixedTeams=false, courts=1`.
+ * - **Full bulk** (no combo filters): wipes `v{N}/` first, then regenerates every COMBINATIONS
+ *   entry with defaults `repeat=1, fixedTeams=false, courts=1`.
  * - **Filtered bulk** (any subset of combo options): regenerates only matching combos and does
  *   not wipe unrelated files in the target version directory.
- *
- * The in-use `v{DEFAULT_TEMPLATE_VERSION}/` directory is never touched, so the running app keeps
- * using the old templates while the new ones are reviewed.
  */
 final class RegenerateTemplatesCommand extends Command
 {
-    use StatsFormatterTrait;
+    use MetricsFormatterTrait;
 
     protected static $defaultName = 'templates:regenerate';
 
@@ -55,12 +52,18 @@ final class RegenerateTemplatesCommand extends Command
     protected function configure(): void
     {
         $this
-            ->setDescription('Regenerate template-matches JSON files into the next-version directory.')
+            ->setDescription('Regenerate template-matches JSON files into an explicit version directory.')
             ->setHelp(implode("\n", [
-                'With no combo filters, regenerates the entire COMBINATIONS set and wipes',
-                'v{DEFAULT_TEMPLATE_VERSION+1}/ first. Any subset of --players, --partners,',
+                'Requires --templates-version=N. With no combo filters, regenerates the entire',
+                'COMBINATIONS set and wipes v{N}/ first. Any subset of --players, --partners,',
                 '--repeat, --fixed-teams, --courts narrows the target set without a full wipe.',
             ]))
+            ->addOption(
+                'templates-version',
+                null,
+                InputOption::VALUE_REQUIRED,
+                'Version directory to write (required; v{N}/ is created when missing)'
+            )
             ->addOption('players', null, InputOption::VALUE_REQUIRED, 'Filter by players count')
             ->addOption('partners', null, InputOption::VALUE_REQUIRED, 'Filter by opponents per player')
             ->addOption('repeat', null, InputOption::VALUE_REQUIRED, 'Filter by repeat opponents (default 1)')
@@ -71,12 +74,20 @@ final class RegenerateTemplatesCommand extends Command
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         // This is a long-running offline batch (up to ~16 minutes per combo: 8 min for the outer
-        // pair-ordering loop + 8 min for sortMatches). The deterministic limits are the explicit
+        // pair-ordering loop + 8 min for runOrderingPhase). The deterministic limits are the explicit
         // hrtime() wall budgets in TemplateMatchesGenerator; PHP's max_execution_time has no role
         // to play here and would only ever produce false-positive fatals partway through phase 2.
         set_time_limit(0);
 
         $io = new SymfonyStyle($input, $output);
+
+        try {
+            $writeVersion = $this->parseRequiredTemplateVersion($input->getOption('templates-version'));
+        } catch (\InvalidArgumentException $e) {
+            $io->error($e->getMessage());
+
+            return 1;
+        }
 
         $resolver = new TemplateComboResolver();
         try {
@@ -86,13 +97,17 @@ final class RegenerateTemplatesCommand extends Command
             return 1;
         }
 
-        $inUseVersion = TemplateMatchesRepository::DEFAULT_TEMPLATE_VERSION;
-        $writeVersion = $inUseVersion + 1;
+        $this->repository->ensureVersionDirectory($writeVersion);
+        try {
+            $latestVersion = $this->repository->latestVersion();
+        } catch (\RuntimeException $e) {
+            $latestVersion = $writeVersion;
+        }
         $combos = $resolved['combos'];
 
         $io->writeln(sprintf(
-            '<info>Currently in use:</info> v%d   <comment>Writing to:</comment> v%d   <comment>Combos:</comment> %d',
-            $inUseVersion,
+            '<info>Latest version:</info> v%d   <comment>Writing to:</comment> v%d   <comment>Combos:</comment> %d',
+            $latestVersion,
             $writeVersion,
             count($combos)
         ));
@@ -112,26 +127,10 @@ final class RegenerateTemplatesCommand extends Command
             }
         }
 
-        // All combos share one (repeat, fixed) per command invocation - bulk mode hard-codes
-        // (repeat=1, fixed=false) and single-combo mode uses the one (--repeat, --fixed-teams)
-        // input - so the TEAMS group label is constant across the whole table.
-        $tableRepeat = $combos[0]['repeat'];
-        $tableFixedTeams = $combos[0]['fixedTeams'];
-
-        $table = $this->makeUnifiedTable($output);
-        $table->setHeaders($this->unifiedHeaders($tableRepeat, $tableFixedTeams));
-
         $failures = [];
         $supportsSections = $output instanceof ConsoleOutputInterface;
         $totalCombos = count($combos);
-
-        // Track player-group transitions so the grouped Players column renders `12 / . / . / ...`
-        // across the regenerate combo list, mirroring the stats commands' output.
-        $previousPlayers = null;
-        $variations = [];
-        $mins = [];
-        $avgs = [];
-        $partnersVars = [];
+        $summaryRows = [];
 
         foreach ($combos as $i => $combo) {
             $counterSection = null;
@@ -216,31 +215,14 @@ final class RegenerateTemplatesCommand extends Command
                 $liveSection->clear();
                 // Standalone single-row mini-table: always show the actual Players number, never
                 // the grouped `.` continuation marker (which only makes sense in the summary).
-                $this->renderLiveSnapshotTable($liveSection, $template, true);
+                $this->renderLiveSnapshotTable(
+                    $liveSection,
+                    $template,
+                    true
+                );
             }
 
-            $firstOfGroup = ($previousPlayers !== $combo['players']);
-
-            // Mirror the stats commands' visual grouping: insert a horizontal rule whenever we
-            // cross a players-number boundary (except before the very first row, which sits flush
-            // against the header). The trailing separator emitted after the loop continues to
-            // serve as the divider between the final group and the AVG footer.
-            if ($firstOfGroup && $previousPlayers !== null) {
-                $table->addRow(array_fill(0, $this->unifiedTotalColumns(), new TableSeparator()));
-            }
-
-            $table->addRow($this->buildUnifiedRow(
-                $template,
-                $combo['players'],
-                $combo['partners'],
-                $firstOfGroup
-            ));
-
-            $variations[] = $template->getPairingMeetingsVariation();
-            $mins[] = $template->getSortingMinDistribution();
-            $avgs[] = $template->getSortingAvgDistribution();
-            $partnersVars[] = $template->getPairingPartnersCountVariation();
-            $previousPlayers = $combo['players'];
+            $summaryRows[] = ['combo' => $combo, 'template' => $template];
 
             if (!$template->isEligible()) {
                 $failures[] = $combo;
@@ -251,13 +233,49 @@ final class RegenerateTemplatesCommand extends Command
             $output->writeln('');
         }
 
-        $table->addRow(array_fill(0, $this->unifiedTotalColumns(), new TableSeparator()));
-        $table->addRow($this->buildAvgRow(
-            $variations,
-            $mins,
-            $avgs,
-            $partnersVars
-        ));
+        $summaryTemplates = array_column($summaryRows, 'template');
+        $layout = $this->resolveUnifiedTableLayout($combos, $summaryTemplates);
+        $table = $this->makeUnifiedTable($output);
+        $table->setHeaders($this->unifiedHeaders($layout));
+        $this->writeTableContextLine($output, $layout);
+        $output->writeln('');
+
+        $previousPlayers = null;
+        $minPartnersFairs = [];
+        $avgPartnersFairs = [];
+        $partnersVars = [];
+        $meetingsVars = [];
+        $mins = [];
+        $avgs = [];
+
+        foreach ($summaryRows as $row) {
+            $combo = $row['combo'];
+            $template = $row['template'];
+            $firstOfGroup = ($previousPlayers !== $combo['players']);
+
+            if ($firstOfGroup && $previousPlayers !== null) {
+                $table->addRow(array_fill(0, $layout['totalColumns'], new TableSeparator()));
+            }
+
+            $table->addRow($this->buildUnifiedRow(
+                $template,
+                $combo['players'],
+                $combo['partners'],
+                $firstOfGroup,
+                $layout
+            ));
+
+            $minPartnersFairs[] = $template->getPairingQualityMinPartnersFairness();
+            $avgPartnersFairs[] = $template->getPairingQualityAvgPartnersFairness();
+            $partnersVars[] = $template->getPairingQualityPartnersCountVariation();
+            $meetingsVars[] = $template->getMatchMakingQualityMeetingsVariation();
+            $mins[] = $template->getOrderingQualityMinDistribution();
+            $avgs[] = $template->getOrderingQualityAvgDistribution();
+            $previousPlayers = $combo['players'];
+        }
+
+        $table->addRow(array_fill(0, $layout['totalColumns'], new TableSeparator()));
+        $table->addRow($this->buildAvgRow($layout, $minPartnersFairs, $avgPartnersFairs, $partnersVars, $meetingsVars, $mins, $avgs));
 
         $io->newLine();
         $table->render();
@@ -278,8 +296,7 @@ final class RegenerateTemplatesCommand extends Command
         }
 
         $io->writeln(sprintf(
-            '<comment>Review v%d files, then bump TemplateMatchesRepository::DEFAULT_TEMPLATE_VERSION to %d and commit.</comment>',
-            $writeVersion,
+            '<comment>Review v%d files and commit.</comment>',
             $writeVersion
         ));
 
@@ -287,64 +304,7 @@ final class RegenerateTemplatesCommand extends Command
     }
 
     /**
-     * @param array<int, int|float|null> $values
-     */
-    private function average(array $values): ?float
-    {
-        $present = array_filter($values, static fn($v) => $v !== null);
-        if (empty($present)) {
-            return null;
-        }
-
-        return array_sum($present) / count($present);
-    }
-
-    /**
-     * Builds the AVG aggregate row for the end-of-run summary table. Mirrors the buildAvgRow
-     * helpers in both stats commands so the three CLI outputs share the same column-by-column
-     * shape. The two per-phase Time columns and the two Min/Max Break columns are intentionally
-     * left blank because the AVG footer no longer reports time or breaks aggregates.
-     *
-     * @param array<int, float|null> $variations
-     * @param array<int, float|null> $mins
-     * @param array<int, float|null> $avgs
-     * @param array<int, int|null>   $partnersVars
-     * @return array<int, string>
-     */
-    private function buildAvgRow(
-        array $variations,
-        array $mins,
-        array $avgs,
-        array $partnersVars
-    ): array {
-        $partnersVarAvg = $this->average($partnersVars);
-
-        return [
-            '', '', '',
-            $partnersVarAvg !== null ? '<fg=white>' . number_format($partnersVarAvg, 2) . '</> (AVG)' : '',
-            '',
-            '',
-            $this->formatMeetingsVariation($this->average($variations)) . ' (AVG)',
-            $this->formatDistribution($this->average($mins), PlayerDistributionScorer::DISPLAY_GOOD, PlayerDistributionScorer::DISPLAY_FAIR) . ' (AVG)',
-            $this->formatDistribution($this->average($avgs), TemplateMatchesGenerator::DISPLAY_AVG_DIST_GREEN, TemplateMatchesGenerator::DISPLAY_AVG_DIST_YELLOW) . ' (AVG)',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-        ];
-    }
-
-    /**
-     * Builds the TTY callback: every progress event captures into closure state, then re-renders
-     * the single-row live table into {@code $liveSection}. The counter line is updated only when
-     * the seed indicator changes (multi-seed runs) so the eye can spot seed transitions.
-     *
-     * @param array{players:int,partners:int,repeat:int,fixedTeams:bool} $combo
+     * @param array{players:int,partners:int,repeat:int,courts:int,fixedTeams:bool} $combo
      */
     private function liveTableCallback(
         ConsoleSectionOutput $counterSection,
@@ -354,6 +314,7 @@ final class RegenerateTemplatesCommand extends Command
         int $counterTotal
     ): callable {
         $latestPairing = null;
+        $latestMatchMaking = null;
         $latestOrdering = null;
 
         return function (GenerationProgress $event) use (
@@ -363,13 +324,25 @@ final class RegenerateTemplatesCommand extends Command
             $counterCurrent,
             $counterTotal,
             &$latestPairing,
+            &$latestMatchMaking,
             &$latestOrdering
         ): void {
             if ($event instanceof PairingProgress) {
                 $latestPairing = $event;
                 if ($event->getTotalSeeds() > 1) {
                     $counterSection->overwrite(sprintf(
-                        '<info>[%d/%d]</info> seed %d/%d (in progress)',
+                        '<info>[%d/%d]</info> pairing seed %d/%d (in progress)',
+                        $counterCurrent,
+                        $counterTotal,
+                        $event->getCurrentSeed(),
+                        $event->getTotalSeeds()
+                    ));
+                }
+            } elseif ($event instanceof MatchMakingProgress) {
+                $latestMatchMaking = $event;
+                if ($event->getTotalSeeds() > 1) {
+                    $counterSection->overwrite(sprintf(
+                        '<info>[%d/%d]</info> match-making seed %d/%d (in progress)',
                         $counterCurrent,
                         $counterTotal,
                         $event->getCurrentSeed(),
@@ -387,6 +360,7 @@ final class RegenerateTemplatesCommand extends Command
                 $combo['courts'],
                 $combo['fixedTeams'],
                 $latestPairing,
+                $latestMatchMaking,
                 $latestOrdering
             );
 
@@ -413,7 +387,18 @@ final class RegenerateTemplatesCommand extends Command
                     ? sprintf(' seed %d/%d |', $event->getCurrentSeed(), $event->getTotalSeeds())
                     : '';
                 $output->writeln(sprintf(
-                    '  pairing done |%s iter %s | templates %s | best variation %s',
+                    '  pairing done |%s nodes %s | best minBal=%s avgBal=%s',
+                    $seedTag,
+                    number_format($event->getNodesExplored(), 0, '.', ','),
+                    $event->getBestMinPartnersFairness() === null ? '-' : number_format($event->getBestMinPartnersFairness(), 4),
+                    $event->getBestAvgPartnersFairness() === null ? '-' : number_format($event->getBestAvgPartnersFairness(), 4)
+                ));
+            } elseif ($event instanceof MatchMakingProgress) {
+                $seedTag = $event->getTotalSeeds() > 1
+                    ? sprintf(' seed %d/%d |', $event->getCurrentSeed(), $event->getTotalSeeds())
+                    : '';
+                $output->writeln(sprintf(
+                    '  match-making done |%s iter %s | templates %s | best variation %s',
                     $seedTag,
                     number_format($event->getIterations(), 0, '.', ','),
                     number_format($event->getTemplatesGenerated(), 0, '.', ','),

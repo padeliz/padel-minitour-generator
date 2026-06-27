@@ -111,7 +111,7 @@ class EventDivision
         $this->opponentsPerPlayer = $opponentsPerPlayer;
         $this->repeatPartners = $repeatPartners;
         $this->fixedTeams = $fixedTeams;
-        $this->templateVersion = $templateVersion ?? TemplateMatchesRepository::DEFAULT_TEMPLATE_VERSION;
+        $this->templateVersion = $templateVersion ?? (new TemplateMatchesRepository())->latestVersion();
         $this->matchesGenerator = $matchesGenerator;
     }
 
@@ -246,8 +246,8 @@ class EventDivision
 
     /**
      * Returns the resolved template version actually used to load the schedule. This is the
-     * explicit version passed to the constructor when present, otherwise
-     * {@see TemplateMatchesRepository::DEFAULT_TEMPLATE_VERSION}.
+     * explicit version passed to the constructor when present, otherwise the highest compatible
+     * version directory ({@see TemplateMatchesRepository::latestVersion()}).
      */
     public function getTemplateVersion(): int
     {

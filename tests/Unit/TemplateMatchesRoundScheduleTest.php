@@ -9,6 +9,13 @@ use PHPUnit\Framework\TestCase;
 
 final class TemplateMatchesRoundScheduleTest extends TestCase
 {
+    use TemplateVersionTestTrait;
+
+    protected function setUp(): void
+    {
+        $this->resetAllocatedVersions();
+    }
+
     public function test_has_valid_round_schedule_accepts_disjoint_multi_court_rounds(): void
     {
         $matchesByCourt = [
@@ -71,29 +78,48 @@ final class TemplateMatchesRoundScheduleTest extends TestCase
                 2,
                 false,
                 null,
-                0.0,
-                0,
-                null,
-                0,
-                null,
-                null,
-                null,
-                0,
-                null,
-                TemplateMatchesGenerator::STOP_REASON_DEADLINE,
-                0.0,
-                TemplateMatchesGenerator::STOP_REASON_DEADLINE,
                 null,
                 null,
                 null,
                 null,
                 null,
                 null,
-                0.0
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
             );
 
-            $repo->save(99, $template);
-            $loaded = $repo->findAt(99, 12, 8, 1, 2, false);
+            $version = $this->allocVersion();
+            $repo->save($version, $template);
+            $loaded = $repo->findAt($version, 12, 8, 1, 2, false);
 
             $this->assertFalse($loaded->isEligible());
             $this->assertFalse($loaded->isUsable());

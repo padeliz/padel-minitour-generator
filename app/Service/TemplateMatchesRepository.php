@@ -13,19 +13,11 @@ use Arshavinel\PadelMiniTour\Service\Exception\TemplateMatchesNotFoundException;
  *
  *     <baseDir>/v{version}/players-{P}-partners-{O}-repeat-{R}-courts-{C}[-fixedteams].json
  *
- * Runtime always reads from {@see TemplateMatchesRepository::DEFAULT_TEMPLATE_VERSION} unless an
- * explicit version is requested (see {@see findAt()}). The (re)generate CLI always writes to the next
- * version (`DEFAULT_TEMPLATE_VERSION + 1`). To promote a freshly generated set, commit the new
- * `v{N+1}/` files together with a one-line bump of {@see DEFAULT_TEMPLATE_VERSION}.
+ * Runtime loads the latest compatible `v{N}/` via {@see find()} unless an explicit version is
+ * requested (see {@see findAt()}). CLI write commands require `--templates-version=N`.
  */
 final class TemplateMatchesRepository
 {
-    /**
-     * Default template version used by {@see find()} and the stats/(re)generate CLI when no explicit
-     * version is supplied. Bump after committing a new `v{N+1}/` directory.
-     */
-    public const DEFAULT_TEMPLATE_VERSION = 3;
-
     private string $baseDir;
 
     /**
@@ -45,13 +37,34 @@ final class TemplateMatchesRepository
     }
 
     /**
-     * Loads the template for the given combo from the in-use version directory.
+     * Loads the template for the given combo from the highest compatible version directory.
      *
      * @throws TemplateMatchesNotFoundException
+     * @throws \RuntimeException When no compatible version directory exists.
      */
     public function find(int $players, int $partners, int $repeat, int $courts, bool $fixedTeams = false): TemplateMatches
     {
-        return $this->findAt(self::DEFAULT_TEMPLATE_VERSION, $players, $partners, $repeat, $courts, $fixedTeams);
+        return $this->findAt($this->latestVersion(), $players, $partners, $repeat, $courts, $fixedTeams);
+    }
+
+    /**
+     * Highest numeric `v{N}/` directory under baseDir (compatible entries only).
+     *
+     * @throws \RuntimeException When no compatible version directory exists.
+     */
+    public function latestVersion(): int
+    {
+        $max = 0;
+        foreach ($this->listVersions() as $entry) {
+            if ($entry['isCompatible'] && $entry['version'] !== null) {
+                $max = max($max, $entry['version']);
+            }
+        }
+        if ($max === 0) {
+            throw new \RuntimeException('No compatible template version directory found.');
+        }
+
+        return $max;
     }
 
     /**
@@ -144,6 +157,20 @@ final class TemplateMatchesRepository
 
         if (file_put_contents($path, $json . "\n", LOCK_EX) === false) {
             throw new \RuntimeException("Could not write template file: {$path}");
+        }
+    }
+
+    /**
+     * Ensures `v{version}/` exists under the base directory (creates it when missing).
+     */
+    public function ensureVersionDirectory(int $version): void
+    {
+        $dir = $this->baseDir . DIRECTORY_SEPARATOR . 'v' . $version;
+        if (is_dir($dir)) {
+            return;
+        }
+        if (!mkdir($dir, 0775, true) && !is_dir($dir)) {
+            throw new \RuntimeException("Could not create template version directory: {$dir}");
         }
     }
 

@@ -3,6 +3,7 @@
 namespace Arshavinel\PadelMiniTour\Console;
 
 use Arshavinel\PadelMiniTour\Service\PlayerDistributionScorer;
+use Arshavinel\PadelMiniTour\Service\PartnersFairnessScorer;
 use Arshavinel\PadelMiniTour\Service\TemplateMatches;
 use Arshavinel\PadelMiniTour\Service\TemplateMatchesGenerator;
 use Arshavinel\PadelMiniTour\Service\TemplateMatchesRepository;
@@ -14,23 +15,129 @@ use Symfony\Component\Console\Output\OutputInterface;
 /**
  * Coloring helpers and unified-row builder for the templates:* console commands.
  *
- * The unified table uses a two-row grouped header (5 groups, 18 detail columns); every row is
- * built by {@see buildUnifiedRow()} so the three template CLI commands produce visually identical
- * output. The TEAMS group label is parameterized with the current (repeat, fixedTeams), since the
- * generator only supports a single (repeat, fixedTeams) per table render (bulk regenerate, both
- * stats commands, and single-combo regenerate each share one value for the entire table).
- *
- * Group layout (3 + 4 + 4 + 4 + 3 = 18):
- *
- *   | TEAMS (repeat: N, fixed: yes/no)      | PAIRING                                              | SORTING                                         | PAIRING STATS                       | SORTING STATS         |
- *   | Players | Partners | Matches          | Partners Nr. Var. | Min Met      | Max Met      | M. Var. | Min Dist. | Avg Dist. | Min Break | Max Break | Perm. Index | Pairing Index | Stop | Time | Sorting Index | Stop | Time |
+ * The unified table uses a two-row grouped header; every row is built by
+ * {@see buildUnifiedRow()} so the template CLI commands produce visually identical output.
+ * Uniform combo dimensions (repeat, fixed-teams, courts) are shown on a context line above
+ * the table; courts appears as a per-row column only when values differ across rows.
  */
-trait StatsFormatterTrait
+trait MetricsFormatterTrait
 {
-    /** Total number of detail columns in the unified table. */
-    protected function unifiedTotalColumns(): int
+    /**
+     * @param list<array{players:int,partners:int,repeat:int,courts:int,fixedTeams:bool}> $combos
+     * @param list<TemplateMatches|null> $templates
+     * @return array{
+     *     includeCourtsColumn: bool,
+     *     includePartnersVarColumn: bool,
+     *     includeCourtSwitchesColumn: bool,
+     *     pairingColspan: int,
+     *     orderingColspan: int,
+     *     totalColumns: int,
+     *     teamsColspan: int,
+     *     contextParts: list<string>,
+     *     avgColumns: array{pairingMinPartnersFair:int,pairingAvgPartnersFair:int,partnersVar?:int,meetingsVar:int,orderingMinDist:int,orderingAvgDist:int}
+     * }
+     */
+    protected function resolveUnifiedTableLayout(array $combos, array $templates = []): array
     {
-        return 20;
+        $repeats = array_values(array_unique(array_column($combos, 'repeat')));
+        $fixedTeamsFlags = array_values(array_unique(array_map(
+            static fn (array $c): int => $c['fixedTeams'] ? 1 : 0,
+            $combos
+        )));
+        $courtsValues = array_values(array_unique(array_column($combos, 'courts')));
+
+        $contextParts = [];
+        if (count($repeats) === 1) {
+            $contextParts[] = 'repeat: ' . $repeats[0];
+        }
+        if (count($fixedTeamsFlags) === 1) {
+            $contextParts[] = 'fixed: ' . ($fixedTeamsFlags[0] === 1 ? 'yes' : 'no');
+        }
+
+        $includeCourtsColumn = count($courtsValues) > 1;
+        if (!$includeCourtsColumn && count($courtsValues) === 1) {
+            $contextParts[] = 'courts: ' . $courtsValues[0];
+        }
+
+        $includePartnersVarColumn = $this->templatesNeedPartnersVarColumn($templates);
+        $includeCourtSwitchesColumn = $this->combosNeedCourtSwitchesColumn($combos);
+
+        $teamsColspan = $includeCourtsColumn ? 3 : 2;
+        $pairingColspan = $includePartnersVarColumn ? 3 : 2;
+        $orderingColspan = $includeCourtSwitchesColumn ? 5 : 4;
+        $totalColumns = $teamsColspan + $pairingColspan + 4 + 4 + 4 + $orderingColspan + 4;
+
+        $col = $teamsColspan;
+        $avgColumns = [
+            'pairingMinPartnersFair' => $col,
+            'pairingAvgPartnersFair' => $col + 1,
+        ];
+        $col += 2;
+        if ($includePartnersVarColumn) {
+            $avgColumns['partnersVar'] = $col;
+            $col++;
+        }
+        $col += 4;
+        $avgColumns['meetingsVar'] = $col;
+        $col += 4 + 4 + $orderingColspan;
+        $avgColumns['orderingMinDist'] = $col;
+        $avgColumns['orderingAvgDist'] = $col + 1;
+
+        return [
+            'includeCourtsColumn' => $includeCourtsColumn,
+            'includePartnersVarColumn' => $includePartnersVarColumn,
+            'includeCourtSwitchesColumn' => $includeCourtSwitchesColumn,
+            'pairingColspan' => $pairingColspan,
+            'orderingColspan' => $orderingColspan,
+            'totalColumns' => $totalColumns,
+            'teamsColspan' => $teamsColspan,
+            'contextParts' => $contextParts,
+            'avgColumns' => $avgColumns,
+        ];
+    }
+
+    /**
+     * @param list<TemplateMatches|null> $templates
+     */
+    protected function templatesNeedPartnersVarColumn(array $templates): bool
+    {
+        foreach ($templates as $template) {
+            if ($template === null) {
+                continue;
+            }
+            $variation = $template->getPairingQualityPartnersCountVariation();
+            if ($variation !== null && $variation !== 0) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param list<array{players:int,partners:int,repeat:int,courts:int,fixedTeams:bool}> $combos
+     */
+    protected function combosNeedCourtSwitchesColumn(array $combos): bool
+    {
+        foreach ($combos as $combo) {
+            if ($combo['courts'] > 1) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param array{contextParts: list<string>} $layout
+     */
+    protected function writeTableContextLine(OutputInterface $output, array $layout): void
+    {
+        if ($layout['contextParts'] === []) {
+            return;
+        }
+
+        $output->writeln('<info>' . implode('   ', $layout['contextParts']) . '</info>');
     }
 
     /**
@@ -155,6 +262,15 @@ trait StatsFormatterTrait
             default:
                 return "<fg=white>{$label}</>";
         }
+    }
+
+    protected function formatPartnersFairness(?float $value): string
+    {
+        return $this->formatDistribution(
+            $value,
+            PartnersFairnessScorer::DISPLAY_GOOD,
+            PartnersFairnessScorer::DISPLAY_FAIR
+        );
     }
 
     /**
@@ -291,151 +407,229 @@ trait StatsFormatterTrait
     /**
      * Returns the unified two-row table header.
      *
-     * Top row groups (total colspan = 20):
-     *
-     *   | TEAMS (repeat: N, fixed: yes/no) (3) | PAIRING (4) | SORTING (4) | PAIRING STATS (4) | SORTING STATS (3) |
-     *
+     * @param array{includeCourtsColumn: bool, teamsColspan: int} $layout
      * @return array<int, array<int, string|TableCell>>
      */
-    protected function unifiedHeaders(int $repeat, bool $fixedTeams): array
+    protected function unifiedHeaders(array $layout): array
     {
-        // Only the group keyword is green; the rest of each cell (including the parenthetical
-        // `TEAMS` suffix) inherits white from the table style configured by {@see makeUnifiedTable()}.
-        $teamsLabel = sprintf(
-            '<fg=green>TEAMS</> (repeat: %d, fixed: %s)',
-            $repeat,
-            $fixedTeams ? 'yes' : 'no'
-        );
+        $teamsDetail = ['Players', 'Partners'];
+        if ($layout['includeCourtsColumn']) {
+            $teamsDetail[] = 'Courts';
+        }
+
+        $pairingDetail = [
+            'Min Partners Fair.',
+            'Avg Partners Fair.',
+        ];
+        if ($layout['includePartnersVarColumn']) {
+            $pairingDetail[] = 'Partners Var.';
+        }
+
+        $orderingDetail = [
+            'Min Dist.',
+            'Avg Dist.',
+            'Min Break',
+            'Max Break',
+        ];
+        if ($layout['includeCourtSwitchesColumn']) {
+            $orderingDetail[] = 'Court Sw.';
+        }
 
         return [
             [
-                new TableCell($teamsLabel, ['colspan' => 4]),
-                new TableCell('<fg=green>PAIRING</>', ['colspan' => 4]),
-                new TableCell('<fg=green>SORTING</>', ['colspan' => 5]),
+                new TableCell('<fg=green>TEAMS</>', ['colspan' => $layout['teamsColspan']]),
+                new TableCell('<fg=green>PAIRING</>', ['colspan' => $layout['pairingColspan']]),
                 new TableCell('<fg=green>PAIRING STATS</>', ['colspan' => 4]),
-                new TableCell('<fg=green>SORTING STATS</>', ['colspan' => 3]),
+                new TableCell('<fg=green>MATCH-MAKING</>', ['colspan' => 4]),
+                new TableCell('<fg=green>MATCH-MAKING STATS</>', ['colspan' => 4]),
+                new TableCell('<fg=green>ORDERING</>', ['colspan' => $layout['orderingColspan']]),
+                new TableCell('<fg=green>ORDERING STATS</>', ['colspan' => 4]),
             ],
-            [
-                'Players',
-                'Partners',
-                'Courts',
-                'Matches',
-                'Partners Var.',
-                'Min Met',
-                'Max Met',
+            array_merge($teamsDetail, $pairingDetail, [
+                'Seed',
+                'Nodes',
+                'Stop Reason',
+                'Time',
                 'Meets Var.',
-                'Min Dist.',
-                'Avg Dist.',
-                'Min Break',
-                'Max Break',
-                'Court Sw.',
+                'Min Opponents',
+                'Max Opponents',
+                'Matches',
                 'Perm. Idx.',
-                'Pairing Idx.',
+                'Templates',
                 'Stop Reason',
                 'Time',
-                'Sorting Idx.',
+            ], $orderingDetail, [
+                'Perm. Idx.',
+                'Nodes',
                 'Stop Reason',
                 'Time',
-            ],
+            ]),
         ];
     }
 
     /**
-     * Builds the 18-cell unified row in the order declared by {@see unifiedHeaders()}.
+     * Builds the unified row in the order declared by {@see unifiedHeaders()}.
      *
-     * When `$template === null` (missing file) the three identity cells come from the fallback
-     * parameters and the remaining 15 cells render a red dash / `missing` marker.
-     *
-     * `$firstOfGroup` controls the grouped Players column: the first row of each player group
-     * shows the integer; subsequent rows in the same group render `.` so the eye can scan the
-     * grouped block at a glance.
-     *
+     * @param array{includeCourtsColumn: bool, totalColumns: int} $layout
      * @return array<int, string>
      */
     protected function buildUnifiedRow(
         ?TemplateMatches $template,
         int $playersFallback,
         int $opponentsFallback,
-        bool $firstOfGroup
+        bool $firstOfGroup,
+        array $layout
     ): array {
         $players = $template !== null ? $template->getPlayers() : $playersFallback;
         $opponents = $template !== null ? $template->getPartners() : $opponentsFallback;
 
         $identityCells = [
             '<fg=blue>' . ($firstOfGroup ? $players : '.') . '</>',
-            '<fg=cyan>' . $opponents . '</>',
+            $template === null
+                ? '<fg=red>missing</>'
+                : '<fg=cyan>' . $opponents . '</>',
         ];
 
         if ($template === null) {
+            $teamsCells = [];
+            if ($layout['includeCourtsColumn']) {
+                $teamsCells[] = '<fg=red>-</>';
+            }
+
             return array_merge(
                 $identityCells,
-                ['<fg=red>missing</>'],
-                array_fill(0, $this->unifiedTotalColumns() - 3, '<fg=red>-</>')
+                $teamsCells,
+                array_fill(0, $layout['totalColumns'] - count($identityCells) - count($teamsCells), '<fg=red>-</>')
             );
         }
 
-        $matches = $template->getMatches();
-        $matchesCell = $matches !== null
-            ? '<fg=white>' . array_sum(array_map('count', $matches)) . '</>'
-            : '<fg=red>-</>';
-
-        // Min/Max Met are *distinct-opponents-per-player* counters, not meeting-frequency
-        // extrema. For each of the `players` seats we count how many other players share at
-        // least one match with that seat (an absent player in `playersMet` counts as 0), then
-        // take the min/max across the N seats. The colour bands in
-        // {@see formatOpponentsMetCount()} anchor on `players - 1` so the value reads as "did
-        // every player meet everyone at least once?".
-        $playersMet = $template->getPairingPlayersMet();
-        $metMin = null;
-        $metMax = null;
-        if (is_array($playersMet)) {
-            $perPlayer = [];
-            for ($p = 0; $p < $players; $p++) {
-                $perPlayer[] = isset($playersMet[$p]) ? count($playersMet[$p]) : 0;
-            }
-            if (!empty($perPlayer)) {
-                $metMin = min($perPlayer);
-                $metMax = max($perPlayer);
-            }
+        $teamsCells = [];
+        if ($layout['includeCourtsColumn']) {
+            $teamsCells[] = '<fg=white>' . $template->getCourts() . '</>';
         }
 
-        return array_merge($identityCells, [
-            '<fg=white>' . $template->getCourts() . '</>',
-            $matchesCell,
-            $this->formatPartnersVariation($template->getPairingPartnersCountVariation()),
-            $this->formatOpponentsMetCount($metMin, $players),
-            $this->formatOpponentsMetCount($metMax, $players),
-            $this->formatMeetingsVariation($template->getPairingMeetingsVariation()),
+        $pairingCells = [
+            $this->formatPartnersFairness($template->getPairingQualityMinPartnersFairness()),
+            $this->formatPartnersFairness($template->getPairingQualityAvgPartnersFairness()),
+        ];
+        if ($layout['includePartnersVarColumn']) {
+            $pairingCells[] = $this->formatPartnersVariation($template->getPairingQualityPartnersCountVariation());
+        }
+
+        $orderingCells = [
             $this->formatDistribution(
-                $template->getSortingMinDistribution(),
+                $template->getOrderingQualityMinDistribution(),
                 PlayerDistributionScorer::DISPLAY_GOOD,
                 PlayerDistributionScorer::DISPLAY_FAIR
             ),
             $this->formatDistribution(
-                $template->getSortingAvgDistribution(),
+                $template->getOrderingQualityAvgDistribution(),
                 TemplateMatchesGenerator::DISPLAY_AVG_DIST_GREEN,
                 TemplateMatchesGenerator::DISPLAY_AVG_DIST_YELLOW
             ),
-            $this->formatMinBreak($template->getSortingMinBreak(), $players),
-            $this->formatMaxBreak($template->getSortingMaxBreak(), $players),
-            $this->formatCourtSwitches($template->getSortingCourtSwitches()),
+            $this->formatMinBreak($template->getOrderingQualityMinBreak(), $players),
+            $this->formatMaxBreak($template->getOrderingQualityMaxBreak(), $players),
+        ];
+        if ($layout['includeCourtSwitchesColumn']) {
+            $orderingCells[] = $this->formatCourtSwitches($template->getOrderingQualityCourtSwitches());
+        }
+
+        return array_merge($identityCells, $teamsCells, $pairingCells, [
+            $template->getPairingStatsSeedIndex() !== null
+                ? '<fg=white>' . $template->getPairingStatsSeedIndex() . ' / ' . (int) $template->getPairingStatsSeedsTotal() . '</>'
+                : '<fg=red>-</>',
+            $template->getPairingStatsNodesExplored() !== null
+                ? '<fg=white>' . $template->getPairingStatsNodesExplored() . '</>'
+                : '<fg=red>-</>',
+            $this->formatStopReason($template->getPairingStatsStopReason()),
+            $this->formatTime($template->getPairingStatsTime()),
+            $this->formatMeetingsVariation($template->getMatchMakingQualityMeetingsVariation()),
+            $this->formatOpponentsMetCount($template->getMatchMakingQualityMinOpponentsMet(), $players),
+            $this->formatOpponentsMetCount($template->getMatchMakingQualityMaxOpponentsMet(), $players),
+            $template->getMatchMakingQualityMatchesCount() !== null
+                ? '<fg=white>' . $template->getMatchMakingQualityMatchesCount() . '</>'
+                : '<fg=red>-</>',
             $this->formatIndex(
-                $template->getPairingPermutationIndex(),
-                (int) $template->getPairingPermutationsIterated()
+                $template->getMatchMakingStatsPermutationIndex(),
+                (int) $template->getMatchMakingStatsPermutationsIterated()
             ),
             $this->formatIndex(
-                $template->getPairingTemplateIndex(),
-                (int) $template->getPairingTemplatesGenerated()
+                $template->getMatchMakingStatsTemplateIndex(),
+                (int) $template->getMatchMakingStatsTemplatesGenerated()
             ),
-            $this->formatStopReason($template->getPairingStopReason()),
-            $this->formatTime($template->getPairingTime()),
+            $this->formatStopReason($template->getMatchMakingStatsStopReason()),
+            $this->formatTime($template->getMatchMakingStatsTime()),
+        ], $orderingCells, [
             $this->formatIndex(
-                $template->getSortingPermutationIndex(),
-                (int) $template->getSortingPermutationsIterated()
+                $template->getOrderingStatsPermutationIndex(),
+                (int) $template->getOrderingStatsPermutationsIterated()
             ),
-            $this->formatStopReason($template->getSortingStopReason()),
-            $this->formatTime($template->getSortingTime()),
+            $template->getOrderingStatsNodesExplored() !== null
+                ? '<fg=white>' . $template->getOrderingStatsNodesExplored() . '</>'
+                : '<fg=red>-</>',
+            $this->formatStopReason($template->getOrderingStatsStopReason()),
+            $this->formatTime($template->getOrderingStatsTime()),
         ]);
+    }
+
+    /**
+     * @param array{
+     *     totalColumns: int,
+     *     avgColumns: array{pairingMinPartnersFair:int,pairingAvgPartnersFair:int,partnersVar:int,meetingsVar:int,orderingMinDist:int,orderingAvgDist:int}
+     * } $layout
+     * @param array<int, float|null> $minPartnersFairs
+     * @param array<int, float|null> $avgPartnersFairs
+     * @param array<int, int|null>   $partnersVars
+     * @param array<int, float|null> $meetingsVars
+     * @param array<int, float|null> $mins
+     * @param array<int, float|null> $avgs
+     * @return array<int, string>
+     */
+    protected function buildAvgRow(
+        array $layout,
+        array $minPartnersFairs,
+        array $avgPartnersFairs,
+        array $partnersVars,
+        array $meetingsVars,
+        array $mins,
+        array $avgs
+    ): array {
+        $row = array_fill(0, $layout['totalColumns'], '');
+        $cols = $layout['avgColumns'];
+        $row[$cols['pairingMinPartnersFair']] = $this->formatPartnersFairness($this->averageMetricValues($minPartnersFairs)) . ' (AVG)';
+        $row[$cols['pairingAvgPartnersFair']] = $this->formatPartnersFairness($this->averageMetricValues($avgPartnersFairs)) . ' (AVG)';
+        if (isset($cols['partnersVar'])) {
+            $partnersVarAvg = $this->averageMetricValues($partnersVars);
+            $row[$cols['partnersVar']] = $partnersVarAvg !== null
+                ? '<fg=white>' . number_format($partnersVarAvg, 2) . '</> (AVG)'
+                : '';
+        }
+        $row[$cols['meetingsVar']] = $this->formatMeetingsVariation($this->averageMetricValues($meetingsVars)) . ' (AVG)';
+        $row[$cols['orderingMinDist']] = $this->formatDistribution(
+            $this->averageMetricValues($mins),
+            PlayerDistributionScorer::DISPLAY_GOOD,
+            PlayerDistributionScorer::DISPLAY_FAIR
+        ) . ' (AVG)';
+        $row[$cols['orderingAvgDist']] = $this->formatDistribution(
+            $this->averageMetricValues($avgs),
+            TemplateMatchesGenerator::DISPLAY_AVG_DIST_GREEN,
+            TemplateMatchesGenerator::DISPLAY_AVG_DIST_YELLOW
+        ) . ' (AVG)';
+
+        return $row;
+    }
+
+    /**
+     * @param array<int, int|float|null> $values
+     */
+    protected function averageMetricValues(array $values): ?float
+    {
+        $present = array_filter($values, static fn ($v) => $v !== null);
+        if ($present === []) {
+            return null;
+        }
+
+        return array_sum($present) / count($present);
     }
 
     /**
@@ -455,15 +649,27 @@ trait StatsFormatterTrait
     protected function renderLiveSnapshotTable(
         OutputInterface $output,
         TemplateMatches $template,
-        bool $firstOfGroup
+        bool $firstOfGroup,
+        ?array $layout = null
     ): void {
+        if ($layout === null) {
+            $layout = $this->resolveUnifiedTableLayout([[
+                'players' => $template->getPlayers(),
+                'partners' => $template->getPartners(),
+                'repeat' => $template->getRepeat(),
+                'courts' => $template->getCourts(),
+                'fixedTeams' => $template->isFixedTeams(),
+            ]], [$template]);
+        }
+
         $table = $this->makeUnifiedTable($output);
-        $table->setHeaders($this->unifiedHeaders($template->getRepeat(), $template->isFixedTeams()));
+        $table->setHeaders($this->unifiedHeaders($layout));
         $table->addRow($this->buildUnifiedRow(
             $template,
             $template->getPlayers(),
             $template->getPartners(),
-            $firstOfGroup
+            $firstOfGroup,
+            $layout
         ));
         $table->render();
     }
@@ -471,10 +677,10 @@ trait StatsFormatterTrait
     /**
      * @param mixed $raw
      */
-    protected function parseStatsVersion($raw): int
+    protected function parseRequiredTemplateVersion($raw): int
     {
         if ($raw === null || $raw === '') {
-            return TemplateMatchesRepository::DEFAULT_TEMPLATE_VERSION;
+            throw new \InvalidArgumentException('Missing required option: --templates-version');
         }
         if (!is_string($raw) && !is_int($raw)) {
             throw new \InvalidArgumentException('Invalid --templates-version value: must be a positive integer.');
@@ -490,7 +696,7 @@ trait StatsFormatterTrait
     /**
      * @return array<int, array<int, int>>|null
      */
-    protected function parseStatsCombinations(?string $raw): ?array
+    protected function parseMetricsCombinations(?string $raw): ?array
     {
         if ($raw === null || trim($raw) === '') {
             return null;
@@ -508,19 +714,19 @@ trait StatsFormatterTrait
         return $combinations;
     }
 
-    protected function hasStatsComboFilters(InputInterface $input): bool
+    protected function hasMetricsComboFilters(InputInterface $input): bool
     {
         $resolver = new TemplateComboResolver();
         $filters = $resolver->parseFilters($input);
 
-        return $filters !== [] || $this->parseStatsCombinations($input->getOption('combinations')) !== null;
+        return $filters !== [] || $this->parseMetricsCombinations($input->getOption('combinations')) !== null;
     }
 
     /**
      * @param array<int, array<int, int>> $combinations
      * @return list<array{players:int,partners:int,repeat:int,courts:int,fixedTeams:bool}>
      */
-    protected function resolveStatsCombos(
+    protected function resolveMetricsCombos(
         InputInterface $input,
         TemplateMatchesRepository $repository,
         int $version,
@@ -529,9 +735,9 @@ trait StatsFormatterTrait
     ): array {
         $resolver = new TemplateComboResolver();
         $filters = $resolver->parseFilters($input);
-        $customCombinations = $this->parseStatsCombinations($input->getOption('combinations'));
+        $customCombinations = $this->parseMetricsCombinations($input->getOption('combinations'));
 
-        if (!$this->hasStatsComboFilters($input)) {
+        if (!$this->hasMetricsComboFilters($input)) {
             return $resolver->resolve($input, $combinations, $defaultFixedTeams)['combos'];
         }
 

@@ -8,13 +8,17 @@ use Arshavinel\PadelMiniTour\Service\TemplateMatchesRepository;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Console\Application;
 use Symfony\Component\Console\Tester\CommandTester;
+use Tests\Unit\TemplateVersionTestTrait;
 
 final class GenerateTemplatesCommandTest extends TestCase
 {
+    use TemplateVersionTestTrait;
+
     private string $tempBaseDir;
 
     protected function setUp(): void
     {
+        $this->resetAllocatedVersions();
         $this->tempBaseDir = sys_get_temp_dir()
             . DIRECTORY_SEPARATOR
             . 'padel-generate-test-'
@@ -29,12 +33,21 @@ final class GenerateTemplatesCommandTest extends TestCase
         $this->removeDirRecursive($this->tempBaseDir);
     }
 
+    public function test_missing_templates_version_exits_one(): void
+    {
+        $tester = $this->makeTester(new RecordingGenerator());
+        $tester->execute([]);
+
+        $this->assertSame(1, $tester->getStatusCode());
+        $this->assertStringContainsString('--templates-version', $tester->getDisplay());
+    }
+
     public function test_partial_players_and_partners_filter_resolves_subset(): void
     {
         $generator = new RecordingGenerator();
         $tester = $this->makeTester($generator);
 
-        $tester->execute([
+        $writeVersion = $this->generateExecute($tester, [
             '--players' => '12',
             '--partners' => '8',
         ]);
@@ -46,19 +59,18 @@ final class GenerateTemplatesCommandTest extends TestCase
             $generator->calls[0]
         );
 
-        $writeVersion = TemplateMatchesRepository::DEFAULT_TEMPLATE_VERSION + 1;
         $expected = $this->tempBaseDir
             . DIRECTORY_SEPARATOR . 'v' . $writeVersion
             . DIRECTORY_SEPARATOR . 'players-12-partners-8-repeat-1-courts-1.json';
         $this->assertFileExists($expected);
     }
 
-    public function test_single_combo_mode_writes_to_next_version_when_target_is_missing(): void
+    public function test_single_combo_mode_writes_to_explicit_version_when_target_is_missing(): void
     {
         $generator = new RecordingGenerator();
         $tester = $this->makeTester($generator);
 
-        $tester->execute([
+        $writeVersion = $this->generateExecute($tester, [
             '--players' => '4',
             '--partners' => '1',
             '--repeat' => '1',
@@ -68,7 +80,6 @@ final class GenerateTemplatesCommandTest extends TestCase
         $this->assertSame(0, $tester->getStatusCode());
         $this->assertCount(1, $generator->calls);
 
-        $writeVersion = TemplateMatchesRepository::DEFAULT_TEMPLATE_VERSION + 1;
         $expected = $this->tempBaseDir
             . DIRECTORY_SEPARATOR . 'v' . $writeVersion
             . DIRECTORY_SEPARATOR . 'players-4-partners-1-repeat-1-courts-1.json';
@@ -77,7 +88,7 @@ final class GenerateTemplatesCommandTest extends TestCase
 
     public function test_single_combo_mode_is_noop_when_target_already_exists(): void
     {
-        $writeVersion = TemplateMatchesRepository::DEFAULT_TEMPLATE_VERSION + 1;
+        $writeVersion = $this->allocVersion();
         $targetDir = $this->tempBaseDir . DIRECTORY_SEPARATOR . 'v' . $writeVersion;
         if (!is_dir($targetDir)) {
             mkdir($targetDir, 0775, true);
@@ -88,12 +99,12 @@ final class GenerateTemplatesCommandTest extends TestCase
 
         $generator = new RecordingGenerator();
         $tester = $this->makeTester($generator);
-        $tester->execute([
+        $this->generateExecute($tester, [
             '--players' => '4',
             '--partners' => '1',
             '--repeat' => '1',
             '--fixed-teams' => '0',
-        ]);
+        ], $writeVersion);
 
         $this->assertSame(0, $tester->getStatusCode());
         $this->assertSame($sentinel, file_get_contents($targetPath));
@@ -106,7 +117,7 @@ final class GenerateTemplatesCommandTest extends TestCase
 
     public function test_bulk_mode_generates_only_missing_combos(): void
     {
-        $writeVersion = TemplateMatchesRepository::DEFAULT_TEMPLATE_VERSION + 1;
+        $writeVersion = $this->allocVersion();
         $writeDir = $this->tempBaseDir . DIRECTORY_SEPARATOR . 'v' . $writeVersion;
         if (!is_dir($writeDir)) {
             mkdir($writeDir, 0775, true);
@@ -117,7 +128,7 @@ final class GenerateTemplatesCommandTest extends TestCase
 
         $generator = new RecordingGenerator();
         $tester = $this->makeTester($generator);
-        $tester->execute([]);
+        $this->generateExecute($tester, [], $writeVersion);
 
         $this->assertSame($sentinel, file_get_contents($preservedPath));
 
@@ -136,7 +147,7 @@ final class GenerateTemplatesCommandTest extends TestCase
 
     public function test_bulk_mode_is_fully_noop_when_all_combos_already_present(): void
     {
-        $writeVersion = TemplateMatchesRepository::DEFAULT_TEMPLATE_VERSION + 1;
+        $writeVersion = $this->allocVersion();
         $writeDir = $this->tempBaseDir . DIRECTORY_SEPARATOR . 'v' . $writeVersion;
         if (!is_dir($writeDir)) {
             mkdir($writeDir, 0775, true);
@@ -158,7 +169,7 @@ final class GenerateTemplatesCommandTest extends TestCase
 
         $generator = new RecordingGenerator();
         $tester = $this->makeTester($generator);
-        $tester->execute([]);
+        $this->generateExecute($tester, [], $writeVersion);
 
         $this->assertSame(0, $tester->getStatusCode());
         $this->assertSame([], $generator->calls);
@@ -173,7 +184,7 @@ final class GenerateTemplatesCommandTest extends TestCase
 
     public function test_bulk_mode_does_not_wipe_unrelated_sibling_files(): void
     {
-        $writeVersion = TemplateMatchesRepository::DEFAULT_TEMPLATE_VERSION + 1;
+        $writeVersion = $this->allocVersion();
         $writeDir = $this->tempBaseDir . DIRECTORY_SEPARATOR . 'v' . $writeVersion;
         if (!is_dir($writeDir)) {
             mkdir($writeDir, 0775, true);
@@ -185,7 +196,7 @@ final class GenerateTemplatesCommandTest extends TestCase
 
         $generator = new RecordingGenerator();
         $tester = $this->makeTester($generator);
-        $tester->execute([]);
+        $this->generateExecute($tester, [], $writeVersion);
 
         $this->assertFileExists($readmePath);
         $this->assertSame('# notes', file_get_contents($readmePath));
@@ -198,7 +209,7 @@ final class GenerateTemplatesCommandTest extends TestCase
     {
         $tester = $this->makeTester(new RecordingGenerator());
 
-        $tester->execute([
+        $this->generateExecute($tester, [
             '--players' => '4',
             '--partners' => '1',
             '--repeat' => '1',
@@ -217,6 +228,14 @@ final class GenerateTemplatesCommandTest extends TestCase
         $application->add($command);
 
         return new CommandTester($application->find('templates:generate'));
+    }
+
+    private function generateExecute(CommandTester $tester, array $args = [], ?int $writeVersion = null): int
+    {
+        $writeVersion ??= $this->allocVersion();
+        $tester->execute(array_merge(['--templates-version' => (string) $writeVersion], $args));
+
+        return $writeVersion;
     }
 
     private function removeDirRecursive(string $dir): void

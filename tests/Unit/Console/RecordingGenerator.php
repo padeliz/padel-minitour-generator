@@ -2,6 +2,7 @@
 
 namespace Tests\Unit\Console;
 
+use Arshavinel\PadelMiniTour\Service\Progress\MatchMakingProgress;
 use Arshavinel\PadelMiniTour\Service\Progress\OrderingProgress;
 use Arshavinel\PadelMiniTour\Service\Progress\PairingProgress;
 use Arshavinel\PadelMiniTour\Service\TemplateMatches;
@@ -9,7 +10,7 @@ use Arshavinel\PadelMiniTour\Service\TemplateMatchesGenerator;
 
 /**
  * Test double for console command tests: records generate() calls and returns canned templates
- * without running pairing or sort DFS.
+ * without running pairing or ordering DFS.
  */
 final class RecordingGenerator extends TemplateMatchesGenerator
 {
@@ -72,6 +73,11 @@ final class RecordingGenerator extends TemplateMatchesGenerator
             return;
         }
 
+        $partnerCounts = [];
+        for ($i = 0; $i < $players; $i++) {
+            $partnerCounts[$i] = 1;
+        }
+
         ($this->progressCallback)(new PairingProgress(
             $players,
             $partners,
@@ -81,17 +87,37 @@ final class RecordingGenerator extends TemplateMatchesGenerator
             1_000_000_000,
             true,
             24,
-            12,
-            0.5,
+            0.95,
+            0.97,
             $this->pairingSeedCurrent,
             $this->pairingSeedsTotal,
+            $partnerCounts,
+            0,
+            max(1, $partners),
+            TemplateMatchesGenerator::STOP_REASON_FACTORIAL_COMPLETE
+        ));
+
+        ($this->progressCallback)(new MatchMakingProgress(
+            $players,
+            $partners,
+            $repeat,
+            $fixedTeams,
+            1_500_000,
+            1_000_000_000,
+            true,
+            12,
+            1,
+            0.5,
+            1,
+            1,
             1,
             1,
             $partners,
-            null,
-            null,
+            $partnerCounts,
+            [],
             0,
-            TemplateMatchesGenerator::STOP_REASON_FACTORIAL_COMPLETE
+            TemplateMatchesGenerator::STOP_REASON_FACTORIAL_COMPLETE,
+            1
         ));
 
         ($this->progressCallback)(new OrderingProgress(
@@ -136,26 +162,46 @@ final class RecordingGenerator extends TemplateMatchesGenerator
             $courts,
             $fixedTeams,
             $matches,
-            0.0,
-            2,
-            1,
-            2,
-            1,
+            0.95,
+            0.97,
             $partnerCounts,
-            null,
             0,
-            $matchCount,
+            max(1, $partners),
             TemplateMatchesGenerator::STOP_REASON_FACTORIAL_COMPLETE,
             0.04,
+            24,
+            1,
+            1,
+            0.5,
+            1,
+            3,
+            [],
+            $matchCount,
+            12,
+            1,
+            1,
+            1,
             $matches === null
                 ? TemplateMatchesGenerator::STOP_REASON_DEADLINE
                 : TemplateMatchesGenerator::STOP_REASON_FACTORIAL_COMPLETE,
+            0.04,
+            1,
+            null,
             0.95,
             0.97,
+            0,
+            0,
+            0,
+            null,
+            $matches === null ? null : $matchCount,
+            $matches === null
+                ? TemplateMatchesGenerator::STOP_REASON_DEADLINE
+                : TemplateMatchesGenerator::STOP_REASON_FACTORIAL_COMPLETE,
             5,
             1,
-            0,
-            0,
+            6,
+            1,
+            1,
             0.08
         );
     }

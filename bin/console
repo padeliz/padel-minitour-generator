@@ -6,8 +6,8 @@
  *
  *  - templates:regenerate          (wipes then writes resources/template-matches/v{N+1}/)
  *  - templates:generate            (additively writes missing combos into resources/template-matches/v{N+1}/, never wipes)
- *  - templates:stats               (read-only stats over the in-use mixed-teams templates)
- *  - templates:stats-fixed-teams   (read-only stats over the in-use fixed-teams templates)
+ *  - templates:metrics               (read-only metrics over the in-use mixed-teams templates)
+ *  - templates:metrics-fixed-teams   (read-only metrics over the in-use fixed-teams templates)
  *
  * Not intended to be deployed to production: the regenerate/generate commands are long-running
  * batch jobs meant to be run by an engineer locally, and the stats commands are inspection
@@ -18,25 +18,25 @@
  *   php bin/console templates:regenerate --players=12 --partners=8 --repeat=1 --fixed-teams=0
  *   php bin/console templates:generate
  *   php bin/console templates:generate --players=11 --partners=8 --repeat=1 --fixed-teams=0
- *   php bin/console templates:stats
- *   php bin/console templates:stats --templates-version=2
- *   php bin/console templates:stats-fixed-teams
- *   php bin/console templates:stats-fixed-teams --templates-version=2
+ *   php bin/console templates:metrics
+ *   php bin/console templates:metrics --templates-version=2
+ *   php bin/console templates:metrics-fixed-teams
+ *   php bin/console templates:metrics-fixed-teams --templates-version=2
  */
 
 require __DIR__ . '/../vendor/autoload.php';
 
 use Arshavinel\PadelMiniTour\Console\Command\GenerateTemplatesCommand;
 use Arshavinel\PadelMiniTour\Console\Command\RegenerateTemplatesCommand;
-use Arshavinel\PadelMiniTour\Console\Command\StatsTemplatesCommand;
-use Arshavinel\PadelMiniTour\Console\Command\StatsTemplatesFixedTeamsCommand;
+use Arshavinel\PadelMiniTour\Console\Command\MetricsTemplatesCommand;
+use Arshavinel\PadelMiniTour\Console\Command\MetricsTemplatesFixedTeamsCommand;
 use Symfony\Component\Console\Application;
 
 $application = new Application('Padel MiniTour developer CLI', '1.0.0');
 $application->add(new RegenerateTemplatesCommand());
 $application->add(new GenerateTemplatesCommand());
-$application->add(new StatsTemplatesCommand());
-$application->add(new StatsTemplatesFixedTeamsCommand());
+$application->add(new MetricsTemplatesCommand());
+$application->add(new MetricsTemplatesFixedTeamsCommand());
 
 $exitCode = $application->run();
 exit($exitCode);

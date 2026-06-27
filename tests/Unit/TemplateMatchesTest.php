@@ -2,6 +2,7 @@
 
 namespace Tests\Unit;
 
+use Arshavinel\PadelMiniTour\Service\Progress\MatchMakingProgress;
 use Arshavinel\PadelMiniTour\Service\Progress\OrderingProgress;
 use Arshavinel\PadelMiniTour\Service\Progress\PairingProgress;
 use Arshavinel\PadelMiniTour\Service\TemplateMatches;
@@ -23,29 +24,41 @@ final class TemplateMatchesTest extends TestCase
 
         $this->assertSame([[[[0, 1], [2, 3]]]], $template->getMatches());
 
-        $this->assertSame(0.0, $template->getPairingMeetingsVariation());
-        $this->assertSame([0 => 1, 1 => 1, 2 => 1, 3 => 1], $template->getPairingPartnersCount());
-        $this->assertSame(1, $template->getPairingPartnersCountBy(0));
-        $this->assertNull($template->getPairingPartnersCountBy(99));
-        $this->assertSame([0 => 1, 1 => 1, 2 => 1], $template->getPairingPlayersMetBy(3));
-        $this->assertNull($template->getPairingPlayersMetBy(99));
-        $this->assertSame(0, $template->getPairingPartnersCountVariation());
-        $this->assertSame(1, $template->getPairingBestMatchesCount());
-        $this->assertSame('FACTORIAL_COMPLETE', $template->getPairingStopReason());
-        $this->assertSame(0.04, $template->getPairingTime());
-        $this->assertSame(2, $template->getPairingPermutationsIterated());
-        $this->assertSame(1, $template->getPairingPermutationIndex());
-        $this->assertSame(2, $template->getPairingTemplatesGenerated());
-        $this->assertSame(1, $template->getPairingTemplateIndex());
+        $this->assertSame(0.95, $template->getPairingQualityMinPartnersFairness());
+        $this->assertSame(0.97, $template->getPairingQualityAvgPartnersFairness());
+        $this->assertSame([0 => 1, 1 => 1, 2 => 1, 3 => 1], $template->getPairingQualityPartnersCount());
+        $this->assertSame(1, $template->getPairingQualityPartnersCountBy(0));
+        $this->assertNull($template->getPairingQualityPartnersCountBy(99));
+        $this->assertSame(0, $template->getPairingQualityPartnersCountVariation());
+        $this->assertSame(2, $template->getPairingQualityPairCount());
+        $this->assertSame('FACTORIAL_COMPLETE', $template->getPairingStatsStopReason());
+        $this->assertSame(0.04, $template->getPairingStatsTime());
+        $this->assertSame(100, $template->getPairingStatsNodesExplored());
+        $this->assertSame(1, $template->getPairingStatsSeedIndex());
+        $this->assertSame(1, $template->getPairingStatsSeedsTotal());
 
-        $this->assertSame('FACTORIAL_COMPLETE', $template->getSortingStopReason());
-        $this->assertSame(0.95, $template->getSortingMinDistribution());
-        $this->assertSame(0.97, $template->getSortingAvgDistribution());
-        $this->assertSame(0, $template->getSortingMinBreak());
-        $this->assertSame(0, $template->getSortingMaxBreak());
-        $this->assertSame(5, $template->getSortingPermutationsIterated());
-        $this->assertSame(3, $template->getSortingPermutationIndex());
-        $this->assertSame(0.08, $template->getSortingTime());
+        $this->assertSame(0.0, $template->getMatchMakingQualityMeetingsVariation());
+        $this->assertSame(1, $template->getMatchMakingQualityMinOpponentsMet());
+        $this->assertSame(3, $template->getMatchMakingQualityMaxOpponentsMet());
+        $this->assertSame([1 => 1, 2 => 1, 3 => 1], $template->getMatchMakingQualityPlayersMetBy(0));
+        $this->assertNull($template->getMatchMakingQualityPlayersMetBy(99));
+        $this->assertSame(1, $template->getMatchMakingQualityMatchesCount());
+        $this->assertSame(2, $template->getMatchMakingStatsPermutationsIterated());
+        $this->assertSame(1, $template->getMatchMakingStatsPermutationIndex());
+        $this->assertSame(2, $template->getMatchMakingStatsTemplatesGenerated());
+        $this->assertSame(1, $template->getMatchMakingStatsTemplateIndex());
+        $this->assertSame('FACTORIAL_COMPLETE', $template->getMatchMakingStatsStopReason());
+        $this->assertSame(0.04, $template->getMatchMakingStatsTime());
+        $this->assertSame(1, $template->getMatchMakingStatsMeetingsVariationLimit());
+
+        $this->assertSame('FACTORIAL_COMPLETE', $template->getOrderingStatsStopReason());
+        $this->assertSame(0.95, $template->getOrderingQualityMinDistribution());
+        $this->assertSame(0.97, $template->getOrderingQualityAvgDistribution());
+        $this->assertSame(0, $template->getOrderingQualityMinBreak());
+        $this->assertSame(0, $template->getOrderingQualityMaxBreak());
+        $this->assertSame(5, $template->getOrderingStatsPermutationsIterated());
+        $this->assertSame(3, $template->getOrderingStatsPermutationIndex());
+        $this->assertSame(0.08, $template->getOrderingStatsTime());
     }
 
     public function test_is_eligible_is_true_with_matches_and_false_without(): void
@@ -71,33 +84,42 @@ final class TemplateMatchesTest extends TestCase
         $this->assertSame($original->toArray(), $roundTripped->toArray());
     }
 
-    public function test_to_array_nests_pairing_and_sorting_under_dedicated_keys(): void
+    public function test_to_array_nests_metrics_under_dedicated_phase_keys(): void
     {
         $array = $this->makeTemplate()->toArray();
 
-        // Identity + matches live at the root; legacy estimatedGenerationTime/generationTime are gone.
-        $this->assertSame(['players', 'partners', 'repeat', 'courts', 'fixedTeams', 'matches', 'pairing', 'sorting'], array_keys($array));
+        $this->assertSame(
+            ['players', 'partners', 'repeat', 'courts', 'fixedTeams', 'matches', 'metrics'],
+            array_keys($array)
+        );
 
-        $this->assertIsArray($array['pairing']);
-        $this->assertIsArray($array['sorting']);
+        $this->assertIsArray($array['metrics']);
+        $this->assertSame(['pairing', 'matchMaking', 'ordering'], array_keys($array['metrics']));
 
-        $expectedPairingKeys = [
-            'meetingsVariation', 'permutationsIterated', 'permutationIndex',
-            'templatesGenerated', 'templateIndex', 'partnersCount', 'playersMet',
-            'partnersCountVariation', 'bestMatchesCount', 'stopReason', 'time',
-            'meetingsVariationLimit', 'relaxAttempts',
+        foreach (['pairing', 'matchMaking', 'ordering'] as $phase) {
+            $this->assertIsArray($array['metrics'][$phase]);
+            $this->assertSame(['quality', 'stats'], array_keys($array['metrics'][$phase]));
+        }
+
+        $expectedPairingQualityKeys = [
+            'minPartnersFairness', 'avgPartnersFairness', 'partnersCount',
+            'partnersCountVariation', 'pairCount',
         ];
-        $this->assertSame($expectedPairingKeys, array_keys($array['pairing']));
+        $this->assertSame($expectedPairingQualityKeys, array_keys($array['metrics']['pairing']['quality']));
 
-        $expectedSortingKeys = [
-            'stopReason', 'minDistribution', 'avgDistribution',
-            'permutationsIterated', 'permutationIndex',
-            'minBreak', 'maxBreak', 'courtSwitches', 'courtBalance',
-            'nodesExplored', 'seedIndex', 'seedsTotal', 'time',
+        $expectedPairingStatsKeys = [
+            'stopReason', 'time', 'nodesExplored', 'seedIndex', 'seedsTotal',
         ];
-        $this->assertSame($expectedSortingKeys, array_keys($array['sorting']));
+        $this->assertSame($expectedPairingStatsKeys, array_keys($array['metrics']['pairing']['stats']));
 
-        $this->assertArrayNotHasKey('hasDifferentPartnersNumber', $array['pairing'], 'Legacy bool must not leak back into the schema.');
+        $expectedOrderingQualityKeys = [
+            'minDistribution', 'avgDistribution', 'minBreak', 'maxBreak',
+            'courtSwitches', 'courtBalance', 'roundsCount',
+        ];
+        $this->assertSame($expectedOrderingQualityKeys, array_keys($array['metrics']['ordering']['quality']));
+
+        $this->assertArrayNotHasKey('pairing', $array);
+        $this->assertArrayNotHasKey('sorting', $array);
         $this->assertArrayNotHasKey('estimatedGenerationTime', $array);
         $this->assertArrayNotHasKey('generationTime', $array);
     }
@@ -105,16 +127,16 @@ final class TemplateMatchesTest extends TestCase
     public function test_from_array_handles_json_decoded_string_keys_in_players_met(): void
     {
         $jsonStyle = $this->makeJsonArray();
-        $jsonStyle['pairing']['playersMet'] = [
+        $jsonStyle['metrics']['matchMaking']['quality']['playersMet'] = [
             '0' => ['1' => 2, '2' => 3],
             '1' => ['0' => 2, '2' => 1],
         ];
 
         $template = TemplateMatches::fromArray($jsonStyle);
 
-        $this->assertSame([1 => 2, 2 => 3], $template->getPairingPlayersMetBy(0));
-        $this->assertSame(2, $template->getPairingPlayersMetBy(0)[1]);
-        $this->assertSame(3, $template->getPairingPlayersMetBy(0)[2]);
+        $this->assertSame([1 => 2, 2 => 3], $template->getMatchMakingQualityPlayersMetBy(0));
+        $this->assertSame(2, $template->getMatchMakingQualityPlayersMetBy(0)[1]);
+        $this->assertSame(3, $template->getMatchMakingQualityPlayersMetBy(0)[2]);
     }
 
     public function test_from_array_handles_missing_optional_diagnostics(): void
@@ -126,21 +148,28 @@ final class TemplateMatchesTest extends TestCase
             'courts' => 1,
             'fixedTeams' => false,
             'matches' => null,
-            'pairing' => [],
-            'sorting' => [],
+            'metrics' => [
+                'pairing' => [
+                    'quality' => ['minPartnersFairness' => null, 'avgPartnersFairness' => null],
+                    'stats' => [],
+                ],
+                'matchMaking' => ['quality' => [], 'stats' => []],
+                'ordering' => ['quality' => [], 'stats' => []],
+            ],
         ]);
 
         $this->assertFalse($minimal->isEligible());
         $this->assertNull($minimal->getMatches());
-        $this->assertNull($minimal->getPairingMeetingsVariation());
-        $this->assertNull($minimal->getPairingStopReason());
-        $this->assertNull($minimal->getPairingTime());
-        $this->assertNull($minimal->getSortingStopReason());
-        $this->assertNull($minimal->getSortingMinDistribution());
-        $this->assertNull($minimal->getSortingAvgDistribution());
-        $this->assertNull($minimal->getSortingMinBreak());
-        $this->assertNull($minimal->getSortingMaxBreak());
-        $this->assertNull($minimal->getSortingTime());
+        $this->assertNull($minimal->getPairingQualityMinPartnersFairness());
+        $this->assertNull($minimal->getPairingStatsStopReason());
+        $this->assertNull($minimal->getPairingStatsTime());
+        $this->assertNull($minimal->getMatchMakingQualityMeetingsVariation());
+        $this->assertNull($minimal->getOrderingStatsStopReason());
+        $this->assertNull($minimal->getOrderingQualityMinDistribution());
+        $this->assertNull($minimal->getOrderingQualityAvgDistribution());
+        $this->assertNull($minimal->getOrderingQualityMinBreak());
+        $this->assertNull($minimal->getOrderingQualityMaxBreak());
+        $this->assertNull($minimal->getOrderingStatsTime());
     }
 
     public function test_from_array_throws_when_identity_keys_are_missing(): void
@@ -160,11 +189,21 @@ final class TemplateMatchesTest extends TestCase
         }
     }
 
-    public function test_from_array_throws_when_pairing_or_sorting_objects_are_missing(): void
+    public function test_from_array_throws_when_metrics_object_is_missing(): void
     {
-        foreach (['pairing', 'sorting'] as $omittedKey) {
+        $data = $this->makeJsonArray();
+        unset($data['metrics']);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('metrics');
+        TemplateMatches::fromArray($data);
+    }
+
+    public function test_from_array_throws_when_metrics_phase_sections_are_missing(): void
+    {
+        foreach (['pairing', 'matchMaking', 'ordering'] as $phase) {
             $data = $this->makeJsonArray();
-            unset($data[$omittedKey]);
+            unset($data['metrics'][$phase]);
 
             $thrown = null;
             try {
@@ -172,8 +211,20 @@ final class TemplateMatchesTest extends TestCase
             } catch (\InvalidArgumentException $e) {
                 $thrown = $e;
             }
-            $this->assertNotNull($thrown, "Expected exception when omitting nested key: {$omittedKey}");
-            $this->assertStringContainsString($omittedKey, $thrown->getMessage());
+            $this->assertNotNull($thrown, "Expected exception when omitting metrics phase: {$phase}");
+            $this->assertStringContainsString($phase, $thrown->getMessage());
+        }
+    }
+
+    public function test_from_array_rejects_v3_top_level_pairing_and_sorting_keys(): void
+    {
+        foreach (['pairing', 'sorting'] as $legacyKey) {
+            $data = $this->makeJsonArray();
+            $data[$legacyKey] = ['quality' => [], 'stats' => []];
+
+            $this->expectException(\InvalidArgumentException::class);
+            $this->expectExceptionMessageMatches('/legacy top-level key/');
+            TemplateMatches::fromArray($data);
         }
     }
 
@@ -194,10 +245,22 @@ final class TemplateMatchesTest extends TestCase
         }
     }
 
-    public function test_from_array_rejects_legacy_pairing_has_different_partners_number(): void
+    public function test_from_array_requires_partners_fairness_keys(): void
+    {
+        foreach (['minPartnersFairness', 'avgPartnersFairness'] as $omitted) {
+            $data = $this->makeJsonArray();
+            unset($data['metrics']['pairing']['quality'][$omitted]);
+
+            $this->expectException(\InvalidArgumentException::class);
+            $this->expectExceptionMessage($omitted);
+            TemplateMatches::fromArray($data);
+        }
+    }
+
+    public function test_from_array_rejects_legacy_has_different_partners_number(): void
     {
         $data = $this->makeJsonArray();
-        $data['pairing']['hasDifferentPartnersNumber'] = false;
+        $data['metrics']['pairing']['quality']['hasDifferentPartnersNumber'] = false;
 
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessageMatches('/hasDifferentPartnersNumber/');
@@ -214,6 +277,24 @@ final class TemplateMatchesTest extends TestCase
             500_000_000,
             1_000_000_000,
             false,
+            500,
+            0.88,
+            0.93,
+            1,
+            1,
+            [0 => 2, 1 => 2, 2 => 2, 3 => 2, 4 => 2, 5 => 2, 6 => 2, 7 => 2],
+            0,
+            44,
+            null
+        );
+        $matchMaking = new MatchMakingProgress(
+            8,
+            2,
+            1,
+            false,
+            600_000_000,
+            1_000_000_000,
+            false,
             42,
             7,
             3.14,
@@ -225,7 +306,8 @@ final class TemplateMatchesTest extends TestCase
             [0 => 2, 1 => 2, 2 => 2, 3 => 2, 4 => 2, 5 => 2, 6 => 2, 7 => 2],
             [0 => [1 => 1, 2 => 1]],
             0,
-            null
+            null,
+            2
         );
         $ordering = new OrderingProgress(
             8,
@@ -245,7 +327,7 @@ final class TemplateMatchesTest extends TestCase
             4
         );
 
-        $snapshot = TemplateMatches::fromProgress(8, 2, 1, 1, false, $pairing, $ordering);
+        $snapshot = TemplateMatches::fromProgress(8, 2, 1, 1, false, $pairing, $matchMaking, $ordering);
 
         $this->assertSame(8, $snapshot->getPlayers());
         $this->assertSame(2, $snapshot->getPartners());
@@ -255,41 +337,46 @@ final class TemplateMatchesTest extends TestCase
         $this->assertNull($snapshot->getMatches());
         $this->assertFalse($snapshot->isEligible());
 
-        $this->assertSame(3.14, $snapshot->getPairingMeetingsVariation());
-        $this->assertSame(42, $snapshot->getPairingPermutationsIterated());
-        $this->assertSame(7, $snapshot->getPairingTemplatesGenerated());
-        $this->assertSame(17, $snapshot->getPairingPermutationIndex());
-        $this->assertSame(5, $snapshot->getPairingTemplateIndex());
-        $this->assertSame(12, $snapshot->getPairingBestMatchesCount());
-        $this->assertSame([0 => 2, 1 => 2, 2 => 2, 3 => 2, 4 => 2, 5 => 2, 6 => 2, 7 => 2], $snapshot->getPairingPartnersCount());
-        $this->assertSame([0 => [1 => 1, 2 => 1]], $snapshot->getPairingPlayersMet());
-        $this->assertSame(0, $snapshot->getPairingPartnersCountVariation());
-        $this->assertNull($snapshot->getPairingStopReason(), 'Aggregate stop reason is null on interim ticks.');
-        $this->assertEquals(0.5, $snapshot->getPairingTime(), '', 1e-9);
+        $this->assertSame(0.88, $snapshot->getPairingQualityMinPartnersFairness());
+        $this->assertSame(500, $snapshot->getPairingStatsNodesExplored());
+        $this->assertSame(44, $snapshot->getPairingQualityPairCount());
+        $this->assertSame([0 => 2, 1 => 2, 2 => 2, 3 => 2, 4 => 2, 5 => 2, 6 => 2, 7 => 2], $snapshot->getPairingQualityPartnersCount());
+        $this->assertSame(0, $snapshot->getPairingQualityPartnersCountVariation());
+        $this->assertNull($snapshot->getPairingStatsStopReason(), 'Aggregate stop reason is null on interim ticks.');
+        $this->assertEquals(0.5, $snapshot->getPairingStatsTime(), '', 1e-9);
 
-        $this->assertSame(0.88, $snapshot->getSortingMinDistribution());
-        $this->assertSame(0.93, $snapshot->getSortingAvgDistribution());
-        $this->assertSame(5, $snapshot->getSortingPermutationsIterated());
-        $this->assertSame(3, $snapshot->getSortingPermutationIndex());
-        $this->assertSame(1, $snapshot->getSortingMinBreak());
-        $this->assertSame(2, $snapshot->getSortingMaxBreak());
-        $this->assertSame(4, $snapshot->getSortingCourtSwitches());
-        $this->assertNull($snapshot->getSortingStopReason());
-        $this->assertEquals(0.2, $snapshot->getSortingTime(), '', 1e-9);
+        $this->assertSame(3.14, $snapshot->getMatchMakingQualityMeetingsVariation());
+        $this->assertSame(42, $snapshot->getMatchMakingStatsPermutationsIterated());
+        $this->assertSame(7, $snapshot->getMatchMakingStatsTemplatesGenerated());
+        $this->assertSame(17, $snapshot->getMatchMakingStatsPermutationIndex());
+        $this->assertSame(5, $snapshot->getMatchMakingStatsTemplateIndex());
+        $this->assertSame(12, $snapshot->getMatchMakingQualityMatchesCount());
+        $this->assertSame([0 => [1 => 1, 2 => 1]], $snapshot->getMatchMakingQualityPlayersMet());
+
+        $this->assertSame(0.88, $snapshot->getOrderingQualityMinDistribution());
+        $this->assertSame(0.93, $snapshot->getOrderingQualityAvgDistribution());
+        $this->assertSame(5, $snapshot->getOrderingStatsPermutationsIterated());
+        $this->assertSame(3, $snapshot->getOrderingStatsPermutationIndex());
+        $this->assertSame(1, $snapshot->getOrderingQualityMinBreak());
+        $this->assertSame(2, $snapshot->getOrderingQualityMaxBreak());
+        $this->assertSame(4, $snapshot->getOrderingQualityCourtSwitches());
+        $this->assertNull($snapshot->getOrderingStatsStopReason());
+        $this->assertEquals(0.2, $snapshot->getOrderingStatsTime(), '', 1e-9);
     }
 
     public function test_from_progress_accepts_null_events_at_run_start(): void
     {
-        $snapshot = TemplateMatches::fromProgress(4, 1, 1, 1, false, null, null);
+        $snapshot = TemplateMatches::fromProgress(4, 1, 1, 1, false, null, null, null);
 
         $this->assertSame(4, $snapshot->getPlayers());
         $this->assertFalse($snapshot->isEligible());
-        $this->assertNull($snapshot->getPairingMeetingsVariation());
-        $this->assertNull($snapshot->getPairingPermutationsIterated());
-        $this->assertNull($snapshot->getPairingTime());
-        $this->assertNull($snapshot->getSortingMinDistribution());
-        $this->assertNull($snapshot->getSortingStopReason());
-        $this->assertNull($snapshot->getSortingTime());
+        $this->assertNull($snapshot->getPairingQualityMinPartnersFairness());
+        $this->assertNull($snapshot->getPairingStatsNodesExplored());
+        $this->assertNull($snapshot->getPairingStatsTime());
+        $this->assertNull($snapshot->getMatchMakingQualityMeetingsVariation());
+        $this->assertNull($snapshot->getOrderingQualityMinDistribution());
+        $this->assertNull($snapshot->getOrderingStatsStopReason());
+        $this->assertNull($snapshot->getOrderingStatsTime());
     }
 
     public function test_from_progress_carries_aggregate_pairing_stop_reason_on_final_event(): void
@@ -303,21 +390,18 @@ final class TemplateMatchesTest extends TestCase
             1_000_000_000,
             true,
             500_000,
-            10_000,
-            2.5,
-            2,
-            2,
-            17,
-            5,
-            12,
+            0.9,
+            0.95,
+            1,
+            1,
             [0 => 2, 1 => 2, 2 => 2, 3 => 2, 4 => 2, 5 => 2, 6 => 2, 7 => 2],
-            [0 => [1 => 1]],
             0,
+            44,
             'DEADLINE'
         );
 
-        $snapshot = TemplateMatches::fromProgress(8, 2, 1, 1, false, $finalPairing, null);
-        $this->assertSame('DEADLINE', $snapshot->getPairingStopReason());
+        $snapshot = TemplateMatches::fromProgress(8, 2, 1, 1, false, $finalPairing, null, null);
+        $this->assertSame('DEADLINE', $snapshot->getPairingStatsStopReason());
     }
 
     public function test_constructor_exposes_identity_fields(): void
@@ -339,29 +423,47 @@ final class TemplateMatchesTest extends TestCase
             1,
             false,
             [[[[0, 1], [2, 3]]]],
-            0.0,
-            2,
-            1,
-            2,
-            1,
+            0.95,
+            0.97,
             [0 => 1, 1 => 1, 2 => 1, 3 => 1],
+            0,
+            2,
+            'FACTORIAL_COMPLETE',
+            0.04,
+            100,
+            1,
+            1,
+            0.0,
+            1,
+            3,
             [
                 0 => [1 => 1, 2 => 1, 3 => 1],
                 1 => [0 => 1, 2 => 1, 3 => 1],
                 2 => [0 => 1, 1 => 1, 3 => 1],
                 3 => [0 => 1, 1 => 1, 2 => 1],
             ],
-            0,
+            1,
+            2,
+            1,
+            2,
             1,
             'FACTORIAL_COMPLETE',
             0.04,
-            'FACTORIAL_COMPLETE',
+            1,
+            null,
             0.95,
             0.97,
+            0,
+            0,
+            0,
+            null,
+            1,
+            'FACTORIAL_COMPLETE',
             5,
             3,
-            0,
-            0,
+            50,
+            1,
+            1,
             0.08
         );
     }
@@ -374,6 +476,24 @@ final class TemplateMatchesTest extends TestCase
             $repeat,
             1,
             $fixedTeams,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
             null,
             null,
             null,

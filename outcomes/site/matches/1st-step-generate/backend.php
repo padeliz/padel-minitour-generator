@@ -69,12 +69,14 @@ try {
 } catch (\RuntimeException $e) {
     $playersCount = count($_GET['player-ids']);
     $courtsCount = count($courtNames);
-    $versionLabel = $templateVersion !== null ? 'v' . $templateVersion : 'v' . TemplateMatchesRepository::DEFAULT_TEMPLATE_VERSION;
+    $versionLabel = $templateVersion !== null
+        ? 'v' . $templateVersion
+        : 'v' . (new TemplateMatchesRepository())->latestVersion();
     die(sprintf(
         "This division cannot be scheduled: no usable template for %d players, %d opponents, repeat %d, %d courts (%s).\n\n"
         . "The template file may be missing or marked not feasible (pairing/sort did not produce a valid schedule).\n"
         . "Choose another template version in the dropdown, or regenerate this combo with:\n"
-        . "  php bin/console templates:regenerate --players=%d --partners=%d --repeat=%d --fixed-teams=%d --courts=%d\n\n"
+        . "  php bin/console templates:regenerate --templates-version=N --players=%d --partners=%d --repeat=%d --fixed-teams=%d --courts=%d\n\n"
         . "Technical detail: %s",
         $playersCount,
         (int) $_GET['opponents-per-player'],

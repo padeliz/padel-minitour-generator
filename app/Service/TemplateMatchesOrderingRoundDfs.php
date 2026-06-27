@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Multi-court round-slice sort DFS helpers for TemplateMatchesGenerator.
+ * Multi-court round-slice ordering DFS helpers for TemplateMatchesGenerator.
  * Included from TemplateMatchesGenerator.php — not a standalone class.
  */
 
@@ -9,7 +9,7 @@ namespace Arshavinel\PadelMiniTour\Service;
 
 use Arshavinel\PadelMiniTour\Service\Progress\ProgressReporter;
 
-trait TemplateMatchesSortRoundDfs
+trait TemplateMatchesOrderingRoundDfs
 {
     /**
      * @param array<int, array<int, array<int, int>>> $flatMatches
@@ -29,14 +29,14 @@ trait TemplateMatchesSortRoundDfs
      *     seedsTotal: int
      * }
      */
-    private function sortMatches(array $flatMatches, array $mockPlayers, ProgressReporter $reporter): array
+    private function runOrderingPhase(array $flatMatches, array $mockPlayers, ProgressReporter $reporter): array
     {
         $flatMatches = array_values($flatMatches);
         $m = count($flatMatches);
         $courts = $this->activeCourts;
 
         if ($courts < 1) {
-            return $this->sortMatchesFailed(
+            return $this->orderingFailed(
                 self::STOP_REASON_PRUNE_INFEASIBLE,
                 0,
                 0,
@@ -95,7 +95,7 @@ trait TemplateMatchesSortRoundDfs
         $useMultiSeed = ($m >= $this->multiSeedThresholdPairs || $courts >= 2)
             && $this->multiSeedCountSort > 1;
         $totalSeeds = $useMultiSeed ? $this->multiSeedCountSort : 1;
-        $perSeedBudgetNs = intdiv($this->effectiveSortBudgetNs, $totalSeeds);
+        $perSeedBudgetNs = intdiv($this->effectiveOrderingBudgetNs, $totalSeeds);
 
         $globalBest = null;
         $globalBestSeedIdx = null;
@@ -111,19 +111,19 @@ trait TemplateMatchesSortRoundDfs
                 $seedMatches[] = $flatMatches[$idx];
             }
 
-            $this->sortOrderingCurrentSeed = $seedIdx + 1;
-            $this->sortOrderingTotalSeeds = $totalSeeds;
-            $this->sortOrderingPerSeedBudgetNs = $perSeedBudgetNs;
+            $this->orderingCurrentSeed = $seedIdx + 1;
+            $this->orderingTotalSeeds = $totalSeeds;
+            $this->orderingPerSeedBudgetNs = $perSeedBudgetNs;
 
             $deadlineNs = $this->monotonicNow() + $perSeedBudgetNs;
-            $seedResult = $this->sortMatchesSingleSeed($seedMatches, $mockPlayers, $deadlineNs, $reporter);
+            $seedResult = $this->orderingSingleSeed($seedMatches, $mockPlayers, $deadlineNs, $reporter);
             $totalNodesExplored += $seedResult['nodesExplored'];
 
             if ($seedResult['stopReason'] === self::STOP_REASON_DEADLINE) {
                 $anyDeadline = true;
             }
 
-            if ($this->isSortSeedResultLexBetter($seedResult, $globalBest, $seedIdx, $globalBestSeedIdx)) {
+            if ($this->isOrderingSeedResultLexBetter($seedResult, $globalBest, $seedIdx, $globalBestSeedIdx)) {
                 $globalBest = $seedResult;
                 $globalBestSeedIdx = $seedIdx;
             }
@@ -134,7 +134,7 @@ trait TemplateMatchesSortRoundDfs
                 ? self::STOP_REASON_DEADLINE
                 : self::STOP_REASON_PRUNE_INFEASIBLE;
 
-            return $this->sortMatchesFailed(
+            return $this->orderingFailed(
                 $stopReason,
                 0,
                 $totalNodesExplored,
@@ -147,7 +147,7 @@ trait TemplateMatchesSortRoundDfs
             $globalBest['permutationsIterated'],
             $globalBest['min'],
             $globalBest['avg'],
-            $this->effectiveSortBudgetNs,
+            $this->effectiveOrderingBudgetNs,
             $this->monotonicNow(),
             true,
             $globalBest['stopReason'],
@@ -194,7 +194,7 @@ trait TemplateMatchesSortRoundDfs
      *     nodesExplored: int
      * }
      */
-    private function sortMatchesSingleSeed(
+    private function orderingSingleSeed(
         array $flatMatches,
         array $mockPlayers,
         int $deadlineNs,
@@ -302,7 +302,7 @@ trait TemplateMatchesSortRoundDfs
      *     breakDistance: float
      * }|null $currentBest
      */
-    private function isSortSeedResultLexBetter(
+    private function isOrderingSeedResultLexBetter(
         array $candidate,
         ?array $currentBest,
         int $candidateSeedIdx,
@@ -366,7 +366,7 @@ trait TemplateMatchesSortRoundDfs
      *     seedsTotal: int
      * }
      */
-    private function sortMatchesFailed(
+    private function orderingFailed(
         string $stopReason,
         int $iterations,
         int $nodesExplored,
@@ -377,7 +377,7 @@ trait TemplateMatchesSortRoundDfs
             $iterations,
             null,
             null,
-            $this->effectiveSortBudgetNs,
+            $this->effectiveOrderingBudgetNs,
             $this->monotonicNow(),
             true,
             $stopReason,
@@ -415,7 +415,7 @@ trait TemplateMatchesSortRoundDfs
      *     courtSwitches: int|null
      * } $bestState
      */
-    private function emitSortOrderingProgress(
+    private function emitOrderingProgress(
         ProgressReporter $reporter,
         int $now,
         bool $isFinal,
@@ -427,7 +427,7 @@ trait TemplateMatchesSortRoundDfs
             $iterations,
             $bestState['min'],
             $bestState['avg'],
-            $this->sortOrderingPerSeedBudgetNs,
+            $this->orderingPerSeedBudgetNs,
             $now,
             $isFinal,
             $stopReason,
@@ -435,8 +435,8 @@ trait TemplateMatchesSortRoundDfs
             $bestState['minBreak'],
             $bestState['maxBreak'],
             $bestState['courtSwitches'],
-            $this->sortOrderingCurrentSeed,
-            $this->sortOrderingTotalSeeds
+            $this->orderingCurrentSeed,
+            $this->orderingTotalSeeds
         );
     }
 
@@ -554,12 +554,12 @@ trait TemplateMatchesSortRoundDfs
                 $bestState['breakDistance'] = $candidateBreakDistance;
             }
 
-            $this->emitSortOrderingProgress($reporter, $now, false, $iterations, $bestState);
+            $this->emitOrderingProgress($reporter, $now, false, $iterations, $bestState);
 
             return false;
         }
 
-        $this->emitSortOrderingProgress($reporter, $now, false, $nodesExplored, $bestState);
+        $this->emitOrderingProgress($reporter, $now, false, $nodesExplored, $bestState);
 
         $unusedCount = $m - $this->countUsedMatches($used);
         $sliceSize = min($courts, $unusedCount);

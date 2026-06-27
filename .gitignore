@@ -18,6 +18,8 @@
 
 /.env.local
 
+/.phpunit.result.cache
+
 /.gitmodules
 /.ftpquota
 /error_log

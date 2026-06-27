@@ -34,6 +34,7 @@
     },
 
     "scripts": {
-        "test": "phpunit"
+        "test": "phpunit",
+        "test:lint": "php -r \"$files=glob('tests/**/*.php'); foreach($files as $f){$c=file_get_contents($f); if(strpos($f,'RecordingGenerator.php')!==false) continue; if(preg_match('/->generate\\s*\\(/', $c)) {fwrite(STDERR, \\\"Forbidden ->generate() in $f\\\\n\\\"); exit(1);}} exit(0);\""
     }
 }

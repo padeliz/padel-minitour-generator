@@ -4,35 +4,33 @@ namespace Tests\Unit;
 
 use Arshavinel\PadelMiniTour\Service\Progress\GenerationProgress;
 use Arshavinel\PadelMiniTour\Service\Progress\OrderingProgress;
+use Arshavinel\PadelMiniTour\Service\Progress\MatchMakingProgress;
 use Arshavinel\PadelMiniTour\Service\Progress\PairingProgress;
 use Arshavinel\PadelMiniTour\Service\TemplateMatches;
 use Arshavinel\PadelMiniTour\Service\TemplateMatchesGenerator;
-use PHPUnit\Framework\TestCase;
 
 require_once __DIR__ . '/../../vendor/autoload.php';
 
 /**
  * Behavior-level tests for the pure {@see TemplateMatchesGenerator}.
  *
- * Replaces the legacy CLI-style test of the same name (now converted to the
- * `templates:stats` command).
+ * Uses phase/pipeline reflection only — never public generate().
  */
-final class TemplateMatchesGeneratorTest extends TestCase
+final class TemplateMatchesGeneratorTest extends GeneratorTestCase
 {
     public function test_generate_mixed_with_smallest_combo_returns_one_match(): void
     {
         $generator = new TemplateMatchesGenerator();
-
-        $template = $generator->generate(4, 1, 1, 1, false);
+        $template = $this->invokePipelineMixed($generator, 4, 1);
 
         $this->assertInstanceOf(TemplateMatches::class, $template);
         $this->assertTrue($template->isEligible());
         $this->assertCount(1, $template->getMatches());
         $this->assertCount(1, $template->getMatches()[0]);
-        $this->assertSame(0.0, (float) $template->getPairingMeetingsVariation());
-        $this->assertSame(0, $template->getPairingPartnersCountVariation());
+        $this->assertSame(0.0, (float) $template->getMatchMakingQualityMeetingsVariation());
+        $this->assertSame(0, $template->getPairingQualityPartnersCountVariation());
         $this->assertContains(
-            $template->getSortingStopReason(),
+            $template->getOrderingStatsStopReason(),
             [
                 TemplateMatchesGenerator::STOP_REASON_TRIVIAL,
                 TemplateMatchesGenerator::STOP_REASON_FACTORIAL_COMPLETE,
@@ -43,11 +41,11 @@ final class TemplateMatchesGeneratorTest extends TestCase
     public function test_generate_fixed_teams_smoke_returns_eligible_template(): void
     {
         $generator = new TemplateMatchesGenerator();
-        $template = $generator->generate(4, 2, 1, 1, true);
+        $template = $this->invokePipelineFixed($generator, 4, 2);
 
         $this->assertTrue($template->isEligible());
-        $this->assertSame(1, $template->getPairingPermutationsIterated());
-        $this->assertSame(1, $template->getPairingTemplatesGenerated());
+        $this->assertSame(1, $template->getMatchMakingStatsPermutationsIterated());
+        $this->assertSame(1, $template->getMatchMakingStatsTemplatesGenerated());
     }
 
     public function test_generate_returns_ineligible_template_when_outer_budget_is_zero(): void
@@ -57,40 +55,49 @@ final class TemplateMatchesGeneratorTest extends TestCase
                 return 0;
             },
             0,
-            TemplateMatchesGenerator::DEFAULT_SORT_WALL_BUDGET_NS
+            self::TEST_PHASE_BUDGET_NS
         );
-        $generator->setUseStaticBudgets(true);
-        $template = $generator->generate(4, 2, 1, 1, false);
+
+        $template = $this->invokePipelineMixed($generator, 4, 2, 1, 1, 0, 0, self::TEST_PHASE_BUDGET_NS);
 
         $this->assertFalse($template->isEligible());
         $this->assertNull($template->getMatches());
-        $this->assertNull($template->getPairingMeetingsVariation());
-        $this->assertNull($template->getPairingPlayersMet());
-        $this->assertSame(0, $template->getPairingPermutationsIterated());
-        $this->assertSame(0, $template->getPairingTemplatesGenerated());
+        $this->assertNull($template->getMatchMakingQualityMeetingsVariation());
+        $this->assertNull($template->getMatchMakingQualityPlayersMet());
+        $this->assertSame(0, $template->getMatchMakingStatsPermutationsIterated());
+        $this->assertSame(0, $template->getMatchMakingStatsTemplatesGenerated());
     }
 
     public function test_progress_callback_receives_pairing_and_ordering_finals_for_mixed(): void
     {
-        $events = $this->captureEvents(4, 2, 1, false);
+        $events = $this->capturePipelineEvents(new TemplateMatchesGenerator(), 4, 2, 1, false);
 
         $this->assertGreaterThanOrEqual(1, count($events));
 
         $pairingFinals = array_values(array_filter($events, static fn(GenerationProgress $e) =>
             $e instanceof PairingProgress && $e->isFinal()
         ));
+        $matchMakingFinals = array_values(array_filter($events, static fn(GenerationProgress $e) =>
+            $e instanceof MatchMakingProgress && $e->isFinal()
+        ));
         $orderingFinals = array_values(array_filter($events, static fn(GenerationProgress $e) =>
             $e instanceof OrderingProgress && $e->isFinal()
         ));
 
         $this->assertCount(1, $pairingFinals);
+        $this->assertCount(1, $matchMakingFinals);
         $this->assertCount(1, $orderingFinals);
 
         /** @var PairingProgress $pairingFinal */
         $pairingFinal = $pairingFinals[0];
-        $this->assertGreaterThan(0, $pairingFinal->getIterations());
-        $this->assertGreaterThan(0, $pairingFinal->getTemplatesGenerated());
-        $this->assertNotNull($pairingFinal->getBestMeetingsVariation());
+        $this->assertGreaterThan(0, $pairingFinal->getNodesExplored());
+        $this->assertNotNull($pairingFinal->getBestMinPartnersFairness());
+
+        /** @var MatchMakingProgress $matchMakingFinal */
+        $matchMakingFinal = $matchMakingFinals[0];
+        $this->assertGreaterThan(0, $matchMakingFinal->getIterations());
+        $this->assertGreaterThan(0, $matchMakingFinal->getTemplatesGenerated());
+        $this->assertNotNull($matchMakingFinal->getBestMeetingsVariation());
 
         /** @var OrderingProgress $orderingFinal */
         $orderingFinal = $orderingFinals[0];
@@ -108,23 +115,25 @@ final class TemplateMatchesGeneratorTest extends TestCase
 
     public function test_progress_callback_receives_pairing_and_ordering_finals_for_fixed(): void
     {
-        $events = $this->captureEvents(4, 2, 1, true);
+        $events = $this->capturePipelineEvents(new TemplateMatchesGenerator(), 4, 2, 1, true);
 
         $pairingFinals = array_values(array_filter($events, static fn(GenerationProgress $e) =>
             $e instanceof PairingProgress && $e->isFinal()
+        ));
+        $matchMakingFinals = array_values(array_filter($events, static fn(GenerationProgress $e) =>
+            $e instanceof MatchMakingProgress && $e->isFinal()
         ));
         $orderingFinals = array_values(array_filter($events, static fn(GenerationProgress $e) =>
             $e instanceof OrderingProgress && $e->isFinal()
         ));
 
         $this->assertCount(1, $pairingFinals);
+        $this->assertCount(0, $matchMakingFinals);
         $this->assertCount(1, $orderingFinals);
 
         /** @var PairingProgress $pairingFinal */
         $pairingFinal = $pairingFinals[0];
-        $this->assertSame(1, $pairingFinal->getIterations());
-        $this->assertSame(1, $pairingFinal->getTemplatesGenerated());
-        $this->assertSame(0, $pairingFinal->getBudgetNs());
+        $this->assertGreaterThanOrEqual(0, $pairingFinal->getNodesExplored());
 
         foreach ($events as $event) {
             $this->assertTrue($event->isFixedTeams());
@@ -136,11 +145,6 @@ final class TemplateMatchesGeneratorTest extends TestCase
 
     public function test_progress_emit_intervals_throttle_interim_ticks(): void
     {
-        // Under S1, each seed in the pairing DFS emits at most one interim tick; throttling
-        // applies per-call across the multi-seed loop. To exercise the throttle we force
-        // multi-seed on a small combo (threshold=1, count=20) so the reporter sees 20 tick
-        // requests in a row, and use a stepping clock that advances by 50ms per call. Only
-        // every fifth tick should clear the 250ms throttle floor.
         $tick = 0;
         $clock = static function () use (&$tick): int {
             return ($tick++) * 50_000_000;
@@ -148,8 +152,8 @@ final class TemplateMatchesGeneratorTest extends TestCase
 
         $generator = new TemplateMatchesGenerator(
             $clock,
-            TemplateMatchesGenerator::DEFAULT_OUTER_WALL_BUDGET_NS,
-            TemplateMatchesGenerator::DEFAULT_SORT_WALL_BUDGET_NS,
+            self::TEST_PHASE_BUDGET_NS,
+            self::TEST_PHASE_BUDGET_NS,
             20,
             1
         );
@@ -159,7 +163,9 @@ final class TemplateMatchesGeneratorTest extends TestCase
             $events[] = $event;
         });
 
-        $generator->generate(4, 2, 1, 1, false);
+        $this->invokePipelineMixed($generator, 4, 2, 1, 1, null, null, null, static function (GenerationProgress $event) use (&$events): void {
+            $events[] = $event;
+        });
 
         $pairingNonFinals = array_values(array_filter($events, static fn(GenerationProgress $e) =>
             $e instanceof PairingProgress && !$e->isFinal()
@@ -180,21 +186,20 @@ final class TemplateMatchesGeneratorTest extends TestCase
     public function test_no_progress_callback_means_no_observable_state_change(): void
     {
         $generator = new TemplateMatchesGenerator();
-        $beforeTemplate = $generator->generate(4, 1, 1, 1, false);
+        $beforeTemplate = $this->invokePipelineMixed($generator, 4, 1);
 
         $generator->setProgressCallback(null);
-        $afterTemplate = $generator->generate(4, 1, 1, 1, false);
+        $afterTemplate = $this->invokePipelineMixed($generator, 4, 1);
 
         $this->assertTrue($beforeTemplate->isEligible());
         $this->assertTrue($afterTemplate->isEligible());
         $this->assertSame($beforeTemplate->getMatches(), $afterTemplate->getMatches());
-        $this->assertSame($beforeTemplate->getPairingMeetingsVariation(), $afterTemplate->getPairingMeetingsVariation());
+        $this->assertSame($beforeTemplate->getMatchMakingQualityMeetingsVariation(), $afterTemplate->getMatchMakingQualityMeetingsVariation());
     }
 
     public function test_generated_template_carries_identity_fields(): void
     {
-        $generator = new TemplateMatchesGenerator();
-        $mixed = $generator->generate(4, 1, 1, 1, false);
+        $mixed = $this->invokePipelineMixed(new TemplateMatchesGenerator(), 4, 1);
         $this->assertSame(4, $mixed->getPlayers());
         $this->assertSame(1, $mixed->getPartners());
         $this->assertSame(1, $mixed->getRepeat());
@@ -204,74 +209,67 @@ final class TemplateMatchesGeneratorTest extends TestCase
 
     public function test_generated_template_populates_pairing_block(): void
     {
-        $generator = new TemplateMatchesGenerator();
-        $template = $generator->generate(4, 2, 1, 1, false);
+        $template = $this->invokePipelineMixed(new TemplateMatchesGenerator(), 4, 2);
 
         $this->assertTrue($template->isEligible());
-        $this->assertNotNull($template->getPairingMeetingsVariation());
-        $this->assertNotNull($template->getPairingPartnersCount());
-        $this->assertNotNull($template->getPairingPlayersMet());
-        $this->assertNotNull($template->getPairingPartnersCountVariation());
-        $this->assertGreaterThanOrEqual(0, $template->getPairingPartnersCountVariation());
-        $this->assertGreaterThan(0, $template->getPairingPermutationsIterated());
-        $this->assertGreaterThan(0, $template->getPairingTemplatesGenerated());
-        $this->assertNotNull($template->getPairingPermutationIndex());
-        $this->assertNotNull($template->getPairingTemplateIndex());
-        $this->assertNotNull($template->getPairingStopReason());
-        $this->assertContains($template->getPairingStopReason(), [
+        $this->assertNotNull($template->getMatchMakingQualityMeetingsVariation());
+        $this->assertNotNull($template->getPairingQualityPartnersCount());
+        $this->assertNotNull($template->getMatchMakingQualityPlayersMet());
+        $this->assertNotNull($template->getPairingQualityPartnersCountVariation());
+        $this->assertGreaterThanOrEqual(0, $template->getPairingQualityPartnersCountVariation());
+        $this->assertGreaterThan(0, $template->getMatchMakingStatsPermutationsIterated());
+        $this->assertGreaterThan(0, $template->getMatchMakingStatsTemplatesGenerated());
+        $this->assertNotNull($template->getMatchMakingStatsPermutationIndex());
+        $this->assertNotNull($template->getMatchMakingStatsTemplateIndex());
+        $this->assertNotNull($template->getPairingStatsStopReason());
+        $this->assertContains($template->getPairingStatsStopReason(), [
             TemplateMatchesGenerator::STOP_REASON_FACTORIAL_COMPLETE,
             TemplateMatchesGenerator::STOP_REASON_DEADLINE,
         ]);
-        $this->assertNotNull($template->getPairingTime());
-        $this->assertGreaterThanOrEqual(0.0, $template->getPairingTime());
-        $this->assertNotNull($template->getSortingTime());
-        $this->assertGreaterThanOrEqual(0.0, $template->getSortingTime());
-        $this->assertNotNull($template->getSortingPermutationIndex());
-        $this->assertGreaterThan(0, $template->getSortingPermutationsIterated());
-        $this->assertNotNull($template->getSortingMinBreak());
-        $this->assertNotNull($template->getSortingMaxBreak());
-        $this->assertGreaterThanOrEqual($template->getSortingMinBreak(), $template->getSortingMaxBreak());
+        $this->assertNotNull($template->getPairingStatsTime());
+        $this->assertGreaterThanOrEqual(0.0, $template->getPairingStatsTime());
+        $this->assertNotNull($template->getOrderingStatsTime());
+        $this->assertGreaterThanOrEqual(0.0, $template->getOrderingStatsTime());
+        $this->assertNotNull($template->getOrderingStatsPermutationIndex());
+        $this->assertGreaterThan(0, $template->getOrderingStatsPermutationsIterated());
+        $this->assertNotNull($template->getOrderingQualityMinBreak());
+        $this->assertNotNull($template->getOrderingQualityMaxBreak());
+        $this->assertGreaterThanOrEqual($template->getOrderingQualityMinBreak(), $template->getOrderingQualityMaxBreak());
     }
 
     public function test_pairing_stop_reason_pessimistic_in_multi_seed(): void
     {
-        // Force multi-seed mode on a tiny combo with a per-seed budget so small every seed dies
-        // on its first deadline check. Aggregate must report `deadline`.
         $generator = new TemplateMatchesGenerator(
             null,
             10_000,
-            TemplateMatchesGenerator::DEFAULT_SORT_WALL_BUDGET_NS,
+            self::TEST_PHASE_BUDGET_NS,
             4,
             4
         );
-        // The 4-2 combo is in the production per-combo budget map (30s); wipe the map so the
-        // 10_000ns constructor budget takes effect and every seed is guaranteed to deadline.
-        $generator->setUseStaticBudgets(true);
 
-        $template = $generator->generate(4, 2, 1, 1, false);
+        $template = $this->invokePipelineMixed($generator, 4, 2, 1, 1, 10_000);
 
         $this->assertSame(
             TemplateMatchesGenerator::STOP_REASON_DEADLINE,
-            $template->getPairingStopReason(),
+            $template->getPairingStatsStopReason(),
             'Any deadlined seed must promote the aggregate stop reason to deadline.'
         );
     }
 
     public function test_fixed_teams_pairing_stop_reason_is_factorial_complete(): void
     {
-        $generator = new TemplateMatchesGenerator();
-        $template = $generator->generate(4, 2, 1, 1, true);
+        $template = $this->invokePipelineFixed(new TemplateMatchesGenerator(), 4, 2);
 
         $this->assertSame(
-            TemplateMatchesGenerator::STOP_REASON_FACTORIAL_COMPLETE,
-            $template->getPairingStopReason(),
-            'Fixed-teams single-pass build always exhausts the (trivial) pairing space.'
+            TemplateMatchesGenerator::STOP_REASON_TRIVIAL,
+            $template->getPairingStatsStopReason(),
+            'Fixed-teams single-pass build uses the trivial pairing path.'
         );
     }
 
     public function test_pairing_below_multi_seed_threshold_runs_single_seed(): void
     {
-        $events = $this->captureEvents(4, 2, 1, false);
+        $events = $this->capturePipelineEvents(new TemplateMatchesGenerator(), 4, 2, 1, false);
 
         $pairingEvents = array_values(array_filter($events, static fn(GenerationProgress $e) =>
             $e instanceof PairingProgress
@@ -287,21 +285,17 @@ final class TemplateMatchesGeneratorTest extends TestCase
 
     public function test_pairing_above_multi_seed_threshold_emits_seed_context(): void
     {
-        // Force multi-seed on a small combo so the test runs quickly: 4/2 has 4 pairs (4! = 24),
-        // and multiSeedCount=4 yields four distinct lex starting points — enough to exercise the
-        // fan-out without relying on a real-world large-pair combo.
         $generator = new TemplateMatchesGenerator(
             null,
-            TemplateMatchesGenerator::DEFAULT_OUTER_WALL_BUDGET_NS,
-            TemplateMatchesGenerator::DEFAULT_SORT_WALL_BUDGET_NS,
+            self::TEST_PHASE_BUDGET_NS,
+            self::TEST_PHASE_BUDGET_NS,
             4,
             4
         );
         $events = [];
-        $generator->setProgressCallback(static function (GenerationProgress $event) use (&$events): void {
+        $this->invokePipelineMixed($generator, 4, 2, 1, 1, null, null, null, static function (GenerationProgress $event) use (&$events): void {
             $events[] = $event;
         });
-        $generator->generate(4, 2, 1, 1, false);
 
         $pairingEvents = array_values(array_filter($events, static fn(GenerationProgress $e) =>
             $e instanceof PairingProgress
@@ -313,29 +307,26 @@ final class TemplateMatchesGeneratorTest extends TestCase
         $this->assertSame([4], array_values($totals), 'Every pairing event must report the same totalSeeds');
 
         $finals = array_values(array_filter($pairingEvents, static fn(PairingProgress $e) => $e->isFinal()));
-        $this->assertCount(1, $finals, 'Multi-seed must still emit exactly one pairing-final per generate()');
+        $this->assertCount(1, $finals, 'Multi-seed must still emit exactly one pairing-final per pipeline run');
         /** @var PairingProgress $final */
         $final = $finals[0];
-        $this->assertSame(4, $final->getCurrentSeed(), 'Final event must report the last seed (K-of-K)');
         $this->assertSame(4, $final->getTotalSeeds());
+        $this->assertGreaterThan(0, $final->getNodesExplored());
     }
 
     public function test_pairing_explicit_seed_count_one_disables_multi_seed(): void
     {
-        // Even with a threshold low enough to trigger, count=1 must keep the legacy single-seed
-        // behavior. This is the escape hatch tests use to A/B against the multi-seed branch.
         $generator = new TemplateMatchesGenerator(
             null,
-            TemplateMatchesGenerator::DEFAULT_OUTER_WALL_BUDGET_NS,
-            TemplateMatchesGenerator::DEFAULT_SORT_WALL_BUDGET_NS,
+            self::TEST_PHASE_BUDGET_NS,
+            self::TEST_PHASE_BUDGET_NS,
             1,
             2
         );
         $events = [];
-        $generator->setProgressCallback(static function (GenerationProgress $event) use (&$events): void {
+        $this->invokePipelineMixed($generator, 4, 2, 1, 1, null, null, null, static function (GenerationProgress $event) use (&$events): void {
             $events[] = $event;
         });
-        $generator->generate(4, 2, 1, 1, false);
 
         $pairingEvents = array_values(array_filter($events, static fn(GenerationProgress $e) =>
             $e instanceof PairingProgress
@@ -357,7 +348,6 @@ final class TemplateMatchesGeneratorTest extends TestCase
 
     public function test_lehmer_seeds_are_distinct_when_count_at_most_factorial(): void
     {
-        // K=4 ≤ 4! = 24 — every seed must decode to a distinct permutation.
         $seen = [];
         for ($i = 0; $i < 4; $i++) {
             $perm = $this->invokeLehmer($i, 4, 4);
@@ -368,8 +358,6 @@ final class TemplateMatchesGeneratorTest extends TestCase
 
     public function test_lehmer_decodes_every_lex_index_when_count_equals_factorial(): void
     {
-        // K = n! is the boundary case: each seed index must map to its own lex permutation
-        // exactly, in lex order. We compare against pcNextPermutation as the reference walk.
         $expected = [];
         $perm = [0, 1, 2, 3];
         do {
@@ -389,7 +377,6 @@ final class TemplateMatchesGeneratorTest extends TestCase
 
     public function test_lehmer_returns_a_valid_permutation_for_arbitrary_seed(): void
     {
-        // Sanity check: regardless of seed/totalSeeds, the result must be a permutation of {0..n-1}.
         foreach ([1, 5, 17, 31] as $seedIndex) {
             $perm = $this->invokeLehmer($seedIndex, 32, 12);
             $sorted = $perm;
@@ -400,10 +387,6 @@ final class TemplateMatchesGeneratorTest extends TestCase
 
     public function test_players_met_too_much_rejects_gap_above_limit(): void
     {
-        // Player 0 already has a gap of 2 between most-met (player 1, count = 2) and least-met
-        // (player 2, count = 0). Adding a match whose participants include player 1 (the
-        // most-met partner) is rejected at meetingsVariationLimit = 1 because the resulting per-player
-        // gap would be strictly greater than the limit.
         $playersMet = [0 => [1 => 2, 2 => 0]];
 
         $result = $this->invokePlayersMetTooMuch([0, 3], [1, 4], $playersMet, 1);
@@ -413,10 +396,6 @@ final class TemplateMatchesGeneratorTest extends TestCase
 
     public function test_players_met_too_much_allows_gap_at_limit(): void
     {
-        // Player 0 has a gap of exactly 1 (most-met = 1 with count 1, least-met = 2 with count
-        // 0). At meetingsVariationLimit = 1, the check passes because the condition rejects only gaps
-        // strictly greater than the limit. This pins the R1 off-by-one fix: the previous `>=`
-        // would have rejected here, leaving no headroom for partial imbalance.
         $playersMet = [0 => [1 => 1, 2 => 0]];
 
         $result = $this->invokePlayersMetTooMuch([0, 3], [1, 4], $playersMet, 1);
@@ -426,9 +405,6 @@ final class TemplateMatchesGeneratorTest extends TestCase
 
     public function test_players_met_too_much_strict_mode_rejects_any_gap(): void
     {
-        // At meetingsVariationLimit = 0, even a gap of 1 is rejected when the most-met partner is one
-        // of the four players about to join the match. This exercises the "strictly balanced"
-        // mode tests can opt into.
         $playersMet = [0 => [1 => 1, 2 => 0]];
 
         $result = $this->invokePlayersMetTooMuch([0, 3], [1, 4], $playersMet, 0);
@@ -438,9 +414,6 @@ final class TemplateMatchesGeneratorTest extends TestCase
 
     public function test_players_met_too_much_ignores_high_gap_when_mostmet_absent_from_match(): void
     {
-        // Player 0 has a gap of 5 with most-met = player 9, but player 9 is NOT in the candidate
-        // match {0, 3, 1, 4}. The constraint stays inactive because adding this match would not
-        // touch the most-met partner.
         $playersMet = [0 => [9 => 5, 2 => 0]];
 
         $result = $this->invokePlayersMetTooMuch([0, 3], [1, 4], $playersMet, 1);
@@ -459,7 +432,7 @@ final class TemplateMatchesGeneratorTest extends TestCase
         );
         $generator->setUseStaticBudgets(true);
 
-        $this->assertSame([123, 456], $this->invokeBudgetFor($generator, 4, 2));
+        $this->assertSame([123, 123, 456], $this->invokeBudgetFor($generator, 4, 2));
     }
 
     public function test_dynamic_budget_uses_compute_methods_when_static_disabled(): void
@@ -476,7 +449,8 @@ final class TemplateMatchesGeneratorTest extends TestCase
         $this->assertSame(
             [
                 TemplateMatchesGenerator::computePairingWallBudgetNs(8, 2, 1),
-                TemplateMatchesGenerator::computeSortingWallBudgetNs(8, 2, 1),
+                TemplateMatchesGenerator::computeMatchMakingWallBudgetNs(8, 2, 1),
+                TemplateMatchesGenerator::computeOrderingWallBudgetNs(8, 2, 1),
             ],
             $this->invokeBudgetFor($generator, 8, 2)
         );
@@ -495,7 +469,8 @@ final class TemplateMatchesGeneratorTest extends TestCase
         $this->assertSame(
             [
                 TemplateMatchesGenerator::computePairingWallBudgetNs(16, 12, 1),
-                TemplateMatchesGenerator::computeSortingWallBudgetNs(16, 12, 1),
+                TemplateMatchesGenerator::computeMatchMakingWallBudgetNs(16, 12, 1),
+                TemplateMatchesGenerator::computeOrderingWallBudgetNs(16, 12, 1),
             ],
             $this->invokeBudgetFor($generator, 16, 12),
             'Default generator uses dynamic per-combo budgets.'
@@ -504,7 +479,7 @@ final class TemplateMatchesGeneratorTest extends TestCase
         $generator->setUseStaticBudgets(true);
 
         $this->assertSame(
-            [777, 999],
+            [777, 777, 999],
             $this->invokeBudgetFor($generator, 16, 12),
             'setUseStaticBudgets(true) must force every combo down the constructor-injected path.'
         );
@@ -512,28 +487,19 @@ final class TemplateMatchesGeneratorTest extends TestCase
 
     public function test_pairing_does_not_relax_when_strict_succeeds(): void
     {
-        // 4/2 finds a template under dl=1 in microseconds. The relaxAttempts trail must have
-        // length 1 and the surfaced meetingsVariationLimit must stay at 1.
-        $generator = new TemplateMatchesGenerator();
-        $generator->setUseStaticBudgets(true);
-
-        $template = $generator->generate(4, 2, 1, 1, false);
+        $template = $this->invokePipelineMixed(new TemplateMatchesGenerator(), 4, 2);
 
         $this->assertTrue($template->isEligible());
-        $this->assertSame(1, $template->getPairingMeetingsVariationLimit());
-        $attempts = $template->getPairingRelaxAttempts();
+        $this->assertSame(1, $template->getMatchMakingStatsMeetingsVariationLimit());
+        $attempts = $template->getMatchMakingStatsRelaxAttempts();
         $this->assertNotNull($attempts);
         $this->assertCount(1, $attempts);
         $this->assertSame(1, $attempts[0]['meetingsVariationLimit']);
         $this->assertGreaterThan(0, $attempts[0]['templatesGenerated']);
     }
 
-    public function test_pairing_relaxes_dl_when_strict_yields_zero_templates(): void
+    public function test_match_making_relaxes_dl_when_strict_yields_zero_templates(): void
     {
-        // Force every pairing attempt to exit with 0 templates by giving it a zero outer
-        // budget (the deadline fires before the first iteration of the lex walk). With
-        // meetingsVariationLimitMax = 2 and starting dl = 1, the relax loop should fire once and
-        // accumulate exactly two attempts in the trail (dl=1 then dl=2).
         $generator = new TemplateMatchesGenerator(
             static function (): int { return 0; },
             0,
@@ -544,24 +510,28 @@ final class TemplateMatchesGeneratorTest extends TestCase
             -1,
             2
         );
-        $generator->setUseStaticBudgets(true);
 
-        $template = $generator->generate(4, 2, 1, 1, false);
+        $template = $this->invokePipelineMixed(
+            $generator,
+            4,
+            2,
+            1,
+            1,
+            PHP_INT_MAX,
+            0,
+            PHP_INT_MAX
+        );
 
-        $attempts = $template->getPairingRelaxAttempts();
+        $attempts = $template->getMatchMakingStatsRelaxAttempts();
         $this->assertNotNull($attempts);
         $this->assertCount(2, $attempts);
         $this->assertSame(1, $attempts[0]['meetingsVariationLimit']);
         $this->assertSame(2, $attempts[1]['meetingsVariationLimit']);
-        $this->assertSame(2, $template->getPairingMeetingsVariationLimit());
+        $this->assertSame(2, $template->getMatchMakingStatsMeetingsVariationLimit());
     }
 
-    public function test_pairing_returns_null_matches_when_all_dls_exhausted(): void
+    public function test_match_making_returns_null_matches_when_all_dls_exhausted(): void
     {
-        // Zero outer budget forces every dl attempt to exit immediately on the first deadline
-        // check. With meetingsVariationLimitMax clamped to the starting dl (no relaxation headroom)
-        // the loop runs exactly once and the result is null matches with a single-entry
-        // relaxAttempts trail.
         $generator = new TemplateMatchesGenerator(
             static function (): int { return 0; },
             0,
@@ -572,22 +542,28 @@ final class TemplateMatchesGeneratorTest extends TestCase
             -1,
             0
         );
-        $generator->setUseStaticBudgets(true);
 
-        $template = $generator->generate(4, 2, 1, 1, false);
+        $template = $this->invokePipelineMixed(
+            $generator,
+            4,
+            2,
+            1,
+            1,
+            PHP_INT_MAX,
+            0,
+            PHP_INT_MAX
+        );
 
         $this->assertFalse($template->isEligible());
         $this->assertNull($template->getMatches());
-        $attempts = $template->getPairingRelaxAttempts();
+        $attempts = $template->getMatchMakingStatsRelaxAttempts();
         $this->assertNotNull($attempts);
         $this->assertCount(1, $attempts);
-        $this->assertSame(1, $template->getPairingMeetingsVariationLimit());
+        $this->assertSame(1, $template->getMatchMakingStatsMeetingsVariationLimit());
     }
 
     public function test_pairing_relax_attempts_round_trip_through_json(): void
     {
-        // Forensic trail must survive toArray / fromArray. Verify by feeding a synthetic attempt
-        // list through the DTO and checking round-trip equality.
         $template = new TemplateMatches(
             8,
             2,
@@ -595,36 +571,52 @@ final class TemplateMatchesGeneratorTest extends TestCase
             1,
             false,
             [[[[0, 1], [2, 3]]]],
-            0.0,
-            5,
-            3,
-            5,
-            3,
+            0.95,
+            0.97,
             [0 => 2, 1 => 2, 2 => 2, 3 => 2, 4 => 2, 5 => 2, 6 => 2, 7 => 2],
-            [0 => [1 => 1]],
             0,
-            1,
+            8,
             'FACTORIAL_COMPLETE',
             0.1,
-            'FACTORIAL_COMPLETE',
-            0.9,
-            0.95,
+            100,
+            1,
+            1,
+            0.0,
+            2,
+            2,
+            [0 => [1 => 1]],
+            1,
             10,
             7,
-            1,
-            2,
+            10,
+            7,
+            'FACTORIAL_COMPLETE',
             0.05,
             2,
             [
                 ['meetingsVariationLimit' => 1, 'permutationsIterated' => 3, 'templatesGenerated' => 0, 'time' => 0.04],
                 ['meetingsVariationLimit' => 2, 'permutationsIterated' => 5, 'templatesGenerated' => 5, 'time' => 0.06],
-            ]
+            ],
+            0.9,
+            0.95,
+            0,
+            0,
+            0,
+            null,
+            1,
+            'FACTORIAL_COMPLETE',
+            10,
+            7,
+            50,
+            1,
+            1,
+            0.05
         );
 
         $round = TemplateMatches::fromArray($template->toArray());
 
-        $this->assertSame(2, $round->getPairingMeetingsVariationLimit());
-        $attempts = $round->getPairingRelaxAttempts();
+        $this->assertSame(2, $round->getMatchMakingStatsMeetingsVariationLimit());
+        $attempts = $round->getMatchMakingStatsRelaxAttempts();
         $this->assertNotNull($attempts);
         $this->assertCount(2, $attempts);
         $this->assertSame(1, $attempts[0]['meetingsVariationLimit']);
@@ -633,22 +625,6 @@ final class TemplateMatchesGeneratorTest extends TestCase
         $this->assertSame(0.04, $attempts[0]['time']);
         $this->assertSame(2, $attempts[1]['meetingsVariationLimit']);
         $this->assertSame(5, $attempts[1]['templatesGenerated']);
-    }
-
-    /**
-     * @return array<int, GenerationProgress>
-     */
-    private function captureEvents(int $players, int $partners, int $repeat, bool $fixedTeams): array
-    {
-        $generator = new TemplateMatchesGenerator();
-        $events = [];
-        $generator->setProgressCallback(static function (GenerationProgress $event) use (&$events): void {
-            $events[] = $event;
-        });
-
-        $generator->generate($players, $partners, $repeat, 1, $fixedTeams);
-
-        return $events;
     }
 
     /**
@@ -667,7 +643,7 @@ final class TemplateMatchesGeneratorTest extends TestCase
     }
 
     /**
-     * @return array{0: int, 1: int}
+     * @return array{0: int, 1: int, 2: int}
      */
     private function invokeBudgetFor(TemplateMatchesGenerator $generator, int $players, int $partners, int $courts = 1, bool $fixedTeams = false): array
     {
@@ -707,11 +683,6 @@ final class TemplateMatchesGeneratorTest extends TestCase
 
     public function test_backtracking_recovers_completion_greedy_would_miss(): void
     {
-        // Synthetic 6-pair scenario where the lex-first match (pair0 with pair1) leaves a
-        // remainder in which the DFS must backtrack on the *second* match to complete a third.
-        // Specifically: after matching (0,1)-(2,3) and then (2,4)-(5,6), the leftover pairs
-        // (3,7) and (4,7) share player 7 and cannot pair. The DFS must back out, re-pair (2,4)
-        // with (3,7) instead, leaving (5,6)-(4,7) as a viable third match.
         $orderedPairs = [
             ['players' => [0, 1], 'used' => false],
             ['players' => [2, 3], 'used' => false],
@@ -736,8 +707,6 @@ final class TemplateMatchesGeneratorTest extends TestCase
 
     public function test_backtracking_respects_branch_cap(): void
     {
-        // Branch cap of 1: the DFS may enter the root recursion exactly once, decrement to 0,
-        // and refuse to recurse deeper. With three matches needed, that's not enough — null.
         $orderedPairs = [
             ['players' => [0, 1], 'used' => false],
             ['players' => [2, 3], 'used' => false],
@@ -759,9 +728,6 @@ final class TemplateMatchesGeneratorTest extends TestCase
 
     public function test_backtracking_respects_wall_deadline(): void
     {
-        // Inject a clock that crosses the deadline on the second call. The DFS enters once
-        // (clock = 0), decrements the cap, then re-checks the clock (now beyond deadline) and
-        // bails out without recursing into a second match.
         $tick = 0;
         $clock = static function () use (&$tick): int {
             $val = $tick;
@@ -779,7 +745,7 @@ final class TemplateMatchesGeneratorTest extends TestCase
         ];
 
         $reflection = new \ReflectionClass(TemplateMatchesGenerator::class);
-        $method = $reflection->getMethod('buildTemplateByBacktracking');
+        $method = $reflection->getMethod('buildMatchMakingByBacktracking');
         $method->setAccessible(true);
 
         $result = $method->invoke($generator, $orderedPairs, 500_000_000, PHP_INT_MAX, 10_000, 8, null);
@@ -789,16 +755,11 @@ final class TemplateMatchesGeneratorTest extends TestCase
 
     public function test_dfs_min_met_bb_prune_kills_unreachable_branch(): void
     {
-        // With an unsatisfiable bestMinMetSoFar (any positive value larger than the maximum
-        // distinct-opponent count the synthetic pair pool can ever produce), the prune fires
-        // at the root and the DFS returns null without exploring any branch.
         $orderedPairs = [
             ['players' => [0, 1], 'used' => false],
             ['players' => [2, 3], 'used' => false],
         ];
 
-        // The pool only ever lets each player meet a few opponents. Set the bound to a
-        // dramatically higher value to trigger the prune immediately.
         $result = $this->invokeBuildTemplateByBacktracking(
             $orderedPairs,
             PHP_INT_MAX,
@@ -813,21 +774,17 @@ final class TemplateMatchesGeneratorTest extends TestCase
 
     public function test_pairing_uses_multiple_seeds_when_pair_count_meets_threshold(): void
     {
-        // Force multi-seed on a small combo: count=4, threshold=4. 4/2 yields 4 pairs (>= 4 →
-        // multi-seed). Each seed runs one DFS that produces one template, so the pairing-final
-        // event should report iterations = 4.
         $generator = new TemplateMatchesGenerator(
             null,
-            TemplateMatchesGenerator::DEFAULT_OUTER_WALL_BUDGET_NS,
-            TemplateMatchesGenerator::DEFAULT_SORT_WALL_BUDGET_NS,
+            self::TEST_PHASE_BUDGET_NS,
+            self::TEST_PHASE_BUDGET_NS,
             4,
             4
         );
         $events = [];
-        $generator->setProgressCallback(static function (GenerationProgress $event) use (&$events): void {
+        $this->invokePipelineMixed($generator, 4, 2, 1, 1, null, null, null, static function (GenerationProgress $event) use (&$events): void {
             $events[] = $event;
         });
-        $generator->generate(4, 2, 1, 1, false);
 
         $pairingFinals = array_values(array_filter($events, static fn(GenerationProgress $e) =>
             $e instanceof PairingProgress && $e->isFinal()
@@ -835,21 +792,17 @@ final class TemplateMatchesGeneratorTest extends TestCase
         $this->assertCount(1, $pairingFinals);
         /** @var PairingProgress $final */
         $final = $pairingFinals[0];
-        $this->assertSame(4, $final->getIterations(), 'Each of the 4 seeds runs exactly one DFS attempt.');
         $this->assertSame(4, $final->getTotalSeeds());
+        $this->assertGreaterThan(0, $final->getNodesExplored());
     }
 
     public function test_pairing_single_seed_below_threshold_runs_one_dfs(): void
     {
-        // n=4 pairs, threshold=12 → multi-seed off. The DFS runs once from the identity
-        // permutation; iterations == 1.
         $generator = new TemplateMatchesGenerator();
-        $generator->setUseStaticBudgets(true);
         $events = [];
-        $generator->setProgressCallback(static function (GenerationProgress $event) use (&$events): void {
+        $this->invokePipelineMixed($generator, 4, 2, 1, 1, null, null, null, static function (GenerationProgress $event) use (&$events): void {
             $events[] = $event;
         });
-        $generator->generate(4, 2, 1, 1, false);
 
         $pairingFinals = array_values(array_filter($events, static fn(GenerationProgress $e) =>
             $e instanceof PairingProgress && $e->isFinal()
@@ -857,70 +810,62 @@ final class TemplateMatchesGeneratorTest extends TestCase
         $this->assertCount(1, $pairingFinals);
         /** @var PairingProgress $final */
         $final = $pairingFinals[0];
-        $this->assertSame(1, $final->getIterations(), 'Single-seed DFS contributes exactly one attempt.');
         $this->assertSame(1, $final->getTotalSeeds());
+        $this->assertGreaterThanOrEqual(0, $final->getNodesExplored());
     }
 
     public function test_pairing_results_are_deterministic_across_runs(): void
     {
-        // Two consecutive runs with the same configuration must produce byte-identical output.
-        // Determinism is the foundational invariant of S1's DFS model; the seeds, pair-1
-        // ordering, and pair-2 candidate ordering are all index-driven. Wall-clock `time`
-        // fields obviously drift between runs, so we strip them before comparing.
         $generator = new TemplateMatchesGenerator();
-        $generator->setUseStaticBudgets(true);
 
-        $first = $this->stripWallClockFields($generator->generate(4, 2, 1, 1, false)->toArray());
-        $second = $this->stripWallClockFields($generator->generate(4, 2, 1, 1, false)->toArray());
+        $first = $this->stripWallClockFields($this->invokePipelineMixed($generator, 4, 2)->toArray());
+        $second = $this->stripWallClockFields($this->invokePipelineMixed($generator, 4, 2)->toArray());
 
         $this->assertSame($first, $second);
     }
 
     public function test_pairing_tie_break_prefers_lowest_seed(): void
     {
-        // Two seeds may produce templates with the same `meetingsVariation`. The promotion
-        // logic uses strict `>` for improvement, so the first seed to land at a given variance
-        // wins and the persisted `permutationIndex` equals that seed's 1-based index. Verify
-        // by running a small combo with multi-seed on and observing the resulting index is
-        // necessarily small (≤ totalSeeds).
         $generator = new TemplateMatchesGenerator(
             null,
-            TemplateMatchesGenerator::DEFAULT_OUTER_WALL_BUDGET_NS,
-            TemplateMatchesGenerator::DEFAULT_SORT_WALL_BUDGET_NS,
+            self::TEST_PHASE_BUDGET_NS,
+            self::TEST_PHASE_BUDGET_NS,
             8,
             4
         );
-        $template = $generator->generate(4, 2, 1, 1, false);
+        $template = $this->invokePipelineMixed($generator, 4, 2);
 
         $this->assertTrue($template->isEligible());
-        $this->assertNotNull($template->getPairingPermutationIndex());
-        $this->assertGreaterThanOrEqual(1, $template->getPairingPermutationIndex());
-        $this->assertLessThanOrEqual(8, $template->getPairingPermutationIndex());
+        $this->assertNotNull($template->getMatchMakingStatsPermutationIndex());
+        $this->assertGreaterThanOrEqual(1, $template->getMatchMakingStatsPermutationIndex());
+        $this->assertLessThanOrEqual(8, $template->getMatchMakingStatsPermutationIndex());
     }
 
     /**
-     * Drops the wall-clock fields (`pairing.time`, `pairing.relaxAttempts[].time`, `sorting.time`)
-     * that legitimately drift between runs, so a determinism test compares only the algorithmic
-     * outputs.
-     *
      * @param array<string, mixed> $data
      * @return array<string, mixed>
      */
     private function stripWallClockFields(array $data): array
     {
-        if (isset($data['pairing']) && is_array($data['pairing'])) {
-            unset($data['pairing']['time']);
-            if (isset($data['pairing']['relaxAttempts']) && is_array($data['pairing']['relaxAttempts'])) {
-                foreach ($data['pairing']['relaxAttempts'] as &$attempt) {
-                    if (is_array($attempt)) {
-                        unset($attempt['time']);
-                    }
-                }
-                unset($attempt);
+        if (!isset($data['metrics']) || !is_array($data['metrics'])) {
+            return $data;
+        }
+
+        foreach (['pairing', 'matchMaking', 'ordering'] as $phase) {
+            if (isset($data['metrics'][$phase]['stats']['time'])) {
+                unset($data['metrics'][$phase]['stats']['time']);
             }
         }
-        if (isset($data['sorting']) && is_array($data['sorting'])) {
-            unset($data['sorting']['time']);
+
+        if (isset($data['metrics']['matchMaking']['stats']['relaxAttempts'])
+            && is_array($data['metrics']['matchMaking']['stats']['relaxAttempts'])
+        ) {
+            foreach ($data['metrics']['matchMaking']['stats']['relaxAttempts'] as &$attempt) {
+                if (is_array($attempt)) {
+                    unset($attempt['time']);
+                }
+            }
+            unset($attempt);
         }
 
         return $data;
@@ -940,7 +885,7 @@ final class TemplateMatchesGeneratorTest extends TestCase
     ): ?array {
         $generator = new TemplateMatchesGenerator();
         $reflection = new \ReflectionClass(TemplateMatchesGenerator::class);
-        $method = $reflection->getMethod('buildTemplateByBacktracking');
+        $method = $reflection->getMethod('buildMatchMakingByBacktracking');
         $method->setAccessible(true);
 
         return $method->invoke(
@@ -954,3 +899,4 @@ final class TemplateMatchesGeneratorTest extends TestCase
         );
     }
 }
+

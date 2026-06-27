@@ -9,96 +9,123 @@
             [
                 [
                     0,
-                    3
-                ],
-                [
-                    1,
-                    2
-                ]
-            ],
-            [
-                [
-                    0,
-                    2
-                ],
-                [
-                    1,
-                    3
-                ]
-            ],
-            [
-                [
-                    0,
                     1
                 ],
                 [
                     2,
                     3
                 ]
+            ],
+            [
+                [
+                    0,
+                    2
+                ],
+                [
+                    1,
+                    3
+                ]
+            ],
+            [
+                [
+                    0,
+                    3
+                ],
+                [
+                    1,
+                    2
+                ]
             ]
         ]
     ],
-    "pairing": {
-        "meetingsVariation": 0,
-        "permutationsIterated": 1,
-        "permutationIndex": 1,
-        "templatesGenerated": 1,
-        "templateIndex": 1,
-        "partnersCount": [
-            3,
-            3,
-            3,
-            3
-        ],
-        "playersMet": {
-            "0": {
-                "3": 3,
-                "1": 3,
-                "2": 3
+    "metrics": {
+        "pairing": {
+            "quality": {
+                "minPartnersFairness": 1,
+                "avgPartnersFairness": 1,
+                "partnersCount": [
+                    3,
+                    3,
+                    3,
+                    3
+                ],
+                "partnersCountVariation": 0,
+                "pairCount": 6
             },
-            "3": [
-                3,
-                3,
-                3
-            ],
-            "1": {
-                "0": 3,
-                "3": 3,
-                "2": 3
-            },
-            "2": {
-                "0": 3,
-                "3": 3,
-                "1": 3
+            "stats": {
+                "stopReason": "FACTORIAL_COMPLETE",
+                "time": 0.0072613,
+                "nodesExplored": 52,
+                "seedIndex": 1,
+                "seedsTotal": 1
             }
         },
-        "partnersCountVariation": 0,
-        "bestMatchesCount": 3,
-        "stopReason": "FACTORIAL_COMPLETE",
-        "time": 0.0066294,
-        "meetingsVariationLimit": 1,
-        "relaxAttempts": [
-            {
-                "meetingsVariationLimit": 1,
+        "matchMaking": {
+            "quality": {
+                "meetingsVariation": 0,
+                "minOpponentsMet": 3,
+                "maxOpponentsMet": 3,
+                "playersMet": [
+                    {
+                        "1": 3,
+                        "2": 3,
+                        "3": 3
+                    },
+                    {
+                        "0": 3,
+                        "2": 3,
+                        "3": 3
+                    },
+                    {
+                        "0": 3,
+                        "1": 3,
+                        "3": 3
+                    },
+                    [
+                        3,
+                        3,
+                        3
+                    ]
+                ],
+                "matchesCount": 3
+            },
+            "stats": {
                 "permutationsIterated": 1,
+                "permutationIndex": 1,
                 "templatesGenerated": 1,
-                "time": 0.0066294
+                "templateIndex": 1,
+                "stopReason": "FACTORIAL_COMPLETE",
+                "time": 0.0001271,
+                "meetingsVariationLimit": 1,
+                "relaxAttempts": [
+                    {
+                        "meetingsVariationLimit": 1,
+                        "permutationsIterated": 1,
+                        "templatesGenerated": 1,
+                        "time": 0.0001271
+                    }
+                ]
             }
-        ]
-    },
-    "sorting": {
-        "stopReason": "FACTORIAL_COMPLETE",
-        "minDistribution": 1,
-        "avgDistribution": 1,
-        "permutationsIterated": 6,
-        "permutationIndex": 1,
-        "minBreak": 0,
-        "maxBreak": 0,
-        "courtSwitches": 0,
-        "courtBalance": 0,
-        "nodesExplored": 16,
-        "seedIndex": 1,
-        "seedsTotal": 1,
-        "time": 0.0051449
+        },
+        "ordering": {
+            "quality": {
+                "minDistribution": 1,
+                "avgDistribution": 1,
+                "minBreak": 0,
+                "maxBreak": 0,
+                "courtSwitches": 0,
+                "courtBalance": 0,
+                "roundsCount": 3
+            },
+            "stats": {
+                "stopReason": "FACTORIAL_COMPLETE",
+                "permutationsIterated": 6,
+                "permutationIndex": 1,
+                "nodesExplored": 16,
+                "seedIndex": 1,
+                "seedsTotal": 1,
+                "time": 0.0049944
+            }
+        }
     }
 }

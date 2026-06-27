@@ -7,9 +7,9 @@ namespace Arshavinel\PadelMiniTour\Service\Progress;
  *
  * Two concrete subclasses cover the two phases the generator runs:
  *
- * - {@see PairingProgress}  - building the pair-ordered list of matches (factorial in mixed mode,
- *                             single-pass in fixed-teams mode).
- * - {@see OrderingProgress} - sorting the match list so each player's matches are well spread.
+ * - {@see PairingProgress}     - building the partner pool (2-player partnerships).
+ * - {@see MatchMakingProgress} - grouping pairs into 4-player matches.
+ * - {@see OrderingProgress}    - scheduling matches across courts and rounds.
  *
  * Both modes emit the same event shape so downstream renderers don't have to branch on the
  * generation strategy. Each phase always emits exactly one final event ({@see isFinal()} = true)
@@ -18,6 +18,7 @@ namespace Arshavinel\PadelMiniTour\Service\Progress;
 abstract class GenerationProgress
 {
     public const PHASE_PAIRING = 'pairing';
+    public const PHASE_MATCH_MAKING = 'matchMaking';
     public const PHASE_ORDERING = 'ordering';
 
     private string $phase;

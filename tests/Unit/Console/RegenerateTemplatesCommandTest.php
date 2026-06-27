@@ -8,13 +8,17 @@ use Arshavinel\PadelMiniTour\Service\TemplateMatchesRepository;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Console\Application;
 use Symfony\Component\Console\Tester\CommandTester;
+use Tests\Unit\TemplateVersionTestTrait;
 
 final class RegenerateTemplatesCommandTest extends TestCase
 {
+    use TemplateVersionTestTrait;
+
     private string $tempBaseDir;
 
     protected function setUp(): void
     {
+        $this->resetAllocatedVersions();
         $this->tempBaseDir = sys_get_temp_dir()
             . DIRECTORY_SEPARATOR
             . 'padel-regen-test-'
@@ -29,9 +33,18 @@ final class RegenerateTemplatesCommandTest extends TestCase
         $this->removeDirRecursive($this->tempBaseDir);
     }
 
+    public function test_missing_templates_version_exits_one(): void
+    {
+        $tester = $this->makeTester(new RecordingGenerator());
+        $tester->execute([]);
+
+        $this->assertSame(1, $tester->getStatusCode());
+        $this->assertStringContainsString('--templates-version', $tester->getDisplay());
+    }
+
     public function test_partial_filter_does_not_wipe_unrelated_files(): void
     {
-        $writeVersion = TemplateMatchesRepository::DEFAULT_TEMPLATE_VERSION + 1;
+        $writeVersion = $this->allocVersion();
         $writeDir = $this->tempBaseDir . DIRECTORY_SEPARATOR . 'v' . $writeVersion;
         if (!is_dir($writeDir)) {
             mkdir($writeDir, 0775, true);
@@ -40,23 +53,23 @@ final class RegenerateTemplatesCommandTest extends TestCase
         file_put_contents($unrelatedPath, '{"sentinel":"keep"}');
 
         $tester = $this->makeTester(new RecordingGenerator());
-        $tester->execute([
+        $this->regenExecute($tester, [
             '--players' => '4',
             '--partners' => '1',
             '--repeat' => '1',
             '--fixed-teams' => '0',
-        ]);
+        ], $writeVersion);
 
         $this->assertFileExists($unrelatedPath);
         $this->assertSame('{"sentinel":"keep"}', file_get_contents($unrelatedPath));
     }
 
-    public function test_single_combo_mode_writes_to_next_version_directory(): void
+    public function test_single_combo_mode_writes_to_explicit_version_directory(): void
     {
         $generator = new RecordingGenerator();
         $tester = $this->makeTester($generator);
 
-        $tester->execute([
+        $writeVersion = $this->regenExecute($tester, [
             '--players' => '4',
             '--partners' => '1',
             '--repeat' => '1',
@@ -66,23 +79,32 @@ final class RegenerateTemplatesCommandTest extends TestCase
         $this->assertSame(0, $tester->getStatusCode());
         $this->assertCount(1, $generator->calls);
 
-        $writeVersion = TemplateMatchesRepository::DEFAULT_TEMPLATE_VERSION + 1;
         $expected = $this->tempBaseDir
             . DIRECTORY_SEPARATOR . 'v' . $writeVersion
             . DIRECTORY_SEPARATOR . 'players-4-partners-1-repeat-1-courts-1.json';
         $this->assertFileExists($expected);
 
         $output = $tester->getDisplay();
-        $this->assertStringContainsString('Currently in use: v' . TemplateMatchesRepository::DEFAULT_TEMPLATE_VERSION, $output);
         $this->assertStringContainsString('Writing to: v' . $writeVersion, $output);
-        $this->assertStringContainsString('DEFAULT_TEMPLATE_VERSION to ' . $writeVersion, $output);
+        $this->assertStringContainsString('Review v' . $writeVersion, $output);
+    }
+
+    public function test_auto_creates_version_directory_on_write(): void
+    {
+        $tester = $this->makeTester(new RecordingGenerator());
+        $writeVersion = $this->regenExecute($tester, [
+            '--players' => '4',
+            '--partners' => '1',
+        ]);
+
+        $this->assertDirectoryExists($this->tempBaseDir . DIRECTORY_SEPARATOR . 'v' . $writeVersion);
     }
 
     public function test_buffered_output_contains_pairing_and_ordering_lines(): void
     {
         $tester = $this->makeTester(new RecordingGenerator());
 
-        $tester->execute([
+        $this->regenExecute($tester, [
             '--players' => '4',
             '--partners' => '2',
             '--repeat' => '1',
@@ -99,7 +121,7 @@ final class RegenerateTemplatesCommandTest extends TestCase
     {
         $tester = $this->makeTester(new RecordingGenerator());
 
-        $tester->execute([
+        $this->regenExecute($tester, [
             '--players' => '4',
             '--partners' => '2',
             '--repeat' => '1',
@@ -116,7 +138,7 @@ final class RegenerateTemplatesCommandTest extends TestCase
         $generator = (new RecordingGenerator())->setPairingSeedContext(4, 4);
         $tester = $this->makeTester($generator);
 
-        $tester->execute([
+        $this->regenExecute($tester, [
             '--players' => '4',
             '--partners' => '2',
             '--repeat' => '1',
@@ -128,29 +150,30 @@ final class RegenerateTemplatesCommandTest extends TestCase
         $this->assertStringContainsString('seed 4/4', $output);
     }
 
-    public function test_single_combo_mode_does_not_touch_in_use_directory(): void
+    public function test_single_combo_mode_does_not_touch_other_version_directory(): void
     {
-        $tester = $this->makeTester(new RecordingGenerator());
+        $otherVersion = $this->allocVersion();
+        mkdir($this->tempBaseDir . DIRECTORY_SEPARATOR . 'v' . $otherVersion, 0775, true);
+        $sentinelPath = $this->tempBaseDir . DIRECTORY_SEPARATOR . 'v' . $otherVersion . DIRECTORY_SEPARATOR . 'README.md';
+        file_put_contents($sentinelPath, '# untouched');
 
-        $tester->execute([
+        $tester = $this->makeTester(new RecordingGenerator());
+        $this->regenExecute($tester, [
             '--players' => '4',
             '--partners' => '1',
             '--repeat' => '1',
             '--fixed-teams' => '0',
         ]);
 
-        $inUseDir = $this->tempBaseDir
-            . DIRECTORY_SEPARATOR . 'v' . TemplateMatchesRepository::DEFAULT_TEMPLATE_VERSION;
-        $this->assertDirectoryDoesNotExist($inUseDir);
+        $this->assertSame('# untouched', file_get_contents($sentinelPath));
     }
 
     public function test_bulk_mode_iterates_combinations_and_writes_a_file_per_combo(): void
     {
         $generator = new RecordingGenerator();
         $tester = $this->makeTester($generator);
-        $tester->execute([]);
+        $writeVersion = $this->regenExecute($tester);
 
-        $writeVersion = TemplateMatchesRepository::DEFAULT_TEMPLATE_VERSION + 1;
         $writeDir = $this->tempBaseDir . DIRECTORY_SEPARATOR . 'v' . $writeVersion;
 
         $expectedCount = 0;
@@ -163,14 +186,14 @@ final class RegenerateTemplatesCommandTest extends TestCase
         $this->assertCount($expectedCount, $produced);
 
         $output = $tester->getDisplay();
-        $this->assertStringContainsString('DEFAULT_TEMPLATE_VERSION to ' . $writeVersion, $output);
+        $this->assertStringContainsString('Review v' . $writeVersion, $output);
     }
 
     public function test_buffered_fallback_emits_phase_done_lines(): void
     {
         $tester = $this->makeTester(new RecordingGenerator());
 
-        $tester->execute([
+        $this->regenExecute($tester, [
             '--players' => '4',
             '--partners' => '1',
             '--repeat' => '1',
@@ -186,7 +209,7 @@ final class RegenerateTemplatesCommandTest extends TestCase
     {
         $tester = $this->makeTester(new RecordingGenerator());
 
-        $tester->execute([
+        $this->regenExecute($tester, [
             '--players' => '4',
             '--partners' => '1',
             '--repeat' => '1',
@@ -194,14 +217,14 @@ final class RegenerateTemplatesCommandTest extends TestCase
         ]);
 
         $output = $tester->getDisplay();
-        foreach (['TEAMS', 'PAIRING STATS', 'SORTING STATS'] as $group) {
+        foreach (['TEAMS', 'PAIRING STATS', 'ORDERING STATS'] as $group) {
             $this->assertStringContainsString($group, $output, "Group header missing: {$group}");
         }
     }
 
     public function test_bulk_mode_clears_stale_files_in_target_version_before_writing(): void
     {
-        $writeVersion = TemplateMatchesRepository::DEFAULT_TEMPLATE_VERSION + 1;
+        $writeVersion = $this->allocVersion();
         $writeDir = $this->tempBaseDir . DIRECTORY_SEPARATOR . 'v' . $writeVersion;
         if (!is_dir($writeDir)) {
             mkdir($writeDir, 0775, true);
@@ -213,7 +236,7 @@ final class RegenerateTemplatesCommandTest extends TestCase
         file_put_contents($siblingPath, '# notes');
 
         $tester = $this->makeTester(new RecordingGenerator());
-        $tester->execute([]);
+        $this->regenExecute($tester, [], $writeVersion);
 
         $this->assertFileDoesNotExist($stalePath);
         $this->assertFileExists($siblingPath);
@@ -224,7 +247,7 @@ final class RegenerateTemplatesCommandTest extends TestCase
 
     public function test_single_combo_mode_does_not_clear_unrelated_files(): void
     {
-        $writeVersion = TemplateMatchesRepository::DEFAULT_TEMPLATE_VERSION + 1;
+        $writeVersion = $this->allocVersion();
         $writeDir = $this->tempBaseDir . DIRECTORY_SEPARATOR . 'v' . $writeVersion;
         if (!is_dir($writeDir)) {
             mkdir($writeDir, 0775, true);
@@ -233,15 +256,12 @@ final class RegenerateTemplatesCommandTest extends TestCase
         file_put_contents($unrelatedPath, '{"preserved": true}');
 
         $tester = $this->makeTester(new RecordingGenerator());
-        $tester->execute([
+        $this->regenExecute($tester, [
             '--players' => '4',
             '--partners' => '1',
             '--repeat' => '1',
             '--fixed-teams' => '0',
-        ]);
-
-        $this->assertSame(0, $tester->getStatusCode());
-        $this->assertFileExists($unrelatedPath);
+        ], $writeVersion);
         $this->assertSame('{"preserved": true}', file_get_contents($unrelatedPath));
 
         $output = $tester->getDisplay();
@@ -256,6 +276,14 @@ final class RegenerateTemplatesCommandTest extends TestCase
         $application->add($command);
 
         return new CommandTester($application->find('templates:regenerate'));
+    }
+
+    private function regenExecute(CommandTester $tester, array $args = [], ?int $writeVersion = null): int
+    {
+        $writeVersion ??= $this->allocVersion();
+        $tester->execute(array_merge(['--templates-version' => (string) $writeVersion], $args));
+
+        return $writeVersion;
     }
 
     private function removeDirRecursive(string $dir): void

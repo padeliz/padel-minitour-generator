@@ -92,13 +92,13 @@ class MatchesGenerator
         }
 
         $countPartners = [];
-        $templateCountPartners = $templateMatches->getPairingPartnersCount() ?? [];
+        $templateCountPartners = $templateMatches->getPairingQualityPartnersCount() ?? [];
         array_walk($templateCountPartners, function (int $value, int $key) use (&$countPartners, $players) {
             $countPartners[$players[$key]] = $value;
         });
 
         $countPlayersMet = [];
-        $templateCountPlayersMet = $templateMatches->getPairingPlayersMet() ?? [];
+        $templateCountPlayersMet = $templateMatches->getMatchMakingQualityPlayersMet() ?? [];
         array_walk($templateCountPlayersMet, function (array $value, int $key) use (&$countPlayersMet, $players) {
             $mapped = [];
             foreach ($value as $opponent => $count) {
@@ -108,7 +108,7 @@ class MatchesGenerator
         });
 
         $this->matchesByCourt = $matchesByCourt;
-        $this->partnersCountVariation = (int) $templateMatches->getPairingPartnersCountVariation();
+        $this->partnersCountVariation = (int) $templateMatches->getPairingQualityPartnersCountVariation();
         $this->partnersCount = $countPartners;
         $this->playersMet = $countPlayersMet;
     }

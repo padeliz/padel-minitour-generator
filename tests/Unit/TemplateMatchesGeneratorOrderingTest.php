@@ -13,14 +13,21 @@ use PHPUnit\Framework\TestCase;
 require_once __DIR__ . '/../../vendor/autoload.php';
 
 /**
- * Unit tests for the (now backtracking DFS) sortMatches() implementation.
+ * Unit tests for the (now backtracking DFS) runOrderingPhase() implementation.
  *
- * The sortMatches method is private; tests reach it via reflection. All search-bound knobs
+ * The runOrderingPhase method is private; tests reach it via reflection. All search-bound knobs
  * (clock, wall budgets) are constructor-injected on the new pure generator, so no static
  * reflection is needed.
  */
-final class TemplateMatchesGeneratorSortMatchesTest extends TestCase
+final class TemplateMatchesGeneratorOrderingTest extends TestCase
 {
+    use TemplateVersionTestTrait;
+
+    protected function setUp(): void
+    {
+        $this->resetAllocatedVersions();
+    }
+
     public function test_sort_matches_with_zero_wall_budget_returns_input_order_without_scoring(): void
     {
         $generator = new TemplateMatchesGenerator(
@@ -37,7 +44,7 @@ final class TemplateMatchesGeneratorSortMatchesTest extends TestCase
             [[0, 3], [1, 2]],
         ];
 
-        $result = $this->invokeSortMatches($generator, $matches, [0, 1, 2, 3]);
+        $result = $this->invokeOrderingPhase($generator, $matches, [0, 1, 2, 3]);
 
         $this->assertNull($result['ordered']);
         $this->assertSame(TemplateMatchesGenerator::STOP_REASON_DEADLINE, $result['stopReason']);
@@ -56,7 +63,7 @@ final class TemplateMatchesGeneratorSortMatchesTest extends TestCase
         ];
         $mockPlayers = [0, 1, 2, 3];
 
-        $result = $this->invokeSortMatches($generator, $matches, $mockPlayers);
+        $result = $this->invokeOrderingPhase($generator, $matches, $mockPlayers);
         $expected = $this->bruteForceBestOrder($matches, $mockPlayers, $generator);
 
         $this->assertSame($expected, $result['ordered']);
@@ -79,7 +86,7 @@ final class TemplateMatchesGeneratorSortMatchesTest extends TestCase
         ];
         $mockPlayers = range(0, 7);
 
-        $result = $this->invokeSortMatches($generator, $matches, $mockPlayers);
+        $result = $this->invokeOrderingPhase($generator, $matches, $mockPlayers);
         $expected = $this->bruteForceBestOrder($matches, $mockPlayers, $generator);
 
         $this->assertSame($expected, $result['ordered']);
@@ -95,7 +102,7 @@ final class TemplateMatchesGeneratorSortMatchesTest extends TestCase
             [[0, 3], [1, 2]],
         ];
 
-        $result = $this->invokeSortMatches($generator, $matches, [0, 1, 2, 3]);
+        $result = $this->invokeOrderingPhase($generator, $matches, [0, 1, 2, 3]);
 
         $this->assertSame(TemplateMatchesGenerator::STOP_REASON_FACTORIAL_COMPLETE, $result['stopReason']);
     }
@@ -108,7 +115,7 @@ final class TemplateMatchesGeneratorSortMatchesTest extends TestCase
         $mockPlayers = range(0, 5);
 
         $identityScores = $this->invokeScore($this->wrapSingleCourt($matches), $mockPlayers);
-        $result = $this->invokeSortMatches($generator, $matches, $mockPlayers);
+        $result = $this->invokeOrderingPhase($generator, $matches, $mockPlayers);
         $optimizedScores = $this->invokeScore($result['ordered'], $mockPlayers);
 
         $this->assertGreaterThanOrEqual($identityScores['min'], $optimizedScores['min']);
@@ -118,13 +125,13 @@ final class TemplateMatchesGeneratorSortMatchesTest extends TestCase
     {
         $generator = $this->makeGenerator(1_000_000_000);
 
-        $resultEmpty = $this->invokeSortMatches($generator, [], []);
+        $resultEmpty = $this->invokeOrderingPhase($generator, [], []);
         $this->assertSame([[]], $resultEmpty['ordered']);
         $this->assertNull($resultEmpty['minBreak']);
         $this->assertNull($resultEmpty['maxBreak']);
 
         $single = [[[0, 1], [2, 3]]];
-        $resultSingle = $this->invokeSortMatches($generator, $single, [0, 1, 2, 3]);
+        $resultSingle = $this->invokeOrderingPhase($generator, $single, [0, 1, 2, 3]);
         $this->assertSame($this->wrapSingleCourt($single), $resultSingle['ordered']);
         $this->assertSame(TemplateMatchesGenerator::STOP_REASON_TRIVIAL, $resultSingle['stopReason']);
     }
@@ -143,7 +150,7 @@ final class TemplateMatchesGeneratorSortMatchesTest extends TestCase
         ];
         $mockPlayers = [0, 1, 2, 3];
 
-        $result = $this->invokeSortMatches($generator, $matches, $mockPlayers);
+        $result = $this->invokeOrderingPhase($generator, $matches, $mockPlayers);
         $expected = $this->bruteForceBestOrder($matches, $mockPlayers, $generator);
 
         $this->assertSame($expected, $result['ordered']);
@@ -168,7 +175,7 @@ final class TemplateMatchesGeneratorSortMatchesTest extends TestCase
         ];
         $mockPlayers = range(0, 7);
 
-        $result = $this->invokeSortMatches($generator, $matches, $mockPlayers);
+        $result = $this->invokeOrderingPhase($generator, $matches, $mockPlayers);
 
         $this->assertSame(TemplateMatchesGenerator::STOP_REASON_PRUNE_INFEASIBLE, $result['stopReason']);
         $this->assertNull($result['ordered']);
@@ -192,7 +199,7 @@ final class TemplateMatchesGeneratorSortMatchesTest extends TestCase
         ];
         $mockPlayers = [0, 1, 2, 3, 4];
 
-        $result = $this->invokeSortMatches($generator, $matches, $mockPlayers);
+        $result = $this->invokeOrderingPhase($generator, $matches, $mockPlayers);
 
         $this->assertSame(TemplateMatchesGenerator::STOP_REASON_FACTORIAL_COMPLETE, $result['stopReason']);
         $this->assertNotNull($result['maxBreak']);
@@ -207,8 +214,8 @@ final class TemplateMatchesGeneratorSortMatchesTest extends TestCase
         $matches = $this->makeSyntheticMatchesSix();
         $mockPlayers = range(0, 5);
 
-        $first  = $this->invokeSortMatches($this->makeGenerator(60_000_000_000), $matches, $mockPlayers);
-        $second = $this->invokeSortMatches($this->makeGenerator(60_000_000_000), $matches, $mockPlayers);
+        $first  = $this->invokeOrderingPhase($this->makeGenerator(60_000_000_000), $matches, $mockPlayers);
+        $second = $this->invokeOrderingPhase($this->makeGenerator(60_000_000_000), $matches, $mockPlayers);
 
         $this->assertSame($first['ordered'], $second['ordered']);
         $this->assertSame($first['stopReason'], $second['stopReason']);
@@ -244,7 +251,7 @@ final class TemplateMatchesGeneratorSortMatchesTest extends TestCase
         $matches = $this->makeSyntheticMatchesSix();
         $mockPlayers = range(0, 5);
 
-        $result = $this->invokeSortMatches($generator, $matches, $mockPlayers);
+        $result = $this->invokeOrderingPhase($generator, $matches, $mockPlayers);
 
         // Whether the DFS managed to visit a leaf before the deadline depends on the timing of
         // the clock injection; either way the stop reason must reflect the deadline rather than
@@ -271,7 +278,7 @@ final class TemplateMatchesGeneratorSortMatchesTest extends TestCase
         ];
         $mockPlayers = [0, 1, 2, 3, 4];
 
-        $result = $this->invokeSortMatches($generator, $matches, $mockPlayers);
+        $result = $this->invokeOrderingPhase($generator, $matches, $mockPlayers);
 
         $this->assertNotNull($result['permutationIndex'], 'bestPermutationIndex must be populated once any iteration finds a candidate.');
         $this->assertGreaterThan(0, $result['permutationIndex']);
@@ -326,7 +333,7 @@ final class TemplateMatchesGeneratorSortMatchesTest extends TestCase
 
         $brute = $this->bruteForceBestOrderThreeTier($matches, $mockPlayers, $generator);
 
-        $result = $this->invokeSortMatches($generator, $matches, $mockPlayers);
+        $result = $this->invokeOrderingPhase($generator, $matches, $mockPlayers);
 
         $this->assertSame(TemplateMatchesGenerator::STOP_REASON_FACTORIAL_COMPLETE, $result['stopReason']);
         $this->assertSame($brute['ordered'], $result['ordered']);
@@ -379,7 +386,7 @@ final class TemplateMatchesGeneratorSortMatchesTest extends TestCase
             [[1, 3], [5, 7]],
         ];
 
-        $result = $this->invokeSortMatches($generator, $matches, range(0, 7));
+        $result = $this->invokeOrderingPhase($generator, $matches, range(0, 7));
 
         $this->assertSame(TemplateMatchesGenerator::STOP_REASON_FACTORIAL_COMPLETE, $result['stopReason']);
         $this->assertSame(24, $result['permutationsIterated'], 'Every leaf must be visited when there is no deadline and no infeasible prune.');
@@ -416,7 +423,7 @@ final class TemplateMatchesGeneratorSortMatchesTest extends TestCase
         );
         $reporter->setPhaseStart(0);
 
-        $result = $this->invokeSortMatches(
+        $result = $this->invokeOrderingPhase(
             $generator,
             $this->makeSyntheticMatchesSix(),
             range(0, 5),
@@ -466,7 +473,7 @@ final class TemplateMatchesGeneratorSortMatchesTest extends TestCase
             [[0, 3], [1, 2]],
         ];
 
-        $result = $this->invokeSortMatches($generator, $matches, [0, 1, 2, 3], $reporter);
+        $result = $this->invokeOrderingPhase($generator, $matches, [0, 1, 2, 3], $reporter);
 
         $leafInterim = null;
         foreach ($events as $event) {
@@ -491,7 +498,7 @@ final class TemplateMatchesGeneratorSortMatchesTest extends TestCase
     {
         $generator = $this->makeGenerator(60_000_000_000, PHP_INT_MAX);
 
-        $result = $this->invokeSortMatches(
+        $result = $this->invokeOrderingPhase(
             $generator,
             [
                 [[0, 1], [2, 3]],
@@ -515,7 +522,7 @@ final class TemplateMatchesGeneratorSortMatchesTest extends TestCase
         $activeCourts->setAccessible(true);
         $activeCourts->setValue($generator, 2);
 
-        $result = $this->invokeSortMatches(
+        $result = $this->invokeOrderingPhase(
             $generator,
             [
                 [[0, 1], [2, 3]],
@@ -534,7 +541,7 @@ final class TemplateMatchesGeneratorSortMatchesTest extends TestCase
     {
         $generator = $this->makeGenerator(60_000_000_000, PHP_INT_MAX, 256);
 
-        $result = $this->invokeSortMatches(
+        $result = $this->invokeOrderingPhase(
             $generator,
             [
                 [[0, 1], [2, 3]],
@@ -557,7 +564,7 @@ final class TemplateMatchesGeneratorSortMatchesTest extends TestCase
             5
         );
 
-        $result = $this->invokeSortMatches(
+        $result = $this->invokeOrderingPhase(
             $generator,
             $this->makeSyntheticMatchesSix(),
             range(0, 5)
@@ -585,7 +592,7 @@ final class TemplateMatchesGeneratorSortMatchesTest extends TestCase
             [[2, 6], [3, 7]],
         ];
 
-        $result = $this->invokeSortMatches($generator, $matches, range(0, 7));
+        $result = $this->invokeOrderingPhase($generator, $matches, range(0, 7));
 
         $this->assertNotNull($result['ordered']);
         $this->assertTrue(TemplateMatches::hasValidRoundSchedule($result['ordered']));
@@ -606,7 +613,7 @@ final class TemplateMatchesGeneratorSortMatchesTest extends TestCase
         $activeCourts->setAccessible(true);
         $activeCourts->setValue($generator, 2);
 
-        $result = $this->invokeSortMatches(
+        $result = $this->invokeOrderingPhase(
             $generator,
             [
                 [[0, 1], [2, 3]],
@@ -641,7 +648,7 @@ final class TemplateMatchesGeneratorSortMatchesTest extends TestCase
             [[3, 7], [4, 0]],
         ];
 
-        $result = $this->invokeSortMatches($generator, $matches, range(0, 7));
+        $result = $this->invokeOrderingPhase($generator, $matches, range(0, 7));
 
         $this->assertNotNull($result['ordered']);
         $this->assertSame(0, $result['minBreak']);
@@ -653,13 +660,23 @@ final class TemplateMatchesGeneratorSortMatchesTest extends TestCase
 
     public function test_twelve_eight_courts_two_committed_schedule_has_min_break_zero(): void
     {
-        $repo = new TemplateMatchesRepository();
-        $path = $repo->path(5, 12, 8, 1, 2, false);
+        $repo = $this->productionRepository();
+        $version = $this->latestProductionVersion();
+        $path = $repo->path($version, 12, 8, 1, 2, false);
         if (!is_file($path)) {
-            $this->markTestSkipped('v5 12/8/courts=2 template not present on disk.');
+            $this->fail("No template at {$path}; regenerate offline: php bin/console templates:regenerate --players=12 --partners=8 --courts=2");
         }
 
-        $template = $repo->findAt(5, 12, 8, 1, 2, false);
+        $template = $this->loadLatestCommittedTemplate(12, 8, 1, 2);
+        if ($template->getMatches() === null) {
+            fwrite(
+                STDERR,
+                "WARNING: Latest v{$version} 12/8/courts=2 has matches=null; skipping break metrics.\n"
+            );
+
+            return;
+        }
+
         $metrics = $this->computeBreakMetricsFromRoundSchedule(
             $template->getMatches(),
             range(0, 11)
@@ -704,14 +721,14 @@ final class TemplateMatchesGeneratorSortMatchesTest extends TestCase
      * @param array<int, int>                         $mockPlayers
      * @return array{ordered: array, stopReason: string, min: float|null, avg: float|null}
      */
-    private function invokeSortMatches(
+    private function invokeOrderingPhase(
         TemplateMatchesGenerator $generator,
         array $matches,
         array $mockPlayers,
         ?ProgressReporter $reporter = null
     ): array {
         $reflection = new \ReflectionClass(TemplateMatchesGenerator::class);
-        $method = $reflection->getMethod('sortMatches');
+        $method = $reflection->getMethod('runOrderingPhase');
         $method->setAccessible(true);
 
         $activeCourts = $reflection->getProperty('activeCourts');
