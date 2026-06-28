@@ -30,13 +30,13 @@ final class PdfHtmlHelper
     public static function getActivitiesMarginTop(int $activitiesCount): int
     {
         if ($activitiesCount >= 27) {
-            $marginTop = 10;
+            $marginTop = 0;
         } elseif ($activitiesCount >= 25) {
-            $marginTop = 13;
+            $marginTop = 30;
         } elseif ($activitiesCount >= 23) {
-            $marginTop = 22;
+            $marginTop = 46;
         } elseif ($activitiesCount >= 21) {
-            $marginTop = 60;
+            $marginTop = 62;
         } elseif ($activitiesCount >= 19) {
             $marginTop = 92;
         } elseif ($activitiesCount >= 17) {
@@ -68,11 +68,11 @@ final class PdfHtmlHelper
             } elseif ($countPlayers == 8) {
                 $marginTop = 90;
             } elseif ($countPlayers == 9) {
-                $marginTop = 80;
+                $marginTop = 68;
             } elseif ($countPlayers == 10) {
-                $marginTop = 70;
+                $marginTop = 50;
             } elseif ($countPlayers == 11) {
-                $marginTop = 60;
+                $marginTop = 36;
             } elseif ($countPlayers == 12) {
                 $marginTop = 22;
             } else {
