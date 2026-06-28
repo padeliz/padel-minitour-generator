@@ -8,9 +8,6 @@
                 <div id="edition">
                     <?= $edition->name ?> Lottery
                 </div>
-                <div class="pt-2" style="font-family: Nunito, serif; font-size: 0.9rem;">
-                    <a href="<?= \Arshwell\Monolith\Web::url('site.lottery.prizes', ['id' => \Arshwell\Monolith\Web::param('id')]) ?>" style="color: #fff; opacity: 0.85;">View all prizes</a>
-                </div>
             </div>
         </div>
     </div>
