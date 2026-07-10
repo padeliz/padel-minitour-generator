@@ -55,6 +55,7 @@ final class MetricsTemplatesCommand extends Command
                 'Templates version directory to read (required)',
                 null
             )
+            ->addOption('with-stats', null, InputOption::VALUE_NONE, 'Include stats columns in the output table')
             ->addOption('players', null, InputOption::VALUE_REQUIRED, 'Filter by players count')
             ->addOption('partners', null, InputOption::VALUE_REQUIRED, 'Filter by opponents per player')
             ->addOption('repeat', null, InputOption::VALUE_REQUIRED, 'Filter by repeat opponents (default 1)')
@@ -77,6 +78,7 @@ final class MetricsTemplatesCommand extends Command
         }
 
         $filteredDiscovery = $this->hasMetricsComboFilters($input);
+        $includeStatsColumns = (bool) $input->getOption('with-stats');
 
         try {
             $combos = $this->resolveMetricsCombos($input, $this->repository, $version, $combinations, false);
@@ -145,7 +147,7 @@ final class MetricsTemplatesCommand extends Command
             }
         }
 
-        $layout = $this->resolveUnifiedTableLayout($combos, $loadedTemplates);
+        $layout = $this->resolveUnifiedTableLayout($combos, $loadedTemplates, $includeStatsColumns);
         $table = $this->makeUnifiedTable($output);
         $table->setHeaders($this->unifiedHeaders($layout));
         $this->writeTableContextLine($output, $layout);

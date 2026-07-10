@@ -183,12 +183,13 @@ trait TemplateMatchesOrderingRoundDfs
      *     stopReason: string,
      *     min: float|null,
      *     avg: float|null,
-     *     tier2: float|null,
-     *     breakDistance: float,
+     *     normCourtSwitches: float|null,
      *     permutationsIterated: int,
      *     permutationIndex: int|null,
      *     minBreak: int|null,
      *     maxBreak: int|null,
+     *     consecutiveMinBreaks: int,
+     *     consecutiveMaxBreaks: int,
      *     courtSwitches: int|null,
      *     courtBalance: float|null,
      *     nodesExplored: int
@@ -233,13 +234,14 @@ trait TemplateMatchesOrderingRoundDfs
             'ordered' => null,
             'min' => null,
             'avg' => null,
-            'tier2' => null,
             'permutationIndex' => null,
             'minBreak' => null,
             'maxBreak' => null,
+            'consecutiveMinBreaks' => PHP_INT_MAX,
+            'consecutiveMaxBreaks' => PHP_INT_MAX,
+            'normCourtSwitches' => null,
             'courtSwitches' => null,
             'courtBalance' => null,
-            'breakDistance' => INF,
         ];
 
         $iterations = 0;
@@ -276,12 +278,13 @@ trait TemplateMatchesOrderingRoundDfs
             'stopReason' => $exit['stopReason'],
             'min' => $bestState['min'],
             'avg' => $bestState['avg'],
-            'tier2' => $bestState['tier2'],
-            'breakDistance' => $bestState['breakDistance'],
             'permutationsIterated' => $iterations,
             'permutationIndex' => $bestState['permutationIndex'],
             'minBreak' => $bestState['minBreak'],
             'maxBreak' => $bestState['maxBreak'],
+            'consecutiveMinBreaks' => $bestState['consecutiveMinBreaks'],
+            'consecutiveMaxBreaks' => $bestState['consecutiveMaxBreaks'],
+            'normCourtSwitches' => $bestState['normCourtSwitches'],
             'courtSwitches' => $bestState['courtSwitches'],
             'courtBalance' => $bestState['courtBalance'],
             'nodesExplored' => $nodesExplored,
@@ -290,16 +293,154 @@ trait TemplateMatchesOrderingRoundDfs
 
     /**
      * @param array{
+     *     minBreak?: int|null,
+     *     maxBreak?: int|null,
+     *     consecutiveMinBreaks?: int|null,
+     *     consecutiveMaxBreaks?: int|null,
+     *     normCourtSwitches?: float|null,
+     *     min?: float|null,
+     *     avg?: float|null
+     * } $candidate
+     * @param array{
+     *     minBreak?: int|null,
+     *     maxBreak?: int|null,
+     *     consecutiveMinBreaks?: int|null,
+     *     consecutiveMaxBreaks?: int|null,
+     *     normCourtSwitches?: float|null,
+     *     min?: float|null,
+     *     avg?: float|null,
+     *     ordered?: array<int, array<int, array<int, array<int, int>>>>|null
+     * }|null $currentBest
+     */
+    private function isOrderingLexBetter(array $candidate, ?array $currentBest): bool
+    {
+        return $this->compareOrderingLex($candidate, $currentBest) > 0;
+    }
+
+    /**
+     * Lex ordering for DFS leaves and cross-seed winners.
+     *
+     * Tiers: minBreak (max), maxBreak (min), consecutiveMinBreaks (min), consecutiveMaxBreaks (min),
+     * normCourtSwitches (min), minDistribution (max), avgDistribution (max).
+     *
+     * @param array{
+     *     minBreak?: int|null,
+     *     maxBreak?: int|null,
+     *     consecutiveMinBreaks?: int|null,
+     *     consecutiveMaxBreaks?: int|null,
+     *     normCourtSwitches?: float|null,
+     *     min?: float|null,
+     *     avg?: float|null
+     * } $candidate
+     * @param array{
+     *     minBreak?: int|null,
+     *     maxBreak?: int|null,
+     *     consecutiveMinBreaks?: int|null,
+     *     consecutiveMaxBreaks?: int|null,
+     *     normCourtSwitches?: float|null,
+     *     min?: float|null,
+     *     avg?: float|null,
+     *     ordered?: array<int, array<int, array<int, array<int, int>>>>|null
+     * }|null $currentBest
+     * @return int positive when candidate wins, negative when incumbent wins, zero on full tie
+     */
+    private function compareOrderingLex(array $candidate, ?array $currentBest): int
+    {
+        if ($currentBest === null || ($currentBest['ordered'] ?? null) === null) {
+            return 1;
+        }
+
+        $cMinBreak = $candidate['minBreak'] ?? -1;
+        $bMinBreak = $currentBest['minBreak'] ?? -1;
+        if ($cMinBreak > $bMinBreak) {
+            return 1;
+        }
+        if ($cMinBreak < $bMinBreak) {
+            return -1;
+        }
+
+        $cMaxBreak = $candidate['maxBreak'] ?? PHP_INT_MAX;
+        $bMaxBreak = $currentBest['maxBreak'] ?? PHP_INT_MAX;
+        if ($cMaxBreak < $bMaxBreak) {
+            return 1;
+        }
+        if ($cMaxBreak > $bMaxBreak) {
+            return -1;
+        }
+
+        $cStreakMin = $this->orderingStreakValue($candidate['consecutiveMinBreaks'] ?? null);
+        $bStreakMin = $this->orderingStreakValue($currentBest['consecutiveMinBreaks'] ?? null);
+        if ($cStreakMin < $bStreakMin) {
+            return 1;
+        }
+        if ($cStreakMin > $bStreakMin) {
+            return -1;
+        }
+
+        $cStreakMax = $this->orderingStreakValue($candidate['consecutiveMaxBreaks'] ?? null);
+        $bStreakMax = $this->orderingStreakValue($currentBest['consecutiveMaxBreaks'] ?? null);
+        if ($cStreakMax < $bStreakMax) {
+            return 1;
+        }
+        if ($cStreakMax > $bStreakMax) {
+            return -1;
+        }
+
+        $cNormCourt = $candidate['normCourtSwitches'] ?? INF;
+        $bNormCourt = $currentBest['normCourtSwitches'] ?? INF;
+        if ($cNormCourt < $bNormCourt) {
+            return 1;
+        }
+        if ($cNormCourt > $bNormCourt) {
+            return -1;
+        }
+
+        $cMin = $candidate['min'] ?? -INF;
+        $bMin = $currentBest['min'] ?? -INF;
+        if ($cMin > $bMin) {
+            return 1;
+        }
+        if ($cMin < $bMin) {
+            return -1;
+        }
+
+        $cAvg = $candidate['avg'] ?? -INF;
+        $bAvg = $currentBest['avg'] ?? -INF;
+        if ($cAvg > $bAvg) {
+            return 1;
+        }
+        if ($cAvg < $bAvg) {
+            return -1;
+        }
+
+        return 0;
+    }
+
+    private function orderingStreakValue(?int $value): int
+    {
+        return $value ?? PHP_INT_MAX;
+    }
+
+    /**
+     * @param array{
      *     ordered: array<int, array<int, array<int, array<int, int>>>>|null,
-     *     min: float|null,
-     *     tier2: float|null,
-     *     breakDistance: float
+     *     minBreak?: int|null,
+     *     maxBreak?: int|null,
+     *     consecutiveMinBreaks?: int|null,
+     *     consecutiveMaxBreaks?: int|null,
+     *     normCourtSwitches?: float|null,
+     *     min?: float|null,
+     *     avg?: float|null
      * } $candidate
      * @param array{
      *     ordered: array<int, array<int, array<int, array<int, int>>>>|null,
-     *     min: float|null,
-     *     tier2: float|null,
-     *     breakDistance: float
+     *     minBreak?: int|null,
+     *     maxBreak?: int|null,
+     *     consecutiveMinBreaks?: int|null,
+     *     consecutiveMaxBreaks?: int|null,
+     *     normCourtSwitches?: float|null,
+     *     min?: float|null,
+     *     avg?: float|null
      * }|null $currentBest
      */
     private function isOrderingSeedResultLexBetter(
@@ -315,34 +456,11 @@ trait TemplateMatchesOrderingRoundDfs
             return true;
         }
 
-        $cMin = $candidate['min'];
-        $bMin = $currentBest['min'];
-        if ($cMin === null) {
-            return false;
-        }
-        if ($bMin === null) {
+        $compare = $this->compareOrderingLex($candidate, $currentBest);
+        if ($compare > 0) {
             return true;
         }
-        if ($cMin > $bMin) {
-            return true;
-        }
-        if ($cMin < $bMin) {
-            return false;
-        }
-
-        $cTier2 = $candidate['tier2'] ?? -INF;
-        $bTier2 = $currentBest['tier2'] ?? -INF;
-        if ($cTier2 > $bTier2) {
-            return true;
-        }
-        if ($cTier2 < $bTier2) {
-            return false;
-        }
-
-        if ($candidate['breakDistance'] < $currentBest['breakDistance']) {
-            return true;
-        }
-        if ($candidate['breakDistance'] > $currentBest['breakDistance']) {
+        if ($compare < 0) {
             return false;
         }
 
@@ -460,13 +578,14 @@ trait TemplateMatchesOrderingRoundDfs
      *     ordered: array<int, array<int, array<int, array<int, int>>>>|null,
      *     min: float|null,
      *     avg: float|null,
-     *     tier2: float|null,
      *     permutationIndex: int|null,
      *     minBreak: int|null,
      *     maxBreak: int|null,
+     *     normCourtSwitches: float|null,
      *     courtSwitches: int|null,
      *     courtBalance: float|null,
-     *     breakDistance: float
+     *     consecutiveMinBreaks: int,
+     *     consecutiveMaxBreaks: int
      * } $bestState
      * @param array{stopReason: string} $exit
      */
@@ -520,38 +639,65 @@ trait TemplateMatchesOrderingRoundDfs
             }
             $currentMinBreak = min($perPlayerMin);
             $currentMaxBreak = max($longestRuns);
-            $breakAvg = ($currentMinBreak + $currentMaxBreak) / 2.0;
-            $playerMatches = ($roundsTotal * 4) / $playersCount;
-            $targetBreakAvg = $playerMatches > 0 ? ($roundsTotal / $playerMatches) : 0.0;
-            $candidateBreakDistance = abs($breakAvg - $targetBreakAvg);
 
             $maxCourtSwitches = max($courtSwitches);
             $normCourtSwitches = $roundsTotal > 1
                 ? $maxCourtSwitches / ($roundsTotal - 1)
                 : 0.0;
-            $tier2 = 0.5 * $avgScore + 0.5 * (1.0 - $normCourtSwitches);
             $courtBalance = $this->computeCourtBalanceFromSchedule($matchesByCourt, $mockPlayers, $courts);
 
-            if (
-                $bestState['min'] === null
-                || $minScore > $bestState['min']
-                || ($minScore === $bestState['min'] && $tier2 > ($bestState['tier2'] ?? -INF))
-                || (
-                    $minScore === $bestState['min']
-                    && $tier2 === $bestState['tier2']
-                    && $candidateBreakDistance < $bestState['breakDistance']
-                )
+            $candidateLex = [
+                'minBreak' => $currentMinBreak,
+                'maxBreak' => $currentMaxBreak,
+                'normCourtSwitches' => $normCourtSwitches,
+                'min' => $minScore,
+                'avg' => $avgScore,
+            ];
+
+            $streaks = null;
+            if ($bestState['ordered'] === null) {
+                $streaks = RoundScheduleBreakAnalyzer::analyze(
+                    $matchesByCourt,
+                    $mockPlayers,
+                    $currentMinBreak,
+                    $currentMaxBreak
+                );
+                $candidateLex['consecutiveMinBreaks'] = $streaks['consecutiveMinBreaks'];
+                $candidateLex['consecutiveMaxBreaks'] = $streaks['consecutiveMaxBreaks'];
+            } elseif (
+                $currentMinBreak === $bestState['minBreak']
+                && $currentMaxBreak === $bestState['maxBreak']
             ) {
+                $streaks = RoundScheduleBreakAnalyzer::analyze(
+                    $matchesByCourt,
+                    $mockPlayers,
+                    $currentMinBreak,
+                    $currentMaxBreak
+                );
+                $candidateLex['consecutiveMinBreaks'] = $streaks['consecutiveMinBreaks'];
+                $candidateLex['consecutiveMaxBreaks'] = $streaks['consecutiveMaxBreaks'];
+            }
+
+            if ($this->isOrderingLexBetter($candidateLex, $bestState)) {
+                if ($streaks === null) {
+                    $streaks = RoundScheduleBreakAnalyzer::analyze(
+                        $matchesByCourt,
+                        $mockPlayers,
+                        $currentMinBreak,
+                        $currentMaxBreak
+                    );
+                }
                 $bestState['min'] = $minScore;
                 $bestState['avg'] = $avgScore;
-                $bestState['tier2'] = $tier2;
                 $bestState['ordered'] = $this->cloneMatchesByCourt($matchesByCourt);
                 $bestState['permutationIndex'] = $iterations;
                 $bestState['minBreak'] = $currentMinBreak;
                 $bestState['maxBreak'] = $currentMaxBreak;
+                $bestState['consecutiveMinBreaks'] = $streaks['consecutiveMinBreaks'];
+                $bestState['consecutiveMaxBreaks'] = $streaks['consecutiveMaxBreaks'];
+                $bestState['normCourtSwitches'] = $normCourtSwitches;
                 $bestState['courtSwitches'] = $maxCourtSwitches;
                 $bestState['courtBalance'] = $courtBalance;
-                $bestState['breakDistance'] = $candidateBreakDistance;
             }
 
             $this->emitOrderingProgress($reporter, $now, false, $iterations, $bestState);

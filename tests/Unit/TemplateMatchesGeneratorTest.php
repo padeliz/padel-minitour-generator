@@ -601,6 +601,8 @@ final class TemplateMatchesGeneratorTest extends GeneratorTestCase
             0.95,
             0,
             0,
+            null,
+            null,
             0,
             null,
             1,

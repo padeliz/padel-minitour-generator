@@ -650,7 +650,7 @@ class TemplateMatchesGenerator
     }
 
     /**
-     * @return array{minDistribution: null, avgDistribution: null, minBreak: null, maxBreak: null, courtSwitches: null, courtBalance: null, roundsCount: null}
+     * @return array{minDistribution: null, avgDistribution: null, minBreak: null, maxBreak: null, consecutiveMinBreaks: null, consecutiveMaxBreaks: null, courtSwitches: null, courtBalance: null, roundsCount: null}
      */
     private function nullOrderingQuality(): array
     {
@@ -659,6 +659,8 @@ class TemplateMatchesGenerator
             'avgDistribution' => null,
             'minBreak' => null,
             'maxBreak' => null,
+            'consecutiveMinBreaks' => null,
+            'consecutiveMaxBreaks' => null,
             'courtSwitches' => null,
             'courtBalance' => null,
             'roundsCount' => null,
@@ -688,6 +690,19 @@ class TemplateMatchesGenerator
         $matchMakingSucceeded = ($matchMakingQuality['meetingsVariation'] ?? null) !== null
             || ($matchMakingQuality['playersMet'] ?? null) !== null;
         $orderingSucceeded = $matches !== null;
+
+        $consecutiveMinBreaks = null;
+        $consecutiveMaxBreaks = null;
+        if ($orderingSucceeded) {
+            $streakMetrics = RoundScheduleBreakAnalyzer::analyze(
+                $matches,
+                range(0, $playersCount - 1),
+                $orderingQuality['minBreak'] ?? null,
+                $orderingQuality['maxBreak'] ?? null
+            );
+            $consecutiveMinBreaks = $streakMetrics['consecutiveMinBreaks'];
+            $consecutiveMaxBreaks = $streakMetrics['consecutiveMaxBreaks'];
+        }
 
         return new TemplateMatches(
             $playersCount,
@@ -723,6 +738,8 @@ class TemplateMatchesGenerator
             $orderingSucceeded ? $orderingQuality['avgDistribution'] : null,
             $orderingSucceeded ? $orderingQuality['minBreak'] : null,
             $orderingSucceeded ? $orderingQuality['maxBreak'] : null,
+            $consecutiveMinBreaks,
+            $consecutiveMaxBreaks,
             $orderingSucceeded ? $orderingQuality['courtSwitches'] : null,
             $orderingSucceeded ? $orderingQuality['courtBalance'] : null,
             $orderingSucceeded ? $orderingQuality['roundsCount'] : null,

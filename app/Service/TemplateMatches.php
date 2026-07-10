@@ -72,6 +72,8 @@ final class TemplateMatches
     private ?float $orderingQualityAvgDistribution;
     private ?int $orderingQualityMinBreak;
     private ?int $orderingQualityMaxBreak;
+    private ?int $orderingQualityConsecutiveMinBreaks;
+    private ?int $orderingQualityConsecutiveMaxBreaks;
     private ?int $orderingQualityCourtSwitches;
     private ?float $orderingQualityCourtBalance;
     private ?int $orderingQualityRoundsCount;
@@ -124,6 +126,8 @@ final class TemplateMatches
         ?float $orderingQualityAvgDistribution,
         ?int $orderingQualityMinBreak,
         ?int $orderingQualityMaxBreak,
+        ?int $orderingQualityConsecutiveMinBreaks,
+        ?int $orderingQualityConsecutiveMaxBreaks,
         ?int $orderingQualityCourtSwitches,
         ?float $orderingQualityCourtBalance,
         ?int $orderingQualityRoundsCount,
@@ -168,6 +172,8 @@ final class TemplateMatches
         $this->orderingQualityAvgDistribution = $orderingQualityAvgDistribution;
         $this->orderingQualityMinBreak = $orderingQualityMinBreak;
         $this->orderingQualityMaxBreak = $orderingQualityMaxBreak;
+        $this->orderingQualityConsecutiveMinBreaks = $orderingQualityConsecutiveMinBreaks;
+        $this->orderingQualityConsecutiveMaxBreaks = $orderingQualityConsecutiveMaxBreaks;
         $this->orderingQualityCourtSwitches = $orderingQualityCourtSwitches;
         $this->orderingQualityCourtBalance = $orderingQualityCourtBalance;
         $this->orderingQualityRoundsCount = $orderingQualityRoundsCount;
@@ -372,9 +378,10 @@ final class TemplateMatches
      * plays) also contributes `0`. Either way, whenever any player's contribution is `0` the
      * aggregate becomes `0` too.
      *
-     * Ordering-sensitive: this metric meaningfully participates in the sort phase as the third
-     * tie-break tier `(minBreak + maxBreak) / 2` versus `m / playerMatches`. `null` when the
-     * ordering phase produced no leaf (infeasible prune or deadline before any complete ordering).
+     * Ordering-sensitive: this metric meaningfully participates in the sort phase as the
+     * primary DFS tie-break tier (maximize `minBreak`, then minimize `maxBreak`, streak metrics,
+     * normalized court switches, then distribution). `null` when the ordering phase produced no
+     * leaf (infeasible prune or deadline before any complete ordering).
      */
     public function getOrderingQualityMinBreak(): ?int
     {
@@ -392,6 +399,29 @@ final class TemplateMatches
     public function getOrderingQualityMaxBreak(): ?int
     {
         return $this->orderingQualityMaxBreak;
+    }
+
+    /**
+     * Longest run of consecutive all-gap absences equal to the stored {@see getOrderingQualityMinBreak()}
+     * threshold, aggregated as the cross-player maximum.
+     *
+     * Scans lead, inner, and trail gaps (unlike minBreak itself, which is inner-only). `null` when
+     * ordering produced no leaf or when `minBreak` is `null`.
+     */
+    public function getOrderingQualityConsecutiveMinBreaks(): ?int
+    {
+        return $this->orderingQualityConsecutiveMinBreaks;
+    }
+
+    /**
+     * Longest run of consecutive all-gap absences equal to the stored {@see getOrderingQualityMaxBreak()}
+     * threshold, aggregated as the cross-player maximum.
+     *
+     * `null` when ordering produced no leaf or when `maxBreak` is `null`.
+     */
+    public function getOrderingQualityConsecutiveMaxBreaks(): ?int
+    {
+        return $this->orderingQualityConsecutiveMaxBreaks;
     }
 
     public function getOrderingQualityCourtSwitches(): ?int
@@ -630,6 +660,8 @@ final class TemplateMatches
             $orderingQualityAvgDistribution,
             $orderingQualityMinBreak,
             $orderingQualityMaxBreak,
+            null,
+            null,
             $orderingQualityCourtSwitches,
             $orderingQualityCourtBalance,
             $orderingQualityRoundsCount,
@@ -761,6 +793,8 @@ final class TemplateMatches
             isset($orderingQuality['avgDistribution']) ? (float) $orderingQuality['avgDistribution'] : null,
             isset($orderingQuality['minBreak']) ? (int) $orderingQuality['minBreak'] : null,
             isset($orderingQuality['maxBreak']) ? (int) $orderingQuality['maxBreak'] : null,
+            isset($orderingQuality['consecutiveMinBreaks']) ? (int) $orderingQuality['consecutiveMinBreaks'] : null,
+            isset($orderingQuality['consecutiveMaxBreaks']) ? (int) $orderingQuality['consecutiveMaxBreaks'] : null,
             isset($orderingQuality['courtSwitches']) ? (int) $orderingQuality['courtSwitches'] : null,
             isset($orderingQuality['courtBalance']) ? (float) $orderingQuality['courtBalance'] : null,
             isset($orderingQuality['roundsCount']) ? (int) $orderingQuality['roundsCount'] : null,
@@ -828,6 +862,8 @@ final class TemplateMatches
                         'avgDistribution' => $this->orderingQualityAvgDistribution,
                         'minBreak' => $this->orderingQualityMinBreak,
                         'maxBreak' => $this->orderingQualityMaxBreak,
+                        'consecutiveMinBreaks' => $this->orderingQualityConsecutiveMinBreaks,
+                        'consecutiveMaxBreaks' => $this->orderingQualityConsecutiveMaxBreaks,
                         'courtSwitches' => $this->orderingQualityCourtSwitches,
                         'courtBalance' => $this->orderingQualityCourtBalance,
                         'roundsCount' => $this->orderingQualityRoundsCount,

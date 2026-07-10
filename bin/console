@@ -22,14 +22,16 @@
  *   php bin/console templates:metrics --templates-version=2
  *   php bin/console templates:metrics-fixed-teams
  *   php bin/console templates:metrics-fixed-teams --templates-version=2
+ *   php bin/console templates:versions
  */
 
-require __DIR__ . '/../vendor/autoload.php';
+require_once __DIR__ . '/../vendor/autoload.php';
 
 use Arshavinel\PadelMiniTour\Console\Command\GenerateTemplatesCommand;
 use Arshavinel\PadelMiniTour\Console\Command\RegenerateTemplatesCommand;
 use Arshavinel\PadelMiniTour\Console\Command\MetricsTemplatesCommand;
 use Arshavinel\PadelMiniTour\Console\Command\MetricsTemplatesFixedTeamsCommand;
+use Arshavinel\PadelMiniTour\Console\Command\TemplatesVersionsCommand;
 use Symfony\Component\Console\Application;
 
 $application = new Application('Padel MiniTour developer CLI', '1.0.0');
@@ -37,6 +39,7 @@ $application->add(new RegenerateTemplatesCommand());
 $application->add(new GenerateTemplatesCommand());
 $application->add(new MetricsTemplatesCommand());
 $application->add(new MetricsTemplatesFixedTeamsCommand());
+$application->add(new TemplatesVersionsCommand());
 
 $exitCode = $application->run();
 exit($exitCode);

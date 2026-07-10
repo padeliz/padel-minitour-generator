@@ -91,22 +91,65 @@ final class MetricsTemplatesCommandTest extends TestCase
         $this->metricsExecute($tester, $repository, ['--combinations' => '4:1']);
 
         $output = $tester->getDisplay();
-        foreach (['TEAMS', 'PAIRING STATS', 'ORDERING STATS'] as $group) {
+        foreach (['TEAMS', 'PAIRING', 'MATCH-MAKING', 'ORDERING'] as $group) {
             $this->assertStringContainsString($group, $output, "Group header missing: {$group}");
+        }
+        foreach (['PAIRING STATS', 'MATCH-MAKING STATS', 'ORDERING STATS'] as $group) {
+            $this->assertStringNotContainsString($group, $output, "Stats group header should be omitted by default: {$group}");
         }
         // Uniform filters appear on the context line above the table.
         $this->assertStringContainsString('repeat: 1', $output);
         $this->assertStringContainsString('fixed: no', $output);
         $this->assertStringContainsString('courts: 1', $output);
-        foreach (['Players', 'Min Opponents', 'Max Opponents', 'Matches', 'Min Break', 'Max Break', 'Perm. Idx.', 'Templates'] as $col) {
+        foreach ([
+            'Players',
+            'Min Partners Fair.',
+            'Avg Partners Fair.',
+            'Meets Var.',
+            'Min Opponents',
+            'Max Opponents',
+            'Matches',
+            'Min Dist.',
+            'Avg Dist.',
+            'Min Break',
+            'Max Break',
+        ] as $col) {
             $this->assertStringContainsString($col, $output, "Detail column missing: {$col}");
         }
         $this->assertStringNotContainsString('Partners Var.', $output);
         $this->assertStringNotContainsString('Court Sw.', $output);
+        $this->assertStringNotContainsString('Seed', $output);
+        $this->assertStringNotContainsString('Nodes', $output);
+        $this->assertStringNotContainsString('Stop Reason', $output);
+        $this->assertStringNotContainsString('Time', $output);
+        $this->assertStringNotContainsString('Perm. Idx.', $output);
+        $this->assertStringNotContainsString('Templates', $output);
         $this->assertStringNotContainsString('Pair Count', $output);
         $this->assertStringNotContainsString('Best Matches', $output);
         $this->assertStringNotContainsString('Scheduled', $output);
-        $this->assertStringContainsString('exhausted', $output);
+        $this->assertStringNotContainsString('exhausted', $output);
+    }
+
+    public function test_unified_table_includes_stats_columns_when_with_stats_flag_is_passed(): void
+    {
+        $repository = new TemplateMatchesRepository($this->tempBaseDir);
+        $version = $this->allocVersion();
+        $repository->save(
+            $version,
+            $this->makeTemplate(4, 1, 1, false)
+        );
+
+        $tester = $this->makeMixedTester($repository);
+        $this->metricsExecute($tester, $repository, ['--combinations' => '4:1', '--with-stats' => true]);
+
+        $this->assertSame(0, $tester->getStatusCode());
+        $output = $tester->getDisplay();
+        foreach (['PAIRING STATS', 'MATCH-MAKING STATS', 'ORDERING STATS'] as $group) {
+            $this->assertStringContainsString($group, $output, "Stats group header missing: {$group}");
+        }
+        foreach (['Seed', 'Nodes', 'Stop Reason', 'Time', 'Perm. Idx.', 'Templates'] as $col) {
+            $this->assertStringContainsString($col, $output, "Stats detail column missing: {$col}");
+        }
     }
 
     public function test_fixed_stats_default_combinations_is_eight_two_three(): void
@@ -183,6 +226,8 @@ final class MetricsTemplatesCommandTest extends TestCase
                 null,
                 null,
                 null,
+                null,
+                null,
                 'DEADLINE',
                 0,
                 null,
@@ -204,9 +249,10 @@ final class MetricsTemplatesCommandTest extends TestCase
         $this->assertStringContainsString('courts: 2', $output);
         $this->assertStringContainsString('Court Sw.', $output);
         $this->assertStringNotContainsString('Partners Var.', $output);
-        $this->assertStringContainsString('deadline', $output);
-        $this->assertStringContainsString('2m 28s', $output);
-        $this->assertStringContainsString('- / 0', $output);
+        // Stats columns (stop reason, time, indexes) are hidden by default; validate they are absent.
+        $this->assertStringNotContainsString('deadline', $output);
+        $this->assertStringNotContainsString('2m 28s', $output);
+        $this->assertStringNotContainsString('- / 0', $output);
     }
 
     public function test_unified_table_includes_courts_column_when_courts_vary_across_rows(): void
@@ -243,6 +289,37 @@ final class MetricsTemplatesCommandTest extends TestCase
         $this->assertFalse($uniformCourts['includeCourtsColumn']);
         $this->assertFalse($uniformCourts['includePartnersVarColumn']);
         $this->assertFalse($uniformCourts['includeCourtSwitchesColumn']);
+    }
+
+    public function test_avg_row_column_indices_align_with_ordering_quality_columns(): void
+    {
+        $harness = new class {
+            use \Arshavinel\PadelMiniTour\Console\MetricsFormatterTrait;
+
+            /**
+             * @param list<array{players:int,partners:int,repeat:int,courts:int,fixedTeams:bool}> $combos
+             * @param list<TemplateMatches|null> $templates
+             */
+            public function layout(array $combos, array $templates = [], bool $includeStatsColumns = false): array
+            {
+                return $this->resolveUnifiedTableLayout($combos, $templates, $includeStatsColumns);
+            }
+        };
+
+        $combo = [['players' => 4, 'partners' => 1, 'repeat' => 1, 'courts' => 1, 'fixedTeams' => false]];
+        $template = $this->makeTemplate(4, 1, 1, false);
+
+        $slim = $harness->layout($combo, [$template], false);
+        $this->assertSame(12, $slim['totalColumns']);
+        $this->assertSame(4, $slim['avgColumns']['meetingsVar']);
+        $this->assertSame(8, $slim['avgColumns']['orderingMinDist']);
+        $this->assertSame(9, $slim['avgColumns']['orderingAvgDist']);
+
+        $full = $harness->layout($combo, [$template], true);
+        $this->assertSame(24, $full['totalColumns']);
+        $this->assertSame(8, $full['avgColumns']['meetingsVar']);
+        $this->assertSame(16, $full['avgColumns']['orderingMinDist']);
+        $this->assertSame(17, $full['avgColumns']['orderingAvgDist']);
     }
 
     public function test_unified_table_includes_partners_var_column_when_any_template_has_variation(): void
@@ -301,6 +378,8 @@ final class MetricsTemplatesCommandTest extends TestCase
                 0.97,
                 0,
                 0,
+                null,
+                null,
                 0,
                 null,
                 1,
@@ -432,6 +511,8 @@ final class MetricsTemplatesCommandTest extends TestCase
                 0.97,
                 0,
                 0,
+                null,
+                null,
                 0,
                 null,
                 null,
@@ -501,6 +582,8 @@ final class MetricsTemplatesCommandTest extends TestCase
                 0.97,
                 0,
                 0,
+                null,
+                null,
                 0,
                 null,
                 1,
@@ -675,6 +758,8 @@ final class MetricsTemplatesCommandTest extends TestCase
             0.97,
             0,
             0,
+            null,
+            null,
             0,
             null,
             1,

@@ -114,6 +114,7 @@ final class TemplateMatchesTest extends TestCase
 
         $expectedOrderingQualityKeys = [
             'minDistribution', 'avgDistribution', 'minBreak', 'maxBreak',
+            'consecutiveMinBreaks', 'consecutiveMaxBreaks',
             'courtSwitches', 'courtBalance', 'roundsCount',
         ];
         $this->assertSame($expectedOrderingQualityKeys, array_keys($array['metrics']['ordering']['quality']));
@@ -169,7 +170,34 @@ final class TemplateMatchesTest extends TestCase
         $this->assertNull($minimal->getOrderingQualityAvgDistribution());
         $this->assertNull($minimal->getOrderingQualityMinBreak());
         $this->assertNull($minimal->getOrderingQualityMaxBreak());
+        $this->assertNull($minimal->getOrderingQualityConsecutiveMinBreaks());
+        $this->assertNull($minimal->getOrderingQualityConsecutiveMaxBreaks());
         $this->assertNull($minimal->getOrderingStatsTime());
+    }
+
+    public function test_from_array_without_consecutive_streak_keys_loads_null(): void
+    {
+        $data = $this->makeJsonArray();
+        unset($data['metrics']['ordering']['quality']['consecutiveMinBreaks']);
+        unset($data['metrics']['ordering']['quality']['consecutiveMaxBreaks']);
+
+        $template = TemplateMatches::fromArray($data);
+
+        $this->assertNull($template->getOrderingQualityConsecutiveMinBreaks());
+        $this->assertNull($template->getOrderingQualityConsecutiveMaxBreaks());
+    }
+
+    public function test_consecutive_streak_fields_round_trip_through_array(): void
+    {
+        $data = $this->makeJsonArray();
+        $data['metrics']['ordering']['quality']['consecutiveMinBreaks'] = 2;
+        $data['metrics']['ordering']['quality']['consecutiveMaxBreaks'] = 3;
+
+        $template = TemplateMatches::fromArray($data);
+        $this->assertSame(2, $template->getOrderingQualityConsecutiveMinBreaks());
+        $this->assertSame(3, $template->getOrderingQualityConsecutiveMaxBreaks());
+        $this->assertSame(2, $template->toArray()['metrics']['ordering']['quality']['consecutiveMinBreaks']);
+        $this->assertSame(3, $template->toArray()['metrics']['ordering']['quality']['consecutiveMaxBreaks']);
     }
 
     public function test_from_array_throws_when_identity_keys_are_missing(): void
@@ -455,6 +483,8 @@ final class TemplateMatchesTest extends TestCase
             0.97,
             0,
             0,
+            null,
+            null,
             0,
             null,
             1,
@@ -476,6 +506,8 @@ final class TemplateMatchesTest extends TestCase
             $repeat,
             1,
             $fixedTeams,
+            null,
+            null,
             null,
             null,
             null,

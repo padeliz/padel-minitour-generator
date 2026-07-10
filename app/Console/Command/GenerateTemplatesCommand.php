@@ -58,6 +58,7 @@ final class GenerateTemplatesCommand extends Command
                 InputOption::VALUE_REQUIRED,
                 'Version directory to write (required; v{N}/ is created when missing)'
             )
+            ->addOption('with-stats', null, InputOption::VALUE_NONE, 'Include stats columns in the output tables')
             ->addOption('players', null, InputOption::VALUE_REQUIRED, 'Filter by players count')
             ->addOption('partners', null, InputOption::VALUE_REQUIRED, 'Filter by opponents per player')
             ->addOption('repeat', null, InputOption::VALUE_REQUIRED, 'Filter by repeat opponents (default 1)')
@@ -167,6 +168,7 @@ final class GenerateTemplatesCommand extends Command
         $supportsSections = $output instanceof ConsoleOutputInterface;
         $totalCombos = count($combos);
         $summaryRows = [];
+        $includeStatsColumns = (bool) $input->getOption('with-stats');
 
         foreach ($combos as $i => $combo) {
             $counterSection = null;
@@ -186,7 +188,8 @@ final class GenerateTemplatesCommand extends Command
                     $liveSection,
                     $combo,
                     $i + 1,
-                    $totalCombos
+                    $totalCombos,
+                    $includeStatsColumns
                 );
             } else {
                 $output->writeln(sprintf(
@@ -254,7 +257,9 @@ final class GenerateTemplatesCommand extends Command
                 $this->renderLiveSnapshotTable(
                     $liveSection,
                     $template,
-                    true
+                    true,
+                    null,
+                    $includeStatsColumns
                 );
             }
 
@@ -270,7 +275,7 @@ final class GenerateTemplatesCommand extends Command
         }
 
         $summaryTemplates = array_column($summaryRows, 'template');
-        $layout = $this->resolveUnifiedTableLayout($combos, $summaryTemplates);
+        $layout = $this->resolveUnifiedTableLayout($combos, $summaryTemplates, $includeStatsColumns);
         $table = $this->makeUnifiedTable($output);
         $table->setHeaders($this->unifiedHeaders($layout));
         $this->writeTableContextLine($output, $layout);
@@ -354,7 +359,8 @@ final class GenerateTemplatesCommand extends Command
         ConsoleSectionOutput $liveSection,
         array $combo,
         int $counterCurrent,
-        int $counterTotal
+        int $counterTotal,
+        bool $includeStatsColumns
     ): callable {
         $latestPairing = null;
         $latestMatchMaking = null;
@@ -366,6 +372,7 @@ final class GenerateTemplatesCommand extends Command
             $combo,
             $counterCurrent,
             $counterTotal,
+            $includeStatsColumns,
             &$latestPairing,
             &$latestMatchMaking,
             &$latestOrdering
@@ -410,7 +417,7 @@ final class GenerateTemplatesCommand extends Command
             $liveSection->clear();
             // Standalone single-row table: always show the actual Players number, never the
             // grouped `.` continuation marker (which only makes sense in the multi-row summary).
-            $this->renderLiveSnapshotTable($liveSection, $snapshot, true);
+            $this->renderLiveSnapshotTable($liveSection, $snapshot, true, null, $includeStatsColumns);
         };
     }
 

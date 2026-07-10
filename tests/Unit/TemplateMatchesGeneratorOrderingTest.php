@@ -5,6 +5,7 @@ namespace Tests\Unit;
 use Arshavinel\PadelMiniTour\Service\PlayerDistributionScorer;
 use Arshavinel\PadelMiniTour\Service\Progress\OrderingProgress;
 use Arshavinel\PadelMiniTour\Service\Progress\ProgressReporter;
+use Arshavinel\PadelMiniTour\Service\RoundScheduleBreakAnalyzer;
 use Arshavinel\PadelMiniTour\Service\TemplateMatches;
 use Arshavinel\PadelMiniTour\Service\TemplateMatchesGenerator;
 use Arshavinel\PadelMiniTour\Service\TemplateMatchesRepository;
@@ -64,9 +65,9 @@ final class TemplateMatchesGeneratorOrderingTest extends TestCase
         $mockPlayers = [0, 1, 2, 3];
 
         $result = $this->invokeOrderingPhase($generator, $matches, $mockPlayers);
-        $expected = $this->bruteForceBestOrder($matches, $mockPlayers, $generator);
+        $expected = $this->bruteForceBestOrderSevenTier($matches, $mockPlayers, $generator);
 
-        $this->assertSame($expected, $result['ordered']);
+        $this->assertSame($expected['ordered'], $result['ordered']);
     }
 
     public function test_sort_matches_matches_brute_force_when_wall_budget_allows_full_scan_eight_players(): void
@@ -87,9 +88,9 @@ final class TemplateMatchesGeneratorOrderingTest extends TestCase
         $mockPlayers = range(0, 7);
 
         $result = $this->invokeOrderingPhase($generator, $matches, $mockPlayers);
-        $expected = $this->bruteForceBestOrder($matches, $mockPlayers, $generator);
+        $expected = $this->bruteForceBestOrderSevenTier($matches, $mockPlayers, $generator);
 
-        $this->assertSame($expected, $result['ordered']);
+        $this->assertSame($expected['ordered'], $result['ordered']);
     }
 
     public function test_sort_matches_returns_factorial_complete_when_thresholds_unreachable(): void
@@ -107,18 +108,17 @@ final class TemplateMatchesGeneratorOrderingTest extends TestCase
         $this->assertSame(TemplateMatchesGenerator::STOP_REASON_FACTORIAL_COMPLETE, $result['stopReason']);
     }
 
-    public function test_lex_scan_does_not_worsen_minimum_distribution_vs_identity(): void
+    public function test_sort_dfs_matches_seven_tier_brute_force_for_synthetic_six(): void
     {
         $generator = $this->makeGenerator(60_000_000_000);
 
         $matches = $this->makeSyntheticMatchesSix();
         $mockPlayers = range(0, 5);
 
-        $identityScores = $this->invokeScore($this->wrapSingleCourt($matches), $mockPlayers);
+        $brute = $this->bruteForceBestOrderSevenTier($matches, $mockPlayers, $generator);
         $result = $this->invokeOrderingPhase($generator, $matches, $mockPlayers);
-        $optimizedScores = $this->invokeScore($result['ordered'], $mockPlayers);
 
-        $this->assertGreaterThanOrEqual($identityScores['min'], $optimizedScores['min']);
+        $this->assertSame($brute['ordered'], $result['ordered']);
     }
 
     public function test_sort_matches_returns_input_unchanged_when_match_count_is_one_or_zero(): void
@@ -136,11 +136,10 @@ final class TemplateMatchesGeneratorOrderingTest extends TestCase
         $this->assertSame(TemplateMatchesGenerator::STOP_REASON_TRIVIAL, $resultSingle['stopReason']);
     }
 
-    public function test_sort_dfs_finds_best_min_dist_when_prune_inactive(): void
+    public function test_sort_dfs_finds_seven_tier_best_when_prune_inactive(): void
     {
-        // Mirror of the four-player brute-force scan but framed as the S7 "prune-inactive"
-        // contract: when `$maxBreakThreshold` is effectively infinite, the DFS visits every
-        // ordering and the surfaced `(min, avg)` matches the exhaustive lex walk.
+        // When `$maxBreakThreshold` is effectively infinite, the DFS visits every ordering and
+        // the surfaced schedule matches the exhaustive seven-tier lex walk.
         $generator = $this->makeGenerator(60_000_000_000, PHP_INT_MAX);
 
         $matches = [
@@ -151,9 +150,9 @@ final class TemplateMatchesGeneratorOrderingTest extends TestCase
         $mockPlayers = [0, 1, 2, 3];
 
         $result = $this->invokeOrderingPhase($generator, $matches, $mockPlayers);
-        $expected = $this->bruteForceBestOrder($matches, $mockPlayers, $generator);
+        $expected = $this->bruteForceBestOrderSevenTier($matches, $mockPlayers, $generator);
 
-        $this->assertSame($expected, $result['ordered']);
+        $this->assertSame($expected['ordered'], $result['ordered']);
         $this->assertSame(TemplateMatchesGenerator::STOP_REASON_FACTORIAL_COMPLETE, $result['stopReason']);
         $this->assertNotNull($result['minBreak']);
         $this->assertNotNull($result['maxBreak']);
@@ -293,34 +292,14 @@ final class TemplateMatchesGeneratorOrderingTest extends TestCase
         $this->assertLessThanOrEqual(1, $result['maxBreak']);
     }
 
-    public function test_sort_dfs_tie_break_prefers_break_avg_closer_to_target(): void
+    public function test_sort_dfs_tie_break_prefers_lower_max_break(): void
     {
-        // 8 players, 4 matches. Players 0 and 1 occupy the first slot of EVERY match, so they
-        // play in all 4 positions and always score 1.0; under sit-out semantics each of their
-        // 3 subsequent appearances closes a length-`0` back-to-back inner run, pinning
-        // `perPlayerMin[0] = perPlayerMin[1] = 0` for every ordering (and thereby forcing
-        // aggregate `minBreak = 0` on every leaf). Players 2 and 3 occupy the second slot of
-        // M0 and M3 (identical matches); players 4-5 only appear in M1; players 6-7 only
-        // appear in M2. The tied-at-top set carries 12 distinct permutations (every
-        // (pos(M0), pos(M3)) pair from `{0,3}, {0,2}, {1,3}` keeps P2,P3 inside the neutral
-        // band, and the remaining 4 single-match players always score 1.0 by the count<=1
-        // short-circuit). Target break-balance = `m / playerMatches` = `4 / ((4 * 4) / 8)` =
-        // `2.0`.
-        //
-        // The 12 tied leaves split by `(M0, M3)` position pair:
-        //   - {0, 3} -- inner sit-outs for P2/P3 = 2, no edges -> max break = 2 -> break-avg
-        //     1.0 -> distance 1.0.
-        //   - {0, 2} or {1, 3} -- one of M1/M2 lands at an endpoint (pos 0 or 3), forcing a
-        //     `lead = 3` or `trail = 3` run for the 1-match players in that match -> max break
-        //     = 3 -> break-avg 1.5 -> distance 0.5  <- winner.
-        //
-        // The DFS visits leaves in lex order; the first distance-0.5 leaf encountered wins
-        // because subsequent distance-0.5 leaves don't beat it on any tier (strict-better rule
-        // preserves determinism). The lex-first tied leaf has distance 1.0 (perm `[0, 1, 2, 3]`,
-        // pair `{0, 3}`); the next tied leaf the DFS finds is `[0, 1, 3, 2]` (pair `{0, 2}`)
-        // with distance 0.5, which becomes and stays the winner. The Max Break prune is
-        // disabled so the distance-0.5 group (which carries `maxBreak = 3 > ceil(8 / 4) = 2`)
-        // is reachable.
+        // 8 players, 4 matches. Every leaf ties `minBreak = 0` (players 0/1 play every match).
+        // Tier 2 minimizes `maxBreak`:
+        //   - {0, 3} position pair for M0/M3 -> maxBreak = 2
+        //   - {0, 2} or {1, 3} -> maxBreak = 3
+        // Winner must carry maxBreak = 2. Max Break prune is disabled (PHP_INT_MAX threshold)
+        // so the maxBreak = 3 group remains reachable but loses on tier 2.
         $generator = $this->makeGenerator(60_000_000_000, PHP_INT_MAX);
 
         $matches = [
@@ -331,7 +310,7 @@ final class TemplateMatchesGeneratorOrderingTest extends TestCase
         ];
         $mockPlayers = [0, 1, 2, 3, 4, 5, 6, 7];
 
-        $brute = $this->bruteForceBestOrderThreeTier($matches, $mockPlayers, $generator);
+        $brute = $this->bruteForceBestOrderSevenTier($matches, $mockPlayers, $generator);
 
         $result = $this->invokeOrderingPhase($generator, $matches, $mockPlayers);
 
@@ -340,33 +319,82 @@ final class TemplateMatchesGeneratorOrderingTest extends TestCase
         $this->assertSame($brute['min'], $result['min']);
         $this->assertSame($brute['avg'], $result['avg']);
         $this->assertSame($brute['minBreak'], $result['minBreak']);
-        $this->assertSame($brute['maxBreak'], $result['maxBreak']);
+        $this->assertSame(2, $result['maxBreak'], 'Winner must minimize maxBreak among tied minBreak leaves.');
 
-        // Direct break-balance assertion: the winner must sit in the dist-0.5 group, i.e. its
-        // average of (minBreak, maxBreak) is 1.5 -- the closest reachable approximation of the
-        // per-player target of 2.0 once `minBreak = 0` is forced by the four 1-appearance
-        // players. The losing group (avg = 1.0) is the trap the 3rd-tier compare must avoid.
-        $winnerBreakAvg = ($result['minBreak'] + $result['maxBreak']) / 2.0;
-        $this->assertSame(1.5, $winnerBreakAvg, 'Winner must be in the break-avg closest to target.');
-
-        // Confirm the 3rd tier had real work to do: ≥ 2 leaves tie on (min, avg) and at least
-        // one of those tied leaves has a strictly larger break-balance distance than the winner.
-        $tiesAtTopTwo = array_values(array_filter(
+        $tiesAtMinBreak = array_values(array_filter(
             $brute['leaves'],
-            static fn(array $leaf): bool => $leaf['min'] === $brute['min'] && $leaf['avg'] === $brute['avg']
+            static fn(array $leaf): bool => $leaf['minBreak'] === $brute['minBreak']
         ));
         $this->assertGreaterThanOrEqual(
             2,
-            count($tiesAtTopTwo),
-            'Tie-break test input must produce at least two leaves tied on (min, avg).'
+            count($tiesAtMinBreak),
+            'Tie-break test input must produce at least two leaves tied on minBreak.'
         );
-        $worseBreakLeaves = array_filter(
-            $tiesAtTopTwo,
-            static fn(array $leaf): bool => $leaf['breakDistance'] > $brute['breakDistance']
+        $worseMaxBreakLeaves = array_filter(
+            $tiesAtMinBreak,
+            static fn(array $leaf): bool => $leaf['maxBreak'] > $brute['maxBreak']
         );
         $this->assertNotEmpty(
-            $worseBreakLeaves,
-            'At least one (min, avg)-tied leaf must have a worse break-balance distance, otherwise the 3rd-tier compare is vacuous.'
+            $worseMaxBreakLeaves,
+            'At least one minBreak-tied leaf must have a worse maxBreak, otherwise tier 2 is vacuous.'
+        );
+    }
+
+    public function test_sort_dfs_prefers_lower_streak_tie_break_when_dist_and_break_tie(): void
+    {
+        $generator = $this->makeGenerator(60_000_000_000, PHP_INT_MAX);
+
+        $matches = [
+            [[0, 1], [2, 3]],
+            [[0, 2], [1, 4]],
+            [[0, 3], [4, 5]],
+            [[1, 5], [2, 4]],
+            [[3, 4], [0, 5]],
+            [[2, 5], [1, 3]],
+        ];
+        $mockPlayers = range(0, 5);
+
+        $brute = $this->bruteForceBestOrderSevenTier($matches, $mockPlayers, $generator);
+        $result = $this->invokeOrderingPhase($generator, $matches, $mockPlayers);
+
+        $this->assertSame(TemplateMatchesGenerator::STOP_REASON_FACTORIAL_COMPLETE, $result['stopReason']);
+        $this->assertSame($brute['ordered'], $result['ordered']);
+        $this->assertSame(2, $brute['consecutiveMinBreaks']);
+        $this->assertLessThan(3, $brute['consecutiveMinBreaks'], 'Winner must beat leaves with cMin=3.');
+
+        $breakTies = array_values(array_filter(
+            $brute['leaves'],
+            static fn(array $leaf): bool => $leaf['minBreak'] === $brute['minBreak']
+                && $leaf['maxBreak'] === $brute['maxBreak']
+        ));
+        $this->assertGreaterThanOrEqual(2, count($breakTies));
+        $distinctStreakMins = array_unique(array_column($breakTies, 'consecutiveMinBreaks'));
+        $this->assertGreaterThan(1, count($distinctStreakMins), 'Tier-3 ties must differ on consecutiveMinBreaks.');
+    }
+
+    public function test_sort_dfs_break_metrics_beat_better_distribution(): void
+    {
+        $generator = $this->makeGenerator(60_000_000_000, PHP_INT_MAX);
+
+        $matches = [
+            [[0, 1], [2, 3]],
+            [[0, 2], [1, 4]],
+            [[0, 3], [4, 5]],
+            [[1, 5], [2, 4]],
+            [[3, 4], [0, 5]],
+            [[2, 5], [1, 3]],
+        ];
+        $mockPlayers = range(0, 5);
+
+        $distOnly = $this->bruteForceBestOrder($matches, $mockPlayers, $generator);
+        $brute = $this->bruteForceBestOrderSevenTier($matches, $mockPlayers, $generator);
+        $result = $this->invokeOrderingPhase($generator, $matches, $mockPlayers);
+
+        $this->assertSame($brute['ordered'], $result['ordered']);
+        $this->assertNotSame(
+            $distOnly,
+            $brute['ordered'],
+            'Seven-tier winner must differ from distribution-only optimum on this fixture.'
         );
     }
 
@@ -832,25 +860,37 @@ final class TemplateMatchesGeneratorOrderingTest extends TestCase
     }
 
     /**
-     * 3-tier brute-force reference: enumerates every permutation and picks the lex-best with
-     * `(Min Dist desc, Avg Dist desc, breakDistance asc, leaf-index asc)`. Returns the winning
-     * ordering together with its metrics plus the full per-leaf trace, so the caller can assert
-     * that at least one tied-at-top-two leaf had a strictly worse break-balance distance.
+     * 7-tier brute-force reference aligned with production ordering DFS:
+     * `(minBreak max, maxBreak min, consecutiveMinBreaks min, consecutiveMaxBreaks min,
+     * normCourtSwitches min, minDist max, avgDist max)`.
      *
      * @param array<int, array<int, array<int, int>>> $matches
      * @param array<int, int>                         $mockPlayers
      * @return array{
-     *     ordered: array<int, array<int, array<int, int>>>,
+     *     ordered: array<int, array<int, array<int, array<int, int>>>>,
      *     min: float,
      *     avg: float,
      *     minBreak: int,
      *     maxBreak: int,
-     *     breakDistance: float,
-     *     leaves: array<int, array{min: float, avg: float, breakDistance: float}>
+     *     normCourtSwitches: float,
+     *     consecutiveMinBreaks: int,
+     *     consecutiveMaxBreaks: int,
+     *     leaves: array<int, array{
+     *         min: float,
+     *         avg: float,
+     *         minBreak: int,
+     *         maxBreak: int,
+     *         normCourtSwitches: float,
+     *         consecutiveMinBreaks: int,
+     *         consecutiveMaxBreaks: int
+     *     }>
      * }
      */
-    private function bruteForceBestOrderThreeTier(array $matches, array $mockPlayers, TemplateMatchesGenerator $generator): array
-    {
+    private function bruteForceBestOrderSevenTier(
+        array $matches,
+        array $mockPlayers,
+        TemplateMatchesGenerator $generator
+    ): array {
         $reflection = new \ReflectionClass(TemplateMatchesGenerator::class);
         $next = $reflection->getMethod('pcNextPermutation');
         $next->setAccessible(true);
@@ -858,9 +898,7 @@ final class TemplateMatchesGeneratorOrderingTest extends TestCase
         $scorer = new PlayerDistributionScorer();
 
         $m = count($matches);
-        $playersCount = count($mockPlayers);
-        $playerMatches = $playersCount > 0 ? ($m * 4) / $playersCount : 0.0;
-        $targetBreakAvg = $playerMatches > 0 ? ($m / $playerMatches) : 0.0;
+        $roundsTotal = $m;
 
         $perm = range(0, $m - 1);
         $permCopy = $perm;
@@ -869,9 +907,11 @@ final class TemplateMatchesGeneratorOrderingTest extends TestCase
         $bestOrdered = $matches;
         $bestMin = null;
         $bestAvg = null;
-        $bestMinBreak = 0;
-        $bestMaxBreak = 0;
-        $bestBreakDistance = INF;
+        $bestMinBreak = -1;
+        $bestMaxBreak = PHP_INT_MAX;
+        $bestNormCourtSwitches = INF;
+        $bestConsecutiveMinBreaks = PHP_INT_MAX;
+        $bestConsecutiveMaxBreaks = PHP_INT_MAX;
         $leaves = [];
 
         do {
@@ -883,67 +923,54 @@ final class TemplateMatchesGeneratorOrderingTest extends TestCase
             $aggregate = $scorer->scoreAll($mockPlayers, [$ordered]);
             $min = $aggregate['min'];
             $avg = $aggregate['avg'];
+            $normCourtSwitches = $roundsTotal > 1 ? 0.0 : 0.0;
 
-            // Asymmetric break metrics per the new contract:
-            //   perPlayerMin[p] = shortest INNER break run (0 if no inner runs)
-            //   perPlayerMax[p] = longest break run anywhere (lead + inner + trail)
-            //   minBreak = min over players of perPlayerMin[p]
-            //   maxBreak = max over players of perPlayerMax[p]
-            $perPlayerMin = [];
-            $perPlayerMax = [];
-            foreach ($mockPlayers as $p) {
-                $currentRun = 0;
-                $longest = 0;
-                $hasPlayed = false;
-                $innerRuns = [];
-                foreach ($ordered as $match) {
-                    $seats = [
-                        $match[0][0] ?? null,
-                        $match[0][1] ?? null,
-                        $match[1][0] ?? null,
-                        $match[1][1] ?? null,
-                    ];
-                    $playsThisMatch = in_array((int) $p, array_map(static fn($x) => (int) $x, array_filter($seats, static fn($x) => $x !== null)), true);
-                    if ($playsThisMatch) {
-                        if ($hasPlayed) {
-                            // Subsequent appearance: record the inner run (length 0 for
-                            // back-to-back appearances, matching the production tracker's
-                            // sit-out semantics).
-                            $innerRuns[] = $currentRun;
-                        }
-                        if ($currentRun > $longest) {
-                            $longest = $currentRun;
-                        }
-                        $hasPlayed = true;
-                        $currentRun = 0;
-                    } else {
-                        $currentRun++;
-                    }
-                }
-                if ($currentRun > $longest) {
-                    $longest = $currentRun;
-                }
-                $perPlayerMin[] = empty($innerRuns) ? 0 : min($innerRuns);
-                $perPlayerMax[] = $longest;
-            }
-            $minBreak = min($perPlayerMin);
-            $maxBreak = max($perPlayerMax);
-            $breakDistance = abs((($minBreak + $maxBreak) / 2.0) - $targetBreakAvg);
+            $breakMetrics = RoundScheduleBreakAnalyzer::computeBreakMetrics([$ordered], $mockPlayers);
+            $minBreak = $breakMetrics['minBreak'];
+            $maxBreak = $breakMetrics['maxBreak'];
+            $streaks = RoundScheduleBreakAnalyzer::analyze(
+                [$ordered],
+                $mockPlayers,
+                $minBreak,
+                $maxBreak
+            );
+            $consecutiveMinBreaks = $streaks['consecutiveMinBreaks'] ?? PHP_INT_MAX;
+            $consecutiveMaxBreaks = $streaks['consecutiveMaxBreaks'] ?? PHP_INT_MAX;
 
-            $leaves[] = ['min' => $min, 'avg' => $avg, 'breakDistance' => $breakDistance];
+            $leaves[] = [
+                'min' => $min,
+                'avg' => $avg,
+                'minBreak' => $minBreak,
+                'maxBreak' => $maxBreak,
+                'normCourtSwitches' => $normCourtSwitches,
+                'consecutiveMinBreaks' => $consecutiveMinBreaks,
+                'consecutiveMaxBreaks' => $consecutiveMaxBreaks,
+            ];
 
-            if (
-                $bestMin === null
-                || $min > $bestMin
-                || ($min === $bestMin && $avg > $bestAvg)
-                || ($min === $bestMin && $avg === $bestAvg && $breakDistance < $bestBreakDistance)
-            ) {
+            if ($this->isSevenTierLexBetter(
+                $minBreak,
+                $maxBreak,
+                $consecutiveMinBreaks,
+                $consecutiveMaxBreaks,
+                $normCourtSwitches,
+                $min,
+                $avg,
+                $bestMinBreak,
+                $bestMaxBreak,
+                $bestConsecutiveMinBreaks,
+                $bestConsecutiveMaxBreaks,
+                $bestNormCourtSwitches,
+                $bestMin,
+                $bestAvg
+            )) {
                 $bestMin = $min;
                 $bestAvg = $avg;
                 $bestOrdered = $ordered;
                 $bestMinBreak = $minBreak;
                 $bestMaxBreak = $maxBreak;
-                $bestBreakDistance = $breakDistance;
+                $bestNormCourtSwitches = $normCourtSwitches;
+                $bestConsecutiveMinBreaks = $consecutiveMinBreaks;
+                $bestConsecutiveMaxBreaks = $consecutiveMaxBreaks;
             }
         } while (($perm = $next->invoke($generator, $perm, $size)) !== false && $perm !== $permCopy);
 
@@ -953,9 +980,70 @@ final class TemplateMatchesGeneratorOrderingTest extends TestCase
             'avg' => $bestAvg,
             'minBreak' => $bestMinBreak,
             'maxBreak' => $bestMaxBreak,
-            'breakDistance' => $bestBreakDistance,
+            'normCourtSwitches' => $bestNormCourtSwitches,
+            'consecutiveMinBreaks' => $bestConsecutiveMinBreaks,
+            'consecutiveMaxBreaks' => $bestConsecutiveMaxBreaks,
             'leaves' => $leaves,
         ];
+    }
+
+    private function isSevenTierLexBetter(
+        int $minBreak,
+        int $maxBreak,
+        int $consecutiveMinBreaks,
+        int $consecutiveMaxBreaks,
+        float $normCourtSwitches,
+        float $min,
+        float $avg,
+        int $bestMinBreak,
+        int $bestMaxBreak,
+        int $bestConsecutiveMinBreaks,
+        int $bestConsecutiveMaxBreaks,
+        float $bestNormCourtSwitches,
+        ?float $bestMin,
+        ?float $bestAvg
+    ): bool {
+        if ($bestMin === null) {
+            return true;
+        }
+        if ($minBreak > $bestMinBreak) {
+            return true;
+        }
+        if ($minBreak < $bestMinBreak) {
+            return false;
+        }
+        if ($maxBreak < $bestMaxBreak) {
+            return true;
+        }
+        if ($maxBreak > $bestMaxBreak) {
+            return false;
+        }
+        if ($consecutiveMinBreaks < $bestConsecutiveMinBreaks) {
+            return true;
+        }
+        if ($consecutiveMinBreaks > $bestConsecutiveMinBreaks) {
+            return false;
+        }
+        if ($consecutiveMaxBreaks < $bestConsecutiveMaxBreaks) {
+            return true;
+        }
+        if ($consecutiveMaxBreaks > $bestConsecutiveMaxBreaks) {
+            return false;
+        }
+        if ($normCourtSwitches < $bestNormCourtSwitches) {
+            return true;
+        }
+        if ($normCourtSwitches > $bestNormCourtSwitches) {
+            return false;
+        }
+        if ($min > $bestMin) {
+            return true;
+        }
+        if ($min < $bestMin) {
+            return false;
+        }
+
+        return $avg > $bestAvg;
     }
 
     /**
@@ -967,59 +1055,6 @@ final class TemplateMatchesGeneratorOrderingTest extends TestCase
      */
     private function computeBreakMetricsFromRoundSchedule(array $matchesByCourt, array $mockPlayers): array
     {
-        $roundsTotal = 0;
-        foreach ($matchesByCourt as $courtRounds) {
-            $roundsTotal = max($roundsTotal, count($courtRounds));
-        }
-
-        $perPlayerMin = [];
-        $perPlayerMax = [];
-        foreach ($mockPlayers as $p) {
-            $currentRun = 0;
-            $longest = 0;
-            $hasPlayed = false;
-            $innerRuns = [];
-            for ($r = 0; $r < $roundsTotal; $r++) {
-                $playsThisRound = false;
-                foreach ($matchesByCourt as $courtRounds) {
-                    if (!isset($courtRounds[$r])) {
-                        continue;
-                    }
-                    $match = $courtRounds[$r];
-                    $seats = [
-                        (int) $match[0][0],
-                        (int) $match[0][1],
-                        (int) $match[1][0],
-                        (int) $match[1][1],
-                    ];
-                    if (in_array((int) $p, $seats, true)) {
-                        $playsThisRound = true;
-                        break;
-                    }
-                }
-                if ($playsThisRound) {
-                    if ($hasPlayed) {
-                        $innerRuns[] = $currentRun;
-                    }
-                    if ($currentRun > $longest) {
-                        $longest = $currentRun;
-                    }
-                    $hasPlayed = true;
-                    $currentRun = 0;
-                } else {
-                    $currentRun++;
-                }
-            }
-            if ($currentRun > $longest) {
-                $longest = $currentRun;
-            }
-            $perPlayerMin[] = $innerRuns === [] ? 0 : min($innerRuns);
-            $perPlayerMax[] = $longest;
-        }
-
-        return [
-            'minBreak' => min($perPlayerMin),
-            'maxBreak' => max($perPlayerMax),
-        ];
+        return RoundScheduleBreakAnalyzer::computeBreakMetrics($matchesByCourt, $mockPlayers);
     }
 }

@@ -217,8 +217,11 @@ final class RegenerateTemplatesCommandTest extends TestCase
         ]);
 
         $output = $tester->getDisplay();
-        foreach (['TEAMS', 'PAIRING STATS', 'ORDERING STATS'] as $group) {
+        foreach (['TEAMS', 'PAIRING', 'MATCH-MAKING', 'ORDERING'] as $group) {
             $this->assertStringContainsString($group, $output, "Group header missing: {$group}");
+        }
+        foreach (['PAIRING STATS', 'MATCH-MAKING STATS', 'ORDERING STATS'] as $group) {
+            $this->assertStringNotContainsString($group, $output, "Stats group header should be omitted by default: {$group}");
         }
     }
 

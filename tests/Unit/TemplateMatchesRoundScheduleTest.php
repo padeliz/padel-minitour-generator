@@ -114,6 +114,8 @@ final class TemplateMatchesRoundScheduleTest extends TestCase
                 null,
                 null,
                 null,
+                null,
+                null,
                 null
             );
 

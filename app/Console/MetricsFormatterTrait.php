@@ -25,10 +25,12 @@ trait MetricsFormatterTrait
     /**
      * @param list<array{players:int,partners:int,repeat:int,courts:int,fixedTeams:bool}> $combos
      * @param list<TemplateMatches|null> $templates
+     * @param bool $includeStatsColumns Whether to include stats column groups (PAIRING STATS, MATCH-MAKING STATS, ORDERING STATS).
      * @return array{
      *     includeCourtsColumn: bool,
      *     includePartnersVarColumn: bool,
      *     includeCourtSwitchesColumn: bool,
+     *     includeStatsColumns: bool,
      *     pairingColspan: int,
      *     orderingColspan: int,
      *     totalColumns: int,
@@ -37,7 +39,7 @@ trait MetricsFormatterTrait
      *     avgColumns: array{pairingMinPartnersFair:int,pairingAvgPartnersFair:int,partnersVar?:int,meetingsVar:int,orderingMinDist:int,orderingAvgDist:int}
      * }
      */
-    protected function resolveUnifiedTableLayout(array $combos, array $templates = []): array
+    protected function resolveUnifiedTableLayout(array $combos, array $templates = [], bool $includeStatsColumns = true): array
     {
         $repeats = array_values(array_unique(array_column($combos, 'repeat')));
         $fixedTeamsFlags = array_values(array_unique(array_map(
@@ -65,7 +67,18 @@ trait MetricsFormatterTrait
         $teamsColspan = $includeCourtsColumn ? 3 : 2;
         $pairingColspan = $includePartnersVarColumn ? 3 : 2;
         $orderingColspan = $includeCourtSwitchesColumn ? 5 : 4;
-        $totalColumns = $teamsColspan + $pairingColspan + 4 + 4 + 4 + $orderingColspan + 4;
+        $pairingStatsCols = $includeStatsColumns ? 4 : 0;
+        $matchMakingStatsCols = $includeStatsColumns ? 4 : 0;
+        $orderingStatsCols = $includeStatsColumns ? 4 : 0;
+        $matchMakingQualityCols = 4;
+
+        $totalColumns = $teamsColspan
+            + $pairingColspan
+            + $pairingStatsCols
+            + $matchMakingQualityCols
+            + $matchMakingStatsCols
+            + $orderingColspan
+            + $orderingStatsCols;
 
         $col = $teamsColspan;
         $avgColumns = [
@@ -77,9 +90,9 @@ trait MetricsFormatterTrait
             $avgColumns['partnersVar'] = $col;
             $col++;
         }
-        $col += 4;
+        $col += $pairingStatsCols;
         $avgColumns['meetingsVar'] = $col;
-        $col += 4 + 4 + $orderingColspan;
+        $col += $matchMakingQualityCols + $matchMakingStatsCols;
         $avgColumns['orderingMinDist'] = $col;
         $avgColumns['orderingAvgDist'] = $col + 1;
 
@@ -87,6 +100,7 @@ trait MetricsFormatterTrait
             'includeCourtsColumn' => $includeCourtsColumn,
             'includePartnersVarColumn' => $includePartnersVarColumn,
             'includeCourtSwitchesColumn' => $includeCourtSwitchesColumn,
+            'includeStatsColumns' => $includeStatsColumns,
             'pairingColspan' => $pairingColspan,
             'orderingColspan' => $orderingColspan,
             'totalColumns' => $totalColumns,
@@ -435,36 +449,51 @@ trait MetricsFormatterTrait
             $orderingDetail[] = 'Court Sw.';
         }
 
-        return [
-            [
-                new TableCell('<fg=green>TEAMS</>', ['colspan' => $layout['teamsColspan']]),
-                new TableCell('<fg=green>PAIRING</>', ['colspan' => $layout['pairingColspan']]),
-                new TableCell('<fg=green>PAIRING STATS</>', ['colspan' => 4]),
-                new TableCell('<fg=green>MATCH-MAKING</>', ['colspan' => 4]),
-                new TableCell('<fg=green>MATCH-MAKING STATS</>', ['colspan' => 4]),
-                new TableCell('<fg=green>ORDERING</>', ['colspan' => $layout['orderingColspan']]),
-                new TableCell('<fg=green>ORDERING STATS</>', ['colspan' => 4]),
-            ],
-            array_merge($teamsDetail, $pairingDetail, [
-                'Seed',
-                'Nodes',
-                'Stop Reason',
-                'Time',
-                'Meets Var.',
-                'Min Opponents',
-                'Max Opponents',
-                'Matches',
+        $groupRow = [
+            new TableCell('<fg=green>TEAMS</>', ['colspan' => $layout['teamsColspan']]),
+            new TableCell('<fg=green>PAIRING</>', ['colspan' => $layout['pairingColspan']]),
+        ];
+        if ($layout['includeStatsColumns']) {
+            $groupRow[] = new TableCell('<fg=green>PAIRING STATS</>', ['colspan' => 4]);
+        }
+        $groupRow[] = new TableCell('<fg=green>MATCH-MAKING</>', ['colspan' => 4]);
+        if ($layout['includeStatsColumns']) {
+            $groupRow[] = new TableCell('<fg=green>MATCH-MAKING STATS</>', ['colspan' => 4]);
+        }
+        $groupRow[] = new TableCell('<fg=green>ORDERING</>', ['colspan' => $layout['orderingColspan']]);
+        if ($layout['includeStatsColumns']) {
+            $groupRow[] = new TableCell('<fg=green>ORDERING STATS</>', ['colspan' => 4]);
+        }
+
+        $detailRow = array_merge($teamsDetail, $pairingDetail);
+        if ($layout['includeStatsColumns']) {
+            $detailRow = array_merge($detailRow, ['Seed', 'Nodes', 'Stop Reason', 'Time']);
+        }
+        $detailRow = array_merge($detailRow, [
+            'Meets Var.',
+            'Min Opponents',
+            'Max Opponents',
+            'Matches',
+        ]);
+        if ($layout['includeStatsColumns']) {
+            $detailRow = array_merge($detailRow, [
                 'Perm. Idx.',
                 'Templates',
                 'Stop Reason',
                 'Time',
-            ], $orderingDetail, [
+            ]);
+        }
+        $detailRow = array_merge($detailRow, $orderingDetail);
+        if ($layout['includeStatsColumns']) {
+            $detailRow = array_merge($detailRow, [
                 'Perm. Idx.',
                 'Nodes',
                 'Stop Reason',
                 'Time',
-            ]),
-        ];
+            ]);
+        }
+
+        return [$groupRow, $detailRow];
     }
 
     /**
@@ -534,42 +563,61 @@ trait MetricsFormatterTrait
             $orderingCells[] = $this->formatCourtSwitches($template->getOrderingQualityCourtSwitches());
         }
 
-        return array_merge($identityCells, $teamsCells, $pairingCells, [
-            $template->getPairingStatsSeedIndex() !== null
-                ? '<fg=white>' . $template->getPairingStatsSeedIndex() . ' / ' . (int) $template->getPairingStatsSeedsTotal() . '</>'
-                : '<fg=red>-</>',
-            $template->getPairingStatsNodesExplored() !== null
-                ? '<fg=white>' . $template->getPairingStatsNodesExplored() . '</>'
-                : '<fg=red>-</>',
-            $this->formatStopReason($template->getPairingStatsStopReason()),
-            $this->formatTime($template->getPairingStatsTime()),
+        $row = array_merge($identityCells, $teamsCells, $pairingCells);
+        if ($layout['includeStatsColumns']) {
+            $row = array_merge($row, [
+                $template->getPairingStatsSeedIndex() !== null
+                    ? '<fg=white>' . $template->getPairingStatsSeedIndex() . ' / ' . (int) $template->getPairingStatsSeedsTotal() . '</>'
+                    : '<fg=red>-</>',
+                $template->getPairingStatsNodesExplored() !== null
+                    ? '<fg=white>' . $template->getPairingStatsNodesExplored() . '</>'
+                    : '<fg=red>-</>',
+                $this->formatStopReason($template->getPairingStatsStopReason()),
+                $this->formatTime($template->getPairingStatsTime()),
+            ]);
+        }
+
+        $row = array_merge($row, [
             $this->formatMeetingsVariation($template->getMatchMakingQualityMeetingsVariation()),
             $this->formatOpponentsMetCount($template->getMatchMakingQualityMinOpponentsMet(), $players),
             $this->formatOpponentsMetCount($template->getMatchMakingQualityMaxOpponentsMet(), $players),
             $template->getMatchMakingQualityMatchesCount() !== null
                 ? '<fg=white>' . $template->getMatchMakingQualityMatchesCount() . '</>'
                 : '<fg=red>-</>',
-            $this->formatIndex(
-                $template->getMatchMakingStatsPermutationIndex(),
-                (int) $template->getMatchMakingStatsPermutationsIterated()
-            ),
-            $this->formatIndex(
-                $template->getMatchMakingStatsTemplateIndex(),
-                (int) $template->getMatchMakingStatsTemplatesGenerated()
-            ),
-            $this->formatStopReason($template->getMatchMakingStatsStopReason()),
-            $this->formatTime($template->getMatchMakingStatsTime()),
-        ], $orderingCells, [
-            $this->formatIndex(
-                $template->getOrderingStatsPermutationIndex(),
-                (int) $template->getOrderingStatsPermutationsIterated()
-            ),
-            $template->getOrderingStatsNodesExplored() !== null
-                ? '<fg=white>' . $template->getOrderingStatsNodesExplored() . '</>'
-                : '<fg=red>-</>',
-            $this->formatStopReason($template->getOrderingStatsStopReason()),
-            $this->formatTime($template->getOrderingStatsTime()),
         ]);
+
+        if ($layout['includeStatsColumns']) {
+            $row = array_merge($row, [
+                $this->formatIndex(
+                    $template->getMatchMakingStatsPermutationIndex(),
+                    (int) $template->getMatchMakingStatsPermutationsIterated()
+                ),
+                $this->formatIndex(
+                    $template->getMatchMakingStatsTemplateIndex(),
+                    (int) $template->getMatchMakingStatsTemplatesGenerated()
+                ),
+                $this->formatStopReason($template->getMatchMakingStatsStopReason()),
+                $this->formatTime($template->getMatchMakingStatsTime()),
+            ]);
+        }
+
+        $row = array_merge($row, $orderingCells);
+
+        if ($layout['includeStatsColumns']) {
+            $row = array_merge($row, [
+                $this->formatIndex(
+                    $template->getOrderingStatsPermutationIndex(),
+                    (int) $template->getOrderingStatsPermutationsIterated()
+                ),
+                $template->getOrderingStatsNodesExplored() !== null
+                    ? '<fg=white>' . $template->getOrderingStatsNodesExplored() . '</>'
+                    : '<fg=red>-</>',
+                $this->formatStopReason($template->getOrderingStatsStopReason()),
+                $this->formatTime($template->getOrderingStatsTime()),
+            ]);
+        }
+
+        return $row;
     }
 
     /**
@@ -650,7 +698,8 @@ trait MetricsFormatterTrait
         OutputInterface $output,
         TemplateMatches $template,
         bool $firstOfGroup,
-        ?array $layout = null
+        ?array $layout = null,
+        bool $includeStatsColumns = true
     ): void {
         if ($layout === null) {
             $layout = $this->resolveUnifiedTableLayout([[
@@ -659,7 +708,7 @@ trait MetricsFormatterTrait
                 'repeat' => $template->getRepeat(),
                 'courts' => $template->getCourts(),
                 'fixedTeams' => $template->isFixedTeams(),
-            ]], [$template]);
+            ]], [$template], $includeStatsColumns);
         }
 
         $table = $this->makeUnifiedTable($output);

@@ -191,6 +191,8 @@ final class RecordingGenerator extends TemplateMatchesGenerator
             0.97,
             0,
             0,
+            null,
+            null,
             0,
             null,
             $matches === null ? null : $matchCount,
