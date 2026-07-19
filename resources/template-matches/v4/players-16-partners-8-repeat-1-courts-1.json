@@ -9,7 +9,7 @@
         "pairing": {
             "quality": {
                 "minPartnersFairness": 0.8125,
-                "avgPartnersFairness": 0.9437872023809524,
+                "avgPartnersFairness": 0.9351376488095238,
                 "partnersCount": [
                     8,
                     8,
@@ -33,257 +33,65 @@
             },
             "stats": {
                 "stopReason": "DEADLINE",
-                "time": 590.7616998,
-                "nodesExplored": 500211,
-                "seedIndex": 116,
+                "time": 591.4606043,
+                "nodesExplored": 585102,
+                "seedIndex": 10,
                 "seedsTotal": 256
             }
         },
         "matchMaking": {
             "quality": {
-                "meetingsVariation": 2.125,
-                "minOpponentsMet": 10,
-                "maxOpponentsMet": 14,
-                "playersMet": {
-                    "0": {
-                        "12": 1,
-                        "1": 3,
-                        "8": 3,
-                        "13": 2,
-                        "9": 3,
-                        "10": 3,
-                        "2": 3,
-                        "14": 2,
-                        "11": 1,
-                        "3": 2,
-                        "15": 1
-                    },
-                    "12": {
-                        "0": 1,
-                        "1": 2,
-                        "8": 2,
-                        "3": 3,
-                        "15": 2,
-                        "2": 2,
-                        "13": 2,
-                        "4": 3,
-                        "10": 2,
-                        "5": 3,
-                        "6": 1,
-                        "7": 1
-                    },
-                    "1": {
-                        "0": 3,
-                        "12": 2,
-                        "8": 3,
-                        "13": 1,
-                        "9": 2,
-                        "10": 2,
-                        "2": 3,
-                        "14": 1,
-                        "11": 2,
-                        "15": 3,
-                        "3": 2
-                    },
-                    "8": {
-                        "0": 3,
-                        "12": 2,
-                        "1": 3,
-                        "13": 1,
-                        "11": 2,
-                        "2": 1,
-                        "15": 1,
-                        "3": 1,
-                        "4": 1,
-                        "7": 3,
-                        "6": 2,
-                        "5": 3,
-                        "9": 1
-                    },
-                    "13": {
-                        "0": 2,
-                        "8": 1,
-                        "1": 1,
-                        "2": 3,
-                        "9": 2,
-                        "12": 2,
-                        "3": 2,
-                        "4": 2,
-                        "5": 2,
-                        "11": 2,
-                        "14": 1,
-                        "6": 3,
-                        "7": 1
-                    },
-                    "9": {
-                        "0": 3,
-                        "1": 2,
-                        "10": 2,
-                        "13": 2,
-                        "2": 2,
-                        "15": 2,
-                        "3": 2,
-                        "11": 1,
-                        "4": 1,
-                        "5": 1,
-                        "7": 3,
-                        "8": 1,
-                        "6": 1,
-                        "14": 1
-                    },
-                    "10": {
-                        "0": 3,
-                        "9": 2,
-                        "1": 2,
-                        "2": 2,
-                        "14": 3,
-                        "3": 1,
-                        "4": 2,
-                        "5": 2,
-                        "12": 2,
-                        "6": 1,
-                        "7": 2,
-                        "15": 2
-                    },
-                    "2": {
-                        "0": 3,
-                        "13": 3,
-                        "9": 2,
-                        "10": 2,
-                        "14": 2,
-                        "11": 3,
-                        "8": 1,
-                        "1": 3,
-                        "15": 1,
-                        "12": 2,
-                        "3": 2
-                    },
-                    "14": {
-                        "0": 2,
-                        "10": 3,
-                        "2": 2,
-                        "3": 2,
-                        "1": 1,
-                        "11": 2,
-                        "4": 2,
-                        "6": 2,
-                        "13": 1,
-                        "5": 1,
-                        "7": 3,
-                        "9": 1,
-                        "15": 2
-                    },
-                    "11": {
-                        "0": 1,
-                        "2": 3,
-                        "8": 2,
-                        "1": 2,
-                        "14": 2,
-                        "15": 1,
-                        "3": 2,
-                        "4": 3,
-                        "9": 1,
-                        "13": 2,
-                        "5": 3,
-                        "6": 2
-                    },
-                    "3": {
-                        "0": 2,
-                        "14": 2,
-                        "10": 1,
-                        "15": 3,
-                        "9": 2,
-                        "1": 2,
-                        "12": 3,
-                        "8": 1,
-                        "2": 2,
-                        "13": 2,
-                        "11": 2,
-                        "4": 2
-                    },
-                    "15": {
-                        "0": 1,
-                        "3": 3,
-                        "9": 2,
-                        "1": 3,
-                        "11": 1,
-                        "2": 1,
-                        "12": 2,
-                        "8": 1,
-                        "4": 1,
-                        "6": 2,
-                        "10": 2,
-                        "7": 3,
-                        "14": 2
-                    },
-                    "4": {
-                        "3": 2,
-                        "11": 3,
-                        "9": 1,
-                        "14": 2,
-                        "10": 2,
-                        "5": 3,
-                        "12": 3,
-                        "13": 2,
-                        "6": 3,
-                        "15": 1,
-                        "7": 1,
-                        "8": 1
-                    },
-                    "5": {
-                        "4": 3,
-                        "10": 2,
-                        "12": 3,
-                        "13": 2,
-                        "11": 3,
-                        "6": 3,
-                        "14": 1,
-                        "7": 3,
-                        "8": 3,
-                        "9": 1
-                    },
-                    "6": {
-                        "4": 3,
-                        "14": 2,
-                        "13": 3,
-                        "15": 2,
-                        "12": 1,
-                        "7": 4,
-                        "8": 2,
-                        "5": 3,
-                        "11": 2,
-                        "9": 1,
-                        "10": 1
-                    },
-                    "7": {
-                        "4": 1,
-                        "6": 4,
-                        "8": 3,
-                        "5": 3,
-                        "14": 3,
-                        "9": 3,
-                        "12": 1,
-                        "13": 1,
-                        "10": 2,
-                        "15": 3
-                    }
-                },
-                "matchesCount": 32
+                "meetingsVariation": null,
+                "minOpponentsMet": null,
+                "maxOpponentsMet": null,
+                "playersMet": null,
+                "matchesCount": null,
+                "minPlayingFairness": null,
+                "avgPlayingFairness": null,
+                "maxPlayingFairnessPenalty": null
             },
             "stats": {
                 "permutationsIterated": 256,
-                "permutationIndex": 1,
-                "templatesGenerated": 63,
-                "templateIndex": 1,
+                "permutationIndex": 112,
+                "templatesGenerated": 1385725,
+                "templateIndex": 631338,
+                "nodesExplored": 1385725,
                 "stopReason": "FACTORIAL_COMPLETE",
-                "time": 33.0137604,
-                "meetingsVariationLimit": 1,
+                "time": 360.5308941,
+                "meetingsVariationLimit": 3,
+                "candidatesCollected": 1385725,
+                "candidatesDeduped": 512,
+                "candidateIndex": null,
                 "relaxAttempts": [
                     {
                         "meetingsVariationLimit": 1,
                         "permutationsIterated": 256,
-                        "templatesGenerated": 63,
-                        "time": 33.0137604
+                        "templatesGenerated": 158940,
+                        "nodesExplored": 158940,
+                        "time": 122.139512,
+                        "candidatesCollected": 158940,
+                        "candidatesDeduped": 512,
+                        "stopReason": "FACTORIAL_COMPLETE"
+                    },
+                    {
+                        "meetingsVariationLimit": 2,
+                        "permutationsIterated": 256,
+                        "templatesGenerated": 1200019,
+                        "nodesExplored": 1200019,
+                        "time": 307.9025656,
+                        "candidatesCollected": 1200019,
+                        "candidatesDeduped": 512,
+                        "stopReason": "FACTORIAL_COMPLETE"
+                    },
+                    {
+                        "meetingsVariationLimit": 3,
+                        "permutationsIterated": 256,
+                        "templatesGenerated": 1385725,
+                        "nodesExplored": 1385725,
+                        "time": 360.5308941,
+                        "candidatesCollected": 1385725,
+                        "candidatesDeduped": 512,
+                        "stopReason": "FACTORIAL_COMPLETE"
                     }
                 ]
             }
@@ -301,13 +109,36 @@
                 "roundsCount": null
             },
             "stats": {
-                "stopReason": "PRUNE_INFEASIBLE",
+                "stopReason": "DEADLINE",
                 "permutationsIterated": 0,
                 "permutationIndex": null,
-                "nodesExplored": 2560000,
+                "nodesExplored": 0,
                 "seedIndex": null,
-                "seedsTotal": 256,
-                "time": 179.7110368
+                "seedsTotal": null,
+                "time": 5042.2641122,
+                "relaxAttempts": [
+                    {
+                        "meetingsVariationLimit": 1,
+                        "candidatesTried": 32,
+                        "eligible": false,
+                        "time": 5370.9277287,
+                        "stopReason": "DEADLINE"
+                    },
+                    {
+                        "meetingsVariationLimit": 2,
+                        "candidatesTried": 31,
+                        "eligible": false,
+                        "time": 5186.5683685,
+                        "stopReason": "DEADLINE"
+                    },
+                    {
+                        "meetingsVariationLimit": 3,
+                        "candidatesTried": 32,
+                        "eligible": false,
+                        "time": 5042.2641122,
+                        "stopReason": "DEADLINE"
+                    }
+                ]
             }
         }
     }

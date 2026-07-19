@@ -4,6 +4,7 @@ namespace Arshavinel\PadelMiniTour\Console;
 
 use Arshavinel\PadelMiniTour\Service\PlayerDistributionScorer;
 use Arshavinel\PadelMiniTour\Service\PartnersFairnessScorer;
+use Arshavinel\PadelMiniTour\Service\PlayingFairnessScorer;
 use Arshavinel\PadelMiniTour\Service\TemplateMatches;
 use Arshavinel\PadelMiniTour\Service\TemplateMatchesGenerator;
 use Arshavinel\PadelMiniTour\Service\TemplateMatchesRepository;
@@ -36,7 +37,7 @@ trait MetricsFormatterTrait
      *     totalColumns: int,
      *     teamsColspan: int,
      *     contextParts: list<string>,
-     *     avgColumns: array{pairingMinPartnersFair:int,pairingAvgPartnersFair:int,partnersVar?:int,meetingsVar:int,orderingMinDist:int,orderingAvgDist:int}
+     *     avgColumns: array{pairingMinPartnersFair:int,pairingAvgPartnersFair:int,partnersVar?:int,meetingsVar:int,minPlayingFair:int,avgPlayingFair:int,maxPlayingPenalty:int,orderingMinDist:int,orderingAvgDist:int}
      * }
      */
     protected function resolveUnifiedTableLayout(array $combos, array $templates = [], bool $includeStatsColumns = true): array
@@ -68,9 +69,9 @@ trait MetricsFormatterTrait
         $pairingColspan = $includePartnersVarColumn ? 3 : 2;
         $orderingColspan = $includeCourtSwitchesColumn ? 5 : 4;
         $pairingStatsCols = $includeStatsColumns ? 4 : 0;
-        $matchMakingStatsCols = $includeStatsColumns ? 4 : 0;
+        $matchMakingStatsCols = $includeStatsColumns ? 5 : 0;
         $orderingStatsCols = $includeStatsColumns ? 4 : 0;
-        $matchMakingQualityCols = 4;
+        $matchMakingQualityCols = 7;
 
         $totalColumns = $teamsColspan
             + $pairingColspan
@@ -92,6 +93,9 @@ trait MetricsFormatterTrait
         }
         $col += $pairingStatsCols;
         $avgColumns['meetingsVar'] = $col;
+        $avgColumns['minPlayingFair'] = $col + 4;
+        $avgColumns['avgPlayingFair'] = $col + 5;
+        $avgColumns['maxPlayingPenalty'] = $col + 6;
         $col += $matchMakingQualityCols + $matchMakingStatsCols;
         $avgColumns['orderingMinDist'] = $col;
         $avgColumns['orderingAvgDist'] = $col + 1;
@@ -287,6 +291,31 @@ trait MetricsFormatterTrait
         );
     }
 
+    protected function formatPlayingFairness(?float $value): string
+    {
+        return $this->formatDistribution(
+            $value,
+            PlayingFairnessScorer::DISPLAY_GOOD,
+            PlayingFairnessScorer::DISPLAY_FAIR
+        );
+    }
+
+    protected function formatMaxPlayingFairnessPenalty(?float $value): string
+    {
+        if ($value === null) {
+            return '<fg=red>-</>';
+        }
+        if ($value <= PlayingFairnessScorer::DISPLAY_MAX_PENALTY_GOOD) {
+            $color = 'green';
+        } elseif ($value <= PlayingFairnessScorer::DISPLAY_MAX_PENALTY_FAIR) {
+            $color = 'yellow';
+        } else {
+            $color = 'red';
+        }
+
+        return "<fg=$color>" . number_format($value, 3) . '</>';
+    }
+
     /**
      * Color-coded distribution score rendered as an integer percentage (no decimals). Green at/above
      * `$greenAt`, yellow at/above `$yellowAt`, red otherwise. Color thresholds are still compared
@@ -456,9 +485,9 @@ trait MetricsFormatterTrait
         if ($layout['includeStatsColumns']) {
             $groupRow[] = new TableCell('<fg=green>PAIRING STATS</>', ['colspan' => 4]);
         }
-        $groupRow[] = new TableCell('<fg=green>MATCH-MAKING</>', ['colspan' => 4]);
+        $groupRow[] = new TableCell('<fg=green>MATCH-MAKING</>', ['colspan' => 7]);
         if ($layout['includeStatsColumns']) {
-            $groupRow[] = new TableCell('<fg=green>MATCH-MAKING STATS</>', ['colspan' => 4]);
+            $groupRow[] = new TableCell('<fg=green>MATCH-MAKING STATS</>', ['colspan' => 5]);
         }
         $groupRow[] = new TableCell('<fg=green>ORDERING</>', ['colspan' => $layout['orderingColspan']]);
         if ($layout['includeStatsColumns']) {
@@ -474,11 +503,15 @@ trait MetricsFormatterTrait
             'Min Opponents',
             'Max Opponents',
             'Matches',
+            'Min Play Fair.',
+            'Avg Play Fair.',
+            'Max Play Pen.',
         ]);
         if ($layout['includeStatsColumns']) {
             $detailRow = array_merge($detailRow, [
                 'Perm. Idx.',
                 'Templates',
+                'Nodes',
                 'Stop Reason',
                 'Time',
             ]);
@@ -584,6 +617,9 @@ trait MetricsFormatterTrait
             $template->getMatchMakingQualityMatchesCount() !== null
                 ? '<fg=white>' . $template->getMatchMakingQualityMatchesCount() . '</>'
                 : '<fg=red>-</>',
+            $this->formatPlayingFairness($template->getMatchMakingQualityMinPlayingFairness()),
+            $this->formatPlayingFairness($template->getMatchMakingQualityAvgPlayingFairness()),
+            $this->formatMaxPlayingFairnessPenalty($template->getMatchMakingQualityMaxPlayingFairnessPenalty()),
         ]);
 
         if ($layout['includeStatsColumns']) {
@@ -596,6 +632,9 @@ trait MetricsFormatterTrait
                     $template->getMatchMakingStatsTemplateIndex(),
                     (int) $template->getMatchMakingStatsTemplatesGenerated()
                 ),
+                $template->getMatchMakingStatsNodesExplored() !== null
+                    ? '<fg=white>' . $template->getMatchMakingStatsNodesExplored() . '</>'
+                    : '<fg=red>-</>',
                 $this->formatStopReason($template->getMatchMakingStatsStopReason()),
                 $this->formatTime($template->getMatchMakingStatsTime()),
             ]);
@@ -623,12 +662,15 @@ trait MetricsFormatterTrait
     /**
      * @param array{
      *     totalColumns: int,
-     *     avgColumns: array{pairingMinPartnersFair:int,pairingAvgPartnersFair:int,partnersVar:int,meetingsVar:int,orderingMinDist:int,orderingAvgDist:int}
+     *     avgColumns: array{pairingMinPartnersFair:int,pairingAvgPartnersFair:int,partnersVar?:int,meetingsVar:int,minPlayingFair:int,avgPlayingFair:int,maxPlayingPenalty:int,orderingMinDist:int,orderingAvgDist:int}
      * } $layout
      * @param array<int, float|null> $minPartnersFairs
      * @param array<int, float|null> $avgPartnersFairs
      * @param array<int, int|null>   $partnersVars
      * @param array<int, float|null> $meetingsVars
+     * @param array<int, float|null> $minPlayingFairs
+     * @param array<int, float|null> $avgPlayingFairs
+     * @param array<int, float|null> $maxPlayingPenalties
      * @param array<int, float|null> $mins
      * @param array<int, float|null> $avgs
      * @return array<int, string>
@@ -639,6 +681,9 @@ trait MetricsFormatterTrait
         array $avgPartnersFairs,
         array $partnersVars,
         array $meetingsVars,
+        array $minPlayingFairs,
+        array $avgPlayingFairs,
+        array $maxPlayingPenalties,
         array $mins,
         array $avgs
     ): array {
@@ -653,6 +698,9 @@ trait MetricsFormatterTrait
                 : '';
         }
         $row[$cols['meetingsVar']] = $this->formatMeetingsVariation($this->averageMetricValues($meetingsVars)) . ' (AVG)';
+        $row[$cols['minPlayingFair']] = $this->formatPlayingFairness($this->averageMetricValues($minPlayingFairs)) . ' (AVG)';
+        $row[$cols['avgPlayingFair']] = $this->formatPlayingFairness($this->averageMetricValues($avgPlayingFairs)) . ' (AVG)';
+        $row[$cols['maxPlayingPenalty']] = $this->formatMaxPlayingFairnessPenalty($this->averageMetricValues($maxPlayingPenalties)) . ' (AVG)';
         $row[$cols['orderingMinDist']] = $this->formatDistribution(
             $this->averageMetricValues($mins),
             PlayerDistributionScorer::DISPLAY_GOOD,

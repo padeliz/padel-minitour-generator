@@ -572,7 +572,7 @@ trait TemplateMatchesPairingPoolDfs
             $initialTargets
         );
 
-        return $minUpper < $bestMin;
+        return LexFloat::isBetterMin($minUpper, $bestMin);
     }
 
     private function isPairingLexBetter(
@@ -586,16 +586,16 @@ trait TemplateMatchesPairingPoolDfs
         if ($bestMin === null) {
             return true;
         }
-        if ($min > $bestMin) {
+        if (LexFloat::isBetterMax($min, $bestMin)) {
             return true;
         }
-        if ($min < $bestMin) {
+        if (LexFloat::isBetterMax($bestMin, $min)) {
             return false;
         }
-        if ($bestAvg === null || $avg > $bestAvg) {
+        if ($bestAvg === null || LexFloat::isBetterMax($avg, $bestAvg)) {
             return true;
         }
-        if ($avg < $bestAvg) {
+        if (LexFloat::isBetterMax($bestAvg, $avg)) {
             return false;
         }
 

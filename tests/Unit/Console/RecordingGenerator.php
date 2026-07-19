@@ -177,10 +177,14 @@ final class RecordingGenerator extends TemplateMatchesGenerator
             3,
             [],
             $matchCount,
+            null,
+            null,
+            null,
             12,
             1,
             1,
             1,
+            6,
             $matches === null
                 ? TemplateMatchesGenerator::STOP_REASON_DEADLINE
                 : TemplateMatchesGenerator::STOP_REASON_FACTORIAL_COMPLETE,

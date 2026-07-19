@@ -211,10 +211,14 @@ final class MetricsTemplatesCommandTest extends TestCase
                 8,
                 [],
                 null,
+                null,
+                null,
+                null,
                 256,
                 248,
                 4,
                 248,
+                null,
                 'DEADLINE',
                 148.0,
                 3,
@@ -310,16 +314,16 @@ final class MetricsTemplatesCommandTest extends TestCase
         $template = $this->makeTemplate(4, 1, 1, false);
 
         $slim = $harness->layout($combo, [$template], false);
-        $this->assertSame(12, $slim['totalColumns']);
+        $this->assertSame(15, $slim['totalColumns']);
         $this->assertSame(4, $slim['avgColumns']['meetingsVar']);
-        $this->assertSame(8, $slim['avgColumns']['orderingMinDist']);
-        $this->assertSame(9, $slim['avgColumns']['orderingAvgDist']);
+        $this->assertSame(11, $slim['avgColumns']['orderingMinDist']);
+        $this->assertSame(12, $slim['avgColumns']['orderingAvgDist']);
 
         $full = $harness->layout($combo, [$template], true);
-        $this->assertSame(24, $full['totalColumns']);
+        $this->assertSame(28, $full['totalColumns']);
         $this->assertSame(8, $full['avgColumns']['meetingsVar']);
-        $this->assertSame(16, $full['avgColumns']['orderingMinDist']);
-        $this->assertSame(17, $full['avgColumns']['orderingAvgDist']);
+        $this->assertSame(20, $full['avgColumns']['orderingMinDist']);
+        $this->assertSame(21, $full['avgColumns']['orderingAvgDist']);
     }
 
     public function test_unified_table_includes_partners_var_column_when_any_template_has_variation(): void
@@ -366,10 +370,14 @@ final class MetricsTemplatesCommandTest extends TestCase
                 8,
                 [],
                 1,
+                null,
+                null,
+                null,
                 10,
                 3,
                 10,
                 3,
+                null,
                 'FACTORIAL_COMPLETE',
                 0.08,
                 1,
@@ -499,10 +507,14 @@ final class MetricsTemplatesCommandTest extends TestCase
                 8,
                 [],
                 1,
+                null,
+                null,
+                null,
                 10,
                 3,
                 10,
                 3,
+                null,
                 'FACTORIAL_COMPLETE',
                 0.08,
                 1,
@@ -570,10 +582,14 @@ final class MetricsTemplatesCommandTest extends TestCase
                 3,
                 [],
                 1,
+                null,
+                null,
+                null,
                 10,
                 3,
                 10,
                 3,
+                null,
                 'FACTORIAL_COMPLETE',
                 0.08,
                 1,
@@ -746,10 +762,14 @@ final class MetricsTemplatesCommandTest extends TestCase
             $partners,
             [],
             1,
+            null,
+            null,
+            null,
             10,
             3,
             10,
             3,
+            50,
             'FACTORIAL_COMPLETE',
             0.08,
             1,

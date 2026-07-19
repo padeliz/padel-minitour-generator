@@ -64,16 +64,28 @@ final class TemplateMatchesPairingTest extends GeneratorTestCase
 
     public function test_pairing_phase_is_deterministic_for_twelve_eight(): void
     {
-        $budgetNs = 20_000_000_000;
-        $first = $this->invokePairingPhase(new TemplateMatchesGenerator(null, 1, 12), 12, 8, $budgetNs);
-        $second = $this->invokePairingPhase(new TemplateMatchesGenerator(null, 1, 12), 12, 8, $budgetNs);
+        // Freeze the wall clock so the budget never elapses; otherwise two runs under load can
+        // hit DEADLINE at different DFS depths and disagree on best-so-far. Single-seed keeps the
+        // search on the identity path (see TemplateMatchesGenerator::$multiSeedCountPairing).
+        $clock = static fn (): int => 0;
+        $makeGenerator = static fn (): TemplateMatchesGenerator => new TemplateMatchesGenerator(
+            $clock,
+            TemplateMatchesGenerator::DEFAULT_OUTER_WALL_BUDGET_NS,
+            TemplateMatchesGenerator::DEFAULT_SORT_WALL_BUDGET_NS,
+            1
+        );
 
+        $first = $this->invokePairingPhase($makeGenerator(), 12, 8, self::TEST_PHASE_BUDGET_NS);
+        $second = $this->invokePairingPhase($makeGenerator(), 12, 8, self::TEST_PHASE_BUDGET_NS);
+
+        $this->assertSame($first['stopReason'], $second['stopReason']);
         $this->assertSame($first['pairCount'], $second['pairCount']);
-        $this->assertSame($first['minPartnersFairness'], $second['minPartnersFairness']);
-        $this->assertSame($first['avgPartnersFairness'], $second['avgPartnersFairness']);
+        $this->assertSame($first['seedIndex'], $second['seedIndex']);
         $this->assertSame(
             array_map(static fn(array $pair): array => $pair['players'], $first['pairs']),
             array_map(static fn(array $pair): array => $pair['players'], $second['pairs'])
         );
+        $this->assertEqualsWithDelta($first['minPartnersFairness'], $second['minPartnersFairness'], 1e-9);
+        $this->assertEqualsWithDelta($first['avgPartnersFairness'], $second['avgPartnersFairness'], 1e-9);
     }
 }

@@ -43,6 +43,9 @@ final class TemplateMatchesTest extends TestCase
         $this->assertSame([1 => 1, 2 => 1, 3 => 1], $template->getMatchMakingQualityPlayersMetBy(0));
         $this->assertNull($template->getMatchMakingQualityPlayersMetBy(99));
         $this->assertSame(1, $template->getMatchMakingQualityMatchesCount());
+        $this->assertEqualsWithDelta(1.0 / 3.0, $template->getMatchMakingQualityMinPlayingFairness(), 1e-9);
+        $this->assertEqualsWithDelta(2.0 / 3.0, $template->getMatchMakingQualityAvgPlayingFairness(), 1e-9);
+        $this->assertEqualsWithDelta(2.0 / 3.0, $template->getMatchMakingQualityMaxPlayingFairnessPenalty(), 1e-9);
         $this->assertSame(2, $template->getMatchMakingStatsPermutationsIterated());
         $this->assertSame(1, $template->getMatchMakingStatsPermutationIndex());
         $this->assertSame(2, $template->getMatchMakingStatsTemplatesGenerated());
@@ -111,6 +114,12 @@ final class TemplateMatchesTest extends TestCase
             'stopReason', 'time', 'nodesExplored', 'seedIndex', 'seedsTotal',
         ];
         $this->assertSame($expectedPairingStatsKeys, array_keys($array['metrics']['pairing']['stats']));
+
+        $expectedMatchMakingQualityKeys = [
+            'meetingsVariation', 'minOpponentsMet', 'maxOpponentsMet', 'playersMet', 'matchesCount',
+            'minPlayingFairness', 'avgPlayingFairness', 'maxPlayingFairnessPenalty',
+        ];
+        $this->assertSame($expectedMatchMakingQualityKeys, array_keys($array['metrics']['matchMaking']['quality']));
 
         $expectedOrderingQualityKeys = [
             'minDistribution', 'avgDistribution', 'minBreak', 'maxBreak',
@@ -471,10 +480,14 @@ final class TemplateMatchesTest extends TestCase
                 3 => [0 => 1, 1 => 1, 2 => 1],
             ],
             1,
+            1.0 / 3.0,
+            2.0 / 3.0,
+            2.0 / 3.0,
             2,
             1,
             2,
             1,
+            null,
             'FACTORIAL_COMPLETE',
             0.04,
             1,
@@ -506,6 +519,10 @@ final class TemplateMatchesTest extends TestCase
             $repeat,
             1,
             $fixedTeams,
+            null,
+            null,
+            null,
+            null,
             null,
             null,
             null,

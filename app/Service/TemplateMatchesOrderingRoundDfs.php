@@ -168,6 +168,9 @@ trait TemplateMatchesOrderingRoundDfs
             'permutationIndex' => $globalBest['permutationIndex'],
             'minBreak' => $globalBest['minBreak'],
             'maxBreak' => $globalBest['maxBreak'],
+            'consecutiveMinBreaks' => $globalBest['consecutiveMinBreaks'] ?? null,
+            'consecutiveMaxBreaks' => $globalBest['consecutiveMaxBreaks'] ?? null,
+            'normCourtSwitches' => $globalBest['normCourtSwitches'] ?? null,
             'courtSwitches' => $globalBest['courtSwitches'],
             'courtBalance' => $globalBest['courtBalance'],
             'nodesExplored' => $totalNodesExplored,
@@ -388,28 +391,28 @@ trait TemplateMatchesOrderingRoundDfs
 
         $cNormCourt = $candidate['normCourtSwitches'] ?? INF;
         $bNormCourt = $currentBest['normCourtSwitches'] ?? INF;
-        if ($cNormCourt < $bNormCourt) {
+        if (LexFloat::isBetterMin($cNormCourt, $bNormCourt)) {
             return 1;
         }
-        if ($cNormCourt > $bNormCourt) {
+        if (LexFloat::isBetterMin($bNormCourt, $cNormCourt)) {
             return -1;
         }
 
         $cMin = $candidate['min'] ?? -INF;
         $bMin = $currentBest['min'] ?? -INF;
-        if ($cMin > $bMin) {
+        if (LexFloat::isBetterMax($cMin, $bMin)) {
             return 1;
         }
-        if ($cMin < $bMin) {
+        if (LexFloat::isBetterMax($bMin, $cMin)) {
             return -1;
         }
 
         $cAvg = $candidate['avg'] ?? -INF;
         $bAvg = $currentBest['avg'] ?? -INF;
-        if ($cAvg > $bAvg) {
+        if (LexFloat::isBetterMax($cAvg, $bAvg)) {
             return 1;
         }
-        if ($cAvg < $bAvg) {
+        if (LexFloat::isBetterMax($bAvg, $cAvg)) {
             return -1;
         }
 
@@ -568,6 +571,46 @@ trait TemplateMatchesOrderingRoundDfs
         }
 
         return $count;
+    }
+
+    /**
+     * Defer streak prune while an unused match can still seat a player who has not appeared.
+     *
+     * @param array<int, array<int, array<int, int>>> $flatMatches
+     * @param array<int, int>                         $mockPlayers
+     * @param array<int, bool>                        $used
+     * @param array<int, bool>                        $playedAtLeastOnce
+     */
+    private function orderingPartialStreakPruneDeferred(
+        array $flatMatches,
+        array $mockPlayers,
+        array $used,
+        array $playedAtLeastOnce
+    ): bool {
+        $matchCount = count($flatMatches);
+        $usedCount = $this->countUsedMatches($used);
+        if ($usedCount >= $matchCount) {
+            return false;
+        }
+
+        foreach ($mockPlayers as $playerIndex) {
+            if ($playedAtLeastOnce[$playerIndex] ?? false) {
+                continue;
+            }
+
+            foreach ($flatMatches as $matchIdx => $match) {
+                if ($used[$matchIdx] ?? false) {
+                    continue;
+                }
+
+                if (isset($this->matchPlayerLookup($match)[$playerIndex])) {
+                    return true;
+                }
+            }
+        }
+
+        // Defer until at least 75% of matches are placed so early prefixes can still branch.
+        return ($usedCount * 4) < ($matchCount * 3);
     }
 
     /**
@@ -741,6 +784,64 @@ trait TemplateMatchesOrderingRoundDfs
             );
 
             if ($pruned) {
+                continue;
+            }
+
+            if (
+                $bestState['ordered'] !== null
+                && RoundScheduleBreakAnalyzer::shouldPrunePartialBreakBounds(
+                    $shortestInner,
+                    $longestRuns,
+                    $bestState
+                )
+            ) {
+                $this->restoreRoundDfsState(
+                    $snapshot,
+                    $matchesByCourt,
+                    $used,
+                    $currentRuns,
+                    $longestRuns,
+                    $playedAtLeastOnce,
+                    $shortestInner,
+                    $lastCourt,
+                    $courtSwitches,
+                    $courts
+                );
+                continue;
+            }
+
+            if (
+                $this->countUsedMatches($used) < $m
+                && !$this->orderingPartialStreakPruneDeferred(
+                    $flatMatches,
+                    $mockPlayers,
+                    $used,
+                    $playedAtLeastOnce
+                )
+                && RoundScheduleBreakAnalyzer::shouldPrunePartialConsecutiveMinBreaks(
+                    $matchesByCourt,
+                    $mockPlayers,
+                    $playedAtLeastOnce,
+                    $shortestInner,
+                    $playersCount,
+                    $this->activePartners,
+                    $courts,
+                    $longestRuns,
+                    $bestState
+                )
+            ) {
+                $this->restoreRoundDfsState(
+                    $snapshot,
+                    $matchesByCourt,
+                    $used,
+                    $currentRuns,
+                    $longestRuns,
+                    $playedAtLeastOnce,
+                    $shortestInner,
+                    $lastCourt,
+                    $courtSwitches,
+                    $courts
+                );
                 continue;
             }
 

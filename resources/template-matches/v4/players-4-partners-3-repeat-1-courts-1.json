@@ -54,7 +54,7 @@
             },
             "stats": {
                 "stopReason": "FACTORIAL_COMPLETE",
-                "time": 0.0025533,
+                "time": 0.003016,
                 "nodesExplored": 52,
                 "seedIndex": 1,
                 "seedsTotal": 1
@@ -87,22 +87,33 @@
                         3
                     ]
                 ],
-                "matchesCount": 3
+                "matchesCount": 3,
+                "minPlayingFairness": 0.6666666666666667,
+                "avgPlayingFairness": 0.8333333333333333,
+                "maxPlayingFairnessPenalty": 0.2222222222222222
             },
             "stats": {
                 "permutationsIterated": 1,
                 "permutationIndex": 1,
                 "templatesGenerated": 1,
                 "templateIndex": 1,
+                "nodesExplored": 1,
                 "stopReason": "FACTORIAL_COMPLETE",
-                "time": 7.09e-5,
+                "time": 8.8e-5,
                 "meetingsVariationLimit": 1,
+                "candidatesCollected": 1,
+                "candidatesDeduped": 1,
+                "candidateIndex": 0,
                 "relaxAttempts": [
                     {
                         "meetingsVariationLimit": 1,
                         "permutationsIterated": 1,
                         "templatesGenerated": 1,
-                        "time": 7.09e-5
+                        "nodesExplored": 1,
+                        "time": 8.8e-5,
+                        "candidatesCollected": 1,
+                        "candidatesDeduped": 1,
+                        "stopReason": "FACTORIAL_COMPLETE"
                     }
                 ]
             }
@@ -126,7 +137,16 @@
                 "nodesExplored": 16,
                 "seedIndex": 1,
                 "seedsTotal": 1,
-                "time": 0.0017985
+                "time": 0.0025819,
+                "relaxAttempts": [
+                    {
+                        "meetingsVariationLimit": 1,
+                        "candidatesTried": 1,
+                        "eligible": true,
+                        "time": 0.0025819,
+                        "stopReason": null
+                    }
+                ]
             }
         }
     }

@@ -2,6 +2,7 @@
 
 namespace Tests\Unit;
 
+use Arshavinel\PadelMiniTour\Service\LexFloat;
 use Arshavinel\PadelMiniTour\Service\PlayerDistributionScorer;
 use Arshavinel\PadelMiniTour\Service\Progress\OrderingProgress;
 use Arshavinel\PadelMiniTour\Service\Progress\ProgressReporter;
@@ -67,7 +68,7 @@ final class TemplateMatchesGeneratorOrderingTest extends TestCase
         $result = $this->invokeOrderingPhase($generator, $matches, $mockPlayers);
         $expected = $this->bruteForceBestOrderSevenTier($matches, $mockPlayers, $generator);
 
-        $this->assertSame($expected['ordered'], $result['ordered']);
+        $this->assertOrderingLexEquivalent($generator, $result, $expected);
     }
 
     public function test_sort_matches_matches_brute_force_when_wall_budget_allows_full_scan_eight_players(): void
@@ -90,7 +91,7 @@ final class TemplateMatchesGeneratorOrderingTest extends TestCase
         $result = $this->invokeOrderingPhase($generator, $matches, $mockPlayers);
         $expected = $this->bruteForceBestOrderSevenTier($matches, $mockPlayers, $generator);
 
-        $this->assertSame($expected['ordered'], $result['ordered']);
+        $this->assertOrderingLexEquivalent($generator, $result, $expected);
     }
 
     public function test_sort_matches_returns_factorial_complete_when_thresholds_unreachable(): void
@@ -118,7 +119,7 @@ final class TemplateMatchesGeneratorOrderingTest extends TestCase
         $brute = $this->bruteForceBestOrderSevenTier($matches, $mockPlayers, $generator);
         $result = $this->invokeOrderingPhase($generator, $matches, $mockPlayers);
 
-        $this->assertSame($brute['ordered'], $result['ordered']);
+        $this->assertOrderingLexEquivalent($generator, $result, $brute);
     }
 
     public function test_sort_matches_returns_input_unchanged_when_match_count_is_one_or_zero(): void
@@ -765,6 +766,12 @@ final class TemplateMatchesGeneratorOrderingTest extends TestCase
             $activeCourts->setValue($generator, 1);
         }
 
+        $activePartners = $reflection->getProperty('activePartners');
+        $activePartners->setAccessible(true);
+        if ($activePartners->getValue($generator) < 1) {
+            $activePartners->setValue($generator, 1);
+        }
+
         $reporter ??= ProgressReporter::noop(0, 0, 0, false);
 
         return $method->invoke($generator, $matches, $mockPlayers, $reporter);
@@ -987,6 +994,48 @@ final class TemplateMatchesGeneratorOrderingTest extends TestCase
         ];
     }
 
+    /**
+     * Under LexFloat 2dp indifference, tied schedules may differ by discovery order.
+     * Require production DFS and brute reference to be full ordering-lex equivalent.
+     *
+     * @param array<string, mixed> $actual
+     * @param array<string, mixed> $expected
+     */
+    private function assertOrderingLexEquivalent(
+        TemplateMatchesGenerator $generator,
+        array $actual,
+        array $expected
+    ): void {
+        $this->assertNotNull($actual['ordered']);
+        $this->assertNotNull($expected['ordered']);
+
+        $compare = (new \ReflectionClass($generator))->getMethod('compareOrderingLex');
+        $compare->setAccessible(true);
+
+        $actualLex = [
+            'ordered' => $actual['ordered'],
+            'minBreak' => $actual['minBreak'] ?? $expected['minBreak'],
+            'maxBreak' => $actual['maxBreak'] ?? $expected['maxBreak'],
+            'consecutiveMinBreaks' => $actual['consecutiveMinBreaks'] ?? $expected['consecutiveMinBreaks'],
+            'consecutiveMaxBreaks' => $actual['consecutiveMaxBreaks'] ?? $expected['consecutiveMaxBreaks'],
+            'normCourtSwitches' => $actual['normCourtSwitches'] ?? $expected['normCourtSwitches'],
+            'min' => $actual['min'] ?? $expected['min'],
+            'avg' => $actual['avg'] ?? $expected['avg'],
+        ];
+        $expectedLex = [
+            'ordered' => $expected['ordered'],
+            'minBreak' => $expected['minBreak'],
+            'maxBreak' => $expected['maxBreak'],
+            'consecutiveMinBreaks' => $expected['consecutiveMinBreaks'],
+            'consecutiveMaxBreaks' => $expected['consecutiveMaxBreaks'],
+            'normCourtSwitches' => $expected['normCourtSwitches'],
+            'min' => $expected['min'],
+            'avg' => $expected['avg'],
+        ];
+
+        $this->assertSame(0, $compare->invoke($generator, $actualLex, $expectedLex));
+    }
+
     private function isSevenTierLexBetter(
         int $minBreak,
         int $maxBreak,
@@ -1030,20 +1079,20 @@ final class TemplateMatchesGeneratorOrderingTest extends TestCase
         if ($consecutiveMaxBreaks > $bestConsecutiveMaxBreaks) {
             return false;
         }
-        if ($normCourtSwitches < $bestNormCourtSwitches) {
+        if (LexFloat::isBetterMin($normCourtSwitches, $bestNormCourtSwitches)) {
             return true;
         }
-        if ($normCourtSwitches > $bestNormCourtSwitches) {
+        if (LexFloat::isBetterMin($bestNormCourtSwitches, $normCourtSwitches)) {
             return false;
         }
-        if ($min > $bestMin) {
+        if (LexFloat::isBetterMax($min, $bestMin)) {
             return true;
         }
-        if ($min < $bestMin) {
+        if (LexFloat::isBetterMax($bestMin, $min)) {
             return false;
         }
 
-        return $avg > $bestAvg;
+        return LexFloat::isBetterMax($avg, $bestAvg);
     }
 
     /**

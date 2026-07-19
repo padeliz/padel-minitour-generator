@@ -57,16 +57,23 @@ final class TemplateMatches
     /** @var array<int, array<int, int>>|null */
     private ?array $matchMakingQualityPlayersMet;
     private ?int $matchMakingQualityMatchesCount;
+    private ?float $matchMakingQualityMinPlayingFairness;
+    private ?float $matchMakingQualityAvgPlayingFairness;
+    private ?float $matchMakingQualityMaxPlayingFairnessPenalty;
 
     private ?int $matchMakingStatsPermutationsIterated;
     private ?int $matchMakingStatsPermutationIndex;
     private ?int $matchMakingStatsTemplatesGenerated;
     private ?int $matchMakingStatsTemplateIndex;
+    private ?int $matchMakingStatsNodesExplored;
     private ?string $matchMakingStatsStopReason;
     private ?float $matchMakingStatsTime;
     private ?int $matchMakingStatsMeetingsVariationLimit;
-    /** @var array<int, array{meetingsVariationLimit:int,permutationsIterated:int,templatesGenerated:int,time:float}>|null */
+    /** @var array<int, array{meetingsVariationLimit:int,permutationsIterated:int,templatesGenerated:int,nodesExplored:int,time:float,candidatesCollected:int,candidatesDeduped:int,stopReason:string}>|null */
     private ?array $matchMakingStatsRelaxAttempts;
+    private ?int $matchMakingStatsCandidatesCollected;
+    private ?int $matchMakingStatsCandidatesDeduped;
+    private ?int $matchMakingStatsCandidateIndex;
 
     private ?float $orderingQualityMinDistribution;
     private ?float $orderingQualityAvgDistribution;
@@ -85,12 +92,15 @@ final class TemplateMatches
     private ?int $orderingStatsSeedIndex;
     private ?int $orderingStatsSeedsTotal;
     private ?float $orderingStatsTime;
+    /** @var array<int, array{meetingsVariationLimit:int,candidatesTried:int,eligible:bool,time:float,stopReason:string|null}>|null */
+    private ?array $orderingStatsRelaxAttempts;
 
     /**
      * @param array<int, array<int, array<int, array<int, int>>>>|null $matches
      * @param array<int, int>|null                                      $pairingQualityPartnersCount
      * @param array<int, array<int, int>>|null                            $matchMakingQualityPlayersMet
-     * @param array<int, array{meetingsVariationLimit:int,permutationsIterated:int,templatesGenerated:int,time:float}>|null $matchMakingStatsRelaxAttempts
+     * @param array<int, array{meetingsVariationLimit:int,permutationsIterated:int,templatesGenerated:int,nodesExplored:int,time:float,candidatesCollected:int,candidatesDeduped:int,stopReason:string}>|null $matchMakingStatsRelaxAttempts
+     * @param array<int, array{meetingsVariationLimit:int,candidatesTried:int,eligible:bool,time:float,stopReason:string|null}>|null $orderingStatsRelaxAttempts
      */
     public function __construct(
         int $players,
@@ -114,10 +124,14 @@ final class TemplateMatches
         ?int $matchMakingQualityMaxOpponentsMet,
         ?array $matchMakingQualityPlayersMet,
         ?int $matchMakingQualityMatchesCount,
+        ?float $matchMakingQualityMinPlayingFairness,
+        ?float $matchMakingQualityAvgPlayingFairness,
+        ?float $matchMakingQualityMaxPlayingFairnessPenalty,
         ?int $matchMakingStatsPermutationsIterated,
         ?int $matchMakingStatsPermutationIndex,
         ?int $matchMakingStatsTemplatesGenerated,
         ?int $matchMakingStatsTemplateIndex,
+        ?int $matchMakingStatsNodesExplored,
         ?string $matchMakingStatsStopReason,
         ?float $matchMakingStatsTime,
         ?int $matchMakingStatsMeetingsVariationLimit,
@@ -137,7 +151,11 @@ final class TemplateMatches
         ?int $orderingStatsNodesExplored,
         ?int $orderingStatsSeedIndex,
         ?int $orderingStatsSeedsTotal,
-        ?float $orderingStatsTime
+        ?float $orderingStatsTime,
+        ?int $matchMakingStatsCandidatesCollected = null,
+        ?int $matchMakingStatsCandidatesDeduped = null,
+        ?int $matchMakingStatsCandidateIndex = null,
+        ?array $orderingStatsRelaxAttempts = null
     ) {
         $this->players = $players;
         $this->partners = $partners;
@@ -160,14 +178,21 @@ final class TemplateMatches
         $this->matchMakingQualityMaxOpponentsMet = $matchMakingQualityMaxOpponentsMet;
         $this->matchMakingQualityPlayersMet = $matchMakingQualityPlayersMet;
         $this->matchMakingQualityMatchesCount = $matchMakingQualityMatchesCount;
+        $this->matchMakingQualityMinPlayingFairness = $matchMakingQualityMinPlayingFairness;
+        $this->matchMakingQualityAvgPlayingFairness = $matchMakingQualityAvgPlayingFairness;
+        $this->matchMakingQualityMaxPlayingFairnessPenalty = $matchMakingQualityMaxPlayingFairnessPenalty;
         $this->matchMakingStatsPermutationsIterated = $matchMakingStatsPermutationsIterated;
         $this->matchMakingStatsPermutationIndex = $matchMakingStatsPermutationIndex;
         $this->matchMakingStatsTemplatesGenerated = $matchMakingStatsTemplatesGenerated;
         $this->matchMakingStatsTemplateIndex = $matchMakingStatsTemplateIndex;
+        $this->matchMakingStatsNodesExplored = $matchMakingStatsNodesExplored;
         $this->matchMakingStatsStopReason = $matchMakingStatsStopReason;
         $this->matchMakingStatsTime = $matchMakingStatsTime;
         $this->matchMakingStatsMeetingsVariationLimit = $matchMakingStatsMeetingsVariationLimit;
         $this->matchMakingStatsRelaxAttempts = $matchMakingStatsRelaxAttempts;
+        $this->matchMakingStatsCandidatesCollected = $matchMakingStatsCandidatesCollected;
+        $this->matchMakingStatsCandidatesDeduped = $matchMakingStatsCandidatesDeduped;
+        $this->matchMakingStatsCandidateIndex = $matchMakingStatsCandidateIndex;
         $this->orderingQualityMinDistribution = $orderingQualityMinDistribution;
         $this->orderingQualityAvgDistribution = $orderingQualityAvgDistribution;
         $this->orderingQualityMinBreak = $orderingQualityMinBreak;
@@ -184,6 +209,7 @@ final class TemplateMatches
         $this->orderingStatsSeedIndex = $orderingStatsSeedIndex;
         $this->orderingStatsSeedsTotal = $orderingStatsSeedsTotal;
         $this->orderingStatsTime = $orderingStatsTime;
+        $this->orderingStatsRelaxAttempts = $orderingStatsRelaxAttempts;
     }
 
     public function getPlayers(): int
@@ -308,6 +334,21 @@ final class TemplateMatches
         return $this->matchMakingQualityMatchesCount;
     }
 
+    public function getMatchMakingQualityMinPlayingFairness(): ?float
+    {
+        return $this->matchMakingQualityMinPlayingFairness;
+    }
+
+    public function getMatchMakingQualityAvgPlayingFairness(): ?float
+    {
+        return $this->matchMakingQualityAvgPlayingFairness;
+    }
+
+    public function getMatchMakingQualityMaxPlayingFairnessPenalty(): ?float
+    {
+        return $this->matchMakingQualityMaxPlayingFairnessPenalty;
+    }
+
     public function getMatchMakingStatsPermutationsIterated(): ?int
     {
         return $this->matchMakingStatsPermutationsIterated;
@@ -328,6 +369,11 @@ final class TemplateMatches
         return $this->matchMakingStatsTemplateIndex;
     }
 
+    public function getMatchMakingStatsNodesExplored(): ?int
+    {
+        return $this->matchMakingStatsNodesExplored;
+    }
+
     public function getMatchMakingStatsStopReason(): ?string
     {
         return $this->matchMakingStatsStopReason;
@@ -344,15 +390,28 @@ final class TemplateMatches
     }
 
     /**
-     * Per-attempt forensic trail of the S6 match-making relax loop.
+     * Per-attempt forensic trail of the MV relax loop (MM-only fields per pass).
      *
-     * Each entry is `{meetingsVariationLimit, permutationsIterated, templatesGenerated, time}`.
-     *
-     * @return array<int, array{meetingsVariationLimit:int,permutationsIterated:int,templatesGenerated:int,time:float}>|null
+     * @return array<int, array{meetingsVariationLimit:int,permutationsIterated:int,templatesGenerated:int,nodesExplored:int,time:float,candidatesCollected:int,candidatesDeduped:int,stopReason:string}>|null
      */
     public function getMatchMakingStatsRelaxAttempts(): ?array
     {
         return $this->matchMakingStatsRelaxAttempts;
+    }
+
+    public function getMatchMakingStatsCandidatesCollected(): ?int
+    {
+        return $this->matchMakingStatsCandidatesCollected;
+    }
+
+    public function getMatchMakingStatsCandidatesDeduped(): ?int
+    {
+        return $this->matchMakingStatsCandidatesDeduped;
+    }
+
+    public function getMatchMakingStatsCandidateIndex(): ?int
+    {
+        return $this->matchMakingStatsCandidateIndex;
     }
 
     public function getOrderingQualityMinDistribution(): ?float
@@ -472,6 +531,14 @@ final class TemplateMatches
     public function getOrderingStatsTime(): ?float
     {
         return $this->orderingStatsTime;
+    }
+
+    /**
+     * @return array<int, array{meetingsVariationLimit:int,candidatesTried:int,eligible:bool,time:float,stopReason:string|null}>|null
+     */
+    public function getOrderingStatsRelaxAttempts(): ?array
+    {
+        return $this->orderingStatsRelaxAttempts;
     }
 
     /**
@@ -648,10 +715,14 @@ final class TemplateMatches
             $matchMakingQualityMaxOpponentsMet,
             $matchMakingQualityPlayersMet,
             $matchMakingQualityMatchesCount,
+            null,
+            null,
+            null,
             $matchMakingStatsPermutationsIterated,
             $matchMakingStatsPermutationIndex,
             $matchMakingStatsTemplatesGenerated,
             $matchMakingStatsTemplateIndex,
+            null,
             $matchMakingStatsStopReason,
             $matchMakingStatsTime,
             $matchMakingStatsMeetingsVariationLimit,
@@ -779,15 +850,19 @@ final class TemplateMatches
                 ? self::normalizePlayersMet($matchMakingQuality['playersMet'])
                 : null,
             isset($matchMakingQuality['matchesCount']) ? (int) $matchMakingQuality['matchesCount'] : null,
+            isset($matchMakingQuality['minPlayingFairness']) ? (float) $matchMakingQuality['minPlayingFairness'] : null,
+            isset($matchMakingQuality['avgPlayingFairness']) ? (float) $matchMakingQuality['avgPlayingFairness'] : null,
+            isset($matchMakingQuality['maxPlayingFairnessPenalty']) ? (float) $matchMakingQuality['maxPlayingFairnessPenalty'] : null,
             isset($matchMakingStats['permutationsIterated']) ? (int) $matchMakingStats['permutationsIterated'] : null,
             isset($matchMakingStats['permutationIndex']) ? (int) $matchMakingStats['permutationIndex'] : null,
             isset($matchMakingStats['templatesGenerated']) ? (int) $matchMakingStats['templatesGenerated'] : null,
             isset($matchMakingStats['templateIndex']) ? (int) $matchMakingStats['templateIndex'] : null,
+            isset($matchMakingStats['nodesExplored']) ? (int) $matchMakingStats['nodesExplored'] : null,
             isset($matchMakingStats['stopReason']) ? (string) $matchMakingStats['stopReason'] : null,
             isset($matchMakingStats['time']) ? (float) $matchMakingStats['time'] : null,
             isset($matchMakingStats['meetingsVariationLimit']) ? (int) $matchMakingStats['meetingsVariationLimit'] : null,
             isset($matchMakingStats['relaxAttempts']) && is_array($matchMakingStats['relaxAttempts'])
-                ? self::normalizeRelaxAttempts($matchMakingStats['relaxAttempts'])
+                ? self::normalizeMatchMakingRelaxAttempts($matchMakingStats['relaxAttempts'])
                 : null,
             isset($orderingQuality['minDistribution']) ? (float) $orderingQuality['minDistribution'] : null,
             isset($orderingQuality['avgDistribution']) ? (float) $orderingQuality['avgDistribution'] : null,
@@ -804,7 +879,13 @@ final class TemplateMatches
             isset($orderingStats['nodesExplored']) ? (int) $orderingStats['nodesExplored'] : null,
             isset($orderingStats['seedIndex']) ? (int) $orderingStats['seedIndex'] : null,
             isset($orderingStats['seedsTotal']) ? (int) $orderingStats['seedsTotal'] : null,
-            isset($orderingStats['time']) ? (float) $orderingStats['time'] : null
+            isset($orderingStats['time']) ? (float) $orderingStats['time'] : null,
+            isset($matchMakingStats['candidatesCollected']) ? (int) $matchMakingStats['candidatesCollected'] : null,
+            isset($matchMakingStats['candidatesDeduped']) ? (int) $matchMakingStats['candidatesDeduped'] : null,
+            isset($matchMakingStats['candidateIndex']) ? (int) $matchMakingStats['candidateIndex'] : null,
+            isset($orderingStats['relaxAttempts']) && is_array($orderingStats['relaxAttempts'])
+                ? self::normalizeOrderingRelaxAttempts($orderingStats['relaxAttempts'])
+                : null
         );
     }
 
@@ -844,15 +925,22 @@ final class TemplateMatches
                         'maxOpponentsMet' => $this->matchMakingQualityMaxOpponentsMet,
                         'playersMet' => $this->matchMakingQualityPlayersMet,
                         'matchesCount' => $this->matchMakingQualityMatchesCount,
+                        'minPlayingFairness' => $this->matchMakingQualityMinPlayingFairness,
+                        'avgPlayingFairness' => $this->matchMakingQualityAvgPlayingFairness,
+                        'maxPlayingFairnessPenalty' => $this->matchMakingQualityMaxPlayingFairnessPenalty,
                     ],
                     'stats' => [
                         'permutationsIterated' => $this->matchMakingStatsPermutationsIterated,
                         'permutationIndex' => $this->matchMakingStatsPermutationIndex,
                         'templatesGenerated' => $this->matchMakingStatsTemplatesGenerated,
                         'templateIndex' => $this->matchMakingStatsTemplateIndex,
+                        'nodesExplored' => $this->matchMakingStatsNodesExplored,
                         'stopReason' => $this->matchMakingStatsStopReason,
                         'time' => $this->matchMakingStatsTime,
                         'meetingsVariationLimit' => $this->matchMakingStatsMeetingsVariationLimit,
+                        'candidatesCollected' => $this->matchMakingStatsCandidatesCollected,
+                        'candidatesDeduped' => $this->matchMakingStatsCandidatesDeduped,
+                        'candidateIndex' => $this->matchMakingStatsCandidateIndex,
                         'relaxAttempts' => $this->matchMakingStatsRelaxAttempts,
                     ],
                 ],
@@ -876,6 +964,7 @@ final class TemplateMatches
                         'seedIndex' => $this->orderingStatsSeedIndex,
                         'seedsTotal' => $this->orderingStatsSeedsTotal,
                         'time' => $this->orderingStatsTime,
+                        'relaxAttempts' => $this->orderingStatsRelaxAttempts,
                     ],
                 ],
             ],
@@ -949,24 +1038,66 @@ final class TemplateMatches
     }
 
     /**
-     * Coerces the deserialised matchMaking.stats.relaxAttempts array into the canonical shape used
-     * everywhere else (int / float fields, fixed key order).
-     *
      * @param array<int, array<string, mixed>> $raw
-     * @return array<int, array{meetingsVariationLimit:int,permutationsIterated:int,templatesGenerated:int,time:float}>
+     * @return array<int, array{meetingsVariationLimit:int,permutationsIterated:int,templatesGenerated:int,nodesExplored:int,time:float,candidatesCollected:int,candidatesDeduped:int,stopReason:string}>
      */
-    private static function normalizeRelaxAttempts(array $raw): array
+    private static function normalizeMatchMakingRelaxAttempts(array $raw): array
     {
         $normalized = [];
         foreach ($raw as $entry) {
             if (!is_array($entry)) {
-                continue;
+                throw new \InvalidArgumentException('matchMaking.stats.relaxAttempts entry must be an object.');
+            }
+            foreach (['meetingsVariationLimit', 'permutationsIterated', 'templatesGenerated', 'nodesExplored', 'time', 'candidatesCollected', 'candidatesDeduped', 'stopReason'] as $required) {
+                if (!array_key_exists($required, $entry)) {
+                    throw new \InvalidArgumentException("matchMaking.stats.relaxAttempts missing required key: {$required}");
+                }
             }
             $normalized[] = [
-                'meetingsVariationLimit' => isset($entry['meetingsVariationLimit']) ? (int) $entry['meetingsVariationLimit'] : 0,
-                'permutationsIterated' => isset($entry['permutationsIterated']) ? (int) $entry['permutationsIterated'] : 0,
-                'templatesGenerated' => isset($entry['templatesGenerated']) ? (int) $entry['templatesGenerated'] : 0,
-                'time' => isset($entry['time']) ? (float) $entry['time'] : 0.0,
+                'meetingsVariationLimit' => (int) $entry['meetingsVariationLimit'],
+                'permutationsIterated' => (int) $entry['permutationsIterated'],
+                'templatesGenerated' => (int) $entry['templatesGenerated'],
+                'nodesExplored' => (int) $entry['nodesExplored'],
+                'time' => (float) $entry['time'],
+                'candidatesCollected' => (int) $entry['candidatesCollected'],
+                'candidatesDeduped' => (int) $entry['candidatesDeduped'],
+                'stopReason' => (string) $entry['stopReason'],
+            ];
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $raw
+     * @return array<int, array{meetingsVariationLimit:int,candidatesTried:int,eligible:bool,time:float,stopReason:string|null}>
+     */
+    private static function normalizeOrderingRelaxAttempts(array $raw): array
+    {
+        $normalized = [];
+        foreach ($raw as $entry) {
+            if (!is_array($entry)) {
+                throw new \InvalidArgumentException('ordering.stats.relaxAttempts entry must be an object.');
+            }
+            foreach (['meetingsVariationLimit', 'candidatesTried', 'eligible', 'time', 'stopReason'] as $required) {
+                if (!array_key_exists($required, $entry)) {
+                    throw new \InvalidArgumentException("ordering.stats.relaxAttempts missing required key: {$required}");
+                }
+            }
+            $eligible = (bool) $entry['eligible'];
+            $stopReason = $entry['stopReason'];
+            if ($eligible && $stopReason !== null) {
+                throw new \InvalidArgumentException('ordering.stats.relaxAttempts stopReason must be null when eligible is true.');
+            }
+            if (!$eligible && $stopReason === null) {
+                throw new \InvalidArgumentException('ordering.stats.relaxAttempts stopReason required when eligible is false.');
+            }
+            $normalized[] = [
+                'meetingsVariationLimit' => (int) $entry['meetingsVariationLimit'],
+                'candidatesTried' => (int) $entry['candidatesTried'],
+                'eligible' => $eligible,
+                'time' => (float) $entry['time'],
+                'stopReason' => $eligible ? null : (string) $stopReason,
             ];
         }
 

@@ -8,42 +8,42 @@
         [
             [
                 [
-                    2,
-                    3
+                    0,
+                    4
                 ],
                 [
-                    1,
-                    4
+                    2,
+                    3
                 ]
             ],
             [
                 [
-                    0,
+                    1,
                     5
                 ],
                 [
-                    2,
+                    0,
                     7
                 ]
             ],
             [
                 [
-                    1,
-                    6
+                    2,
+                    7
                 ],
                 [
                     3,
-                    5
+                    6
                 ]
             ],
             [
                 [
-                    2,
-                    4
-                ],
-                [
                     0,
                     6
+                ],
+                [
+                    1,
+                    4
                 ]
             ],
             [
@@ -58,32 +58,32 @@
             ],
             [
                 [
-                    1,
-                    7
-                ],
-                [
                     2,
                     6
-                ]
-            ],
-            [
-                [
-                    0,
-                    4
                 ],
                 [
-                    1,
+                    0,
                     5
                 ]
             ],
             [
                 [
-                    3,
-                    6
+                    2,
+                    4
                 ],
                 [
-                    0,
+                    1,
                     7
+                ]
+            ],
+            [
+                [
+                    3,
+                    5
+                ],
+                [
+                    1,
+                    6
                 ]
             ]
         ]
@@ -108,8 +108,8 @@
             },
             "stats": {
                 "stopReason": "DEADLINE",
-                "time": 230.5865781,
-                "nodesExplored": 1762092,
+                "time": 230.5711787,
+                "nodesExplored": 1976271,
                 "seedIndex": 1,
                 "seedsTotal": 256
             }
@@ -120,95 +120,106 @@
                 "minOpponentsMet": 7,
                 "maxOpponentsMet": 7,
                 "playersMet": {
-                    "2": {
-                        "3": 1,
-                        "1": 2,
+                    "0": {
                         "4": 2,
-                        "7": 2,
+                        "2": 2,
+                        "3": 1,
+                        "5": 2,
+                        "6": 2,
+                        "1": 2,
+                        "7": 1
+                    },
+                    "4": {
                         "0": 2,
+                        "2": 2,
+                        "3": 2,
+                        "1": 2,
+                        "7": 2,
+                        "6": 1,
+                        "5": 1
+                    },
+                    "2": {
+                        "0": 2,
+                        "4": 2,
+                        "3": 2,
+                        "1": 1,
+                        "7": 2,
                         "5": 1,
                         "6": 2
                     },
                     "3": {
-                        "2": 1,
-                        "1": 2,
-                        "4": 2,
                         "0": 1,
-                        "7": 2,
+                        "4": 2,
+                        "2": 2,
+                        "1": 1,
                         "6": 2,
-                        "5": 2
+                        "5": 2,
+                        "7": 2
                     },
                     "1": {
-                        "2": 2,
-                        "3": 2,
+                        "2": 1,
                         "4": 2,
-                        "6": 2,
-                        "7": 1,
-                        "0": 1,
-                        "5": 2
-                    },
-                    "4": {
-                        "2": 2,
-                        "3": 2,
-                        "1": 2,
+                        "7": 2,
                         "0": 2,
-                        "6": 1,
+                        "6": 2,
                         "5": 2,
-                        "7": 1
+                        "3": 1
                     },
                     "7": {
                         "2": 2,
-                        "0": 2,
+                        "4": 2,
+                        "1": 2,
+                        "0": 1,
                         "5": 2,
+                        "3": 2,
+                        "6": 1
+                    },
+                    "5": {
+                        "0": 2,
+                        "2": 1,
                         "6": 2,
-                        "1": 1,
+                        "7": 2,
+                        "1": 2,
                         "3": 2,
                         "4": 1
                     },
-                    "0": {
-                        "2": 2,
-                        "7": 2,
-                        "5": 2,
-                        "4": 2,
-                        "6": 2,
-                        "1": 1,
-                        "3": 1
-                    },
-                    "5": {
-                        "2": 1,
-                        "7": 2,
-                        "0": 2,
-                        "4": 2,
-                        "1": 2,
-                        "6": 1,
-                        "3": 2
-                    },
                     "6": {
+                        "0": 2,
+                        "5": 2,
                         "2": 2,
                         "1": 2,
-                        "7": 2,
                         "4": 1,
-                        "0": 2,
                         "3": 2,
-                        "5": 1
+                        "7": 1
                     }
                 },
-                "matchesCount": 8
+                "matchesCount": 8,
+                "minPlayingFairness": 0.9285714285714286,
+                "avgPlayingFairness": 0.9553571428571429,
+                "maxPlayingFairnessPenalty": 0.05357142857142857
             },
             "stats": {
                 "permutationsIterated": 256,
-                "permutationIndex": 134,
-                "templatesGenerated": 256,
-                "templateIndex": 134,
+                "permutationIndex": 9,
+                "templatesGenerated": 339310,
+                "templateIndex": 11408,
+                "nodesExplored": 339310,
                 "stopReason": "FACTORIAL_COMPLETE",
-                "time": 0.0400777,
+                "time": 48.3473858,
                 "meetingsVariationLimit": 1,
+                "candidatesCollected": 339310,
+                "candidatesDeduped": 512,
+                "candidateIndex": 0,
                 "relaxAttempts": [
                     {
                         "meetingsVariationLimit": 1,
                         "permutationsIterated": 256,
-                        "templatesGenerated": 256,
-                        "time": 0.0400777
+                        "templatesGenerated": 339310,
+                        "nodesExplored": 339310,
+                        "time": 48.3473858,
+                        "candidatesCollected": 339310,
+                        "candidatesDeduped": 512,
+                        "stopReason": "FACTORIAL_COMPLETE"
                     }
                 ]
             }
@@ -216,7 +227,7 @@
         "ordering": {
             "quality": {
                 "minDistribution": 0.95,
-                "avgDistribution": 0.9725,
+                "avgDistribution": 0.9724999999999999,
                 "minBreak": 0,
                 "maxBreak": 2,
                 "consecutiveMinBreaks": 2,
@@ -227,12 +238,21 @@
             },
             "stats": {
                 "stopReason": "FACTORIAL_COMPLETE",
-                "permutationsIterated": 288,
-                "permutationIndex": 5,
-                "nodesExplored": 2177,
+                "permutationsIterated": 97,
+                "permutationIndex": 6,
+                "nodesExplored": 1468,
                 "seedIndex": 1,
                 "seedsTotal": 1,
-                "time": 0.0480794
+                "time": 58.3225441,
+                "relaxAttempts": [
+                    {
+                        "meetingsVariationLimit": 1,
+                        "candidatesTried": 512,
+                        "eligible": true,
+                        "time": 58.3225441,
+                        "stopReason": null
+                    }
+                ]
             }
         }
     }

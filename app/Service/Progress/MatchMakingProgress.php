@@ -22,6 +22,7 @@ final class MatchMakingProgress extends GenerationProgress
     private ?int $partnersCountVariation;
     private ?string $aggregateStopReason;
     private int $currentMeetingsVariationLimit;
+    private int $nodesExplored;
 
     /**
      * @param array<int, int>|null             $partnersCount
@@ -47,7 +48,8 @@ final class MatchMakingProgress extends GenerationProgress
         ?array $playersMet = null,
         ?int $partnersCountVariation = null,
         ?string $aggregateStopReason = null,
-        int $currentMeetingsVariationLimit = 1
+        int $currentMeetingsVariationLimit = 1,
+        int $nodesExplored = 0
     ) {
         parent::__construct(
             self::PHASE_MATCH_MAKING,
@@ -72,6 +74,7 @@ final class MatchMakingProgress extends GenerationProgress
         $this->partnersCountVariation = $partnersCountVariation;
         $this->aggregateStopReason = $aggregateStopReason;
         $this->currentMeetingsVariationLimit = $currentMeetingsVariationLimit;
+        $this->nodesExplored = $nodesExplored;
     }
 
     public function getIterations(): int
@@ -137,5 +140,10 @@ final class MatchMakingProgress extends GenerationProgress
     public function getCurrentMeetingsVariationLimit(): int
     {
         return $this->currentMeetingsVariationLimit;
+    }
+
+    public function getNodesExplored(): int
+    {
+        return $this->nodesExplored;
     }
 }

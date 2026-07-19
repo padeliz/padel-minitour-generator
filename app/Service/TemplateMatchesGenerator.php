@@ -17,8 +17,10 @@ use Arshwell\Monolith\Func;
  * - **Outer pair-ordering loop** (mixed teams): under S1, the lex walk is replaced with a
  *   {@code K seeds × one DFS per seed} backtracking search. {@see DEFAULT_MULTI_SEED_COUNT_PAIRING}
  *   distant Lehmer-coded permutations seed `K` independent DFS attempts, each receiving an equal
- *   slice of the per-combo wall budget. Each DFS run produces at most one template — the
- *   `(meetingsVariation, seedIndex)` lex best across seeds wins. Two prune signals fire inside
+ *   slice of the per-combo wall budget. Each DFS run explores many complete leaves per seed and
+ *   keeps the seed-best on `(minOpponentsMet, meetingsVariation, minPlayingFairness,
+ *   maxPlayingFairnessPenalty, avgPlayingFairness)` lex; the global best across seeds adds
+ *   `seedIndex` as the final tie-break. Two prune signals fire inside
  *   each DFS: the existing {@see playersMetTooMuch()} hard constraint, and a Min-Met B&B prune
  *   that kills branches that cannot beat the current global-best template's Min Met.
  *
@@ -42,6 +44,7 @@ use Arshwell\Monolith\Func;
 class TemplateMatchesGenerator
 {
     use TemplateMatchesPairingPoolDfs;
+    use TemplateMatchesMatchMakingDfs;
     use TemplateMatchesOrderingRoundDfs;
 
     /**
@@ -104,9 +107,12 @@ class TemplateMatchesGenerator
     /** Base seconds for ordering wall-time formula (former sort budgets). */
     public const ORDERING_BUDGET_BASE_S = 100.0;
     public const ORDERING_BUDGET_PER_ROUND_S = 40.0;
-    public const ORDERING_BUDGET_PER_COURT_S = 24.0;
+    public const ORDERING_BUDGET_PER_COURT_S = 30.0;
     public const ORDERING_BUDGET_PER_MATCH_S = 20;
     public const ORDERING_BUDGET_MAX_S = 1800.0;
+
+    /** Multiplier for per-MV-pass ordering try-loop wall when no explicit ns override is set. */
+    public const DEFAULT_GLOBAL_ORDERING_WALL_BUDGET_MULTIPLIER = 3;
 
     /**
      * Default per-player meeting-gap tolerance used by {@see playersMetTooMuch()} during the
@@ -163,13 +169,22 @@ class TemplateMatchesGenerator
      */
     public const DEFAULT_DFS_BRANCH_CAP = 10_000;
 
+    /** Max unique MM candidates retained per MV pass (bounds memory on large combos). */
+    public const MAX_MM_CANDIDATE_POOL = 512;
+
     /**
      * Pairing-phase DFS branch cap per seed: scales with expected pair count but stays within
-     * [DEFAULT_DFS_BRANCH_CAP, 50_000]. Match-making / ordering keep the flat 10k cap.
+     * [DEFAULT_DFS_BRANCH_CAP, 50_000]. Ordering keeps the flat 10k cap.
      */
     public static function computePairingDfsBranchCap(int $pairCount): int
     {
         return max(self::DEFAULT_DFS_BRANCH_CAP, min(50_000, 2000 + 400 * $pairCount));
+    }
+
+    /** Match-making DFS branch cap per seed; same scaling as pairing. */
+    public static function computeMatchMakingDfsBranchCap(int $pairCount): int
+    {
+        return self::computePairingDfsBranchCap($pairCount);
     }
 
     /**
@@ -267,6 +282,9 @@ class TemplateMatchesGenerator
     /** Courts count for the active {@see generate()} call (set per invocation). */
     private int $activeCourts = 1;
 
+    /** Partners (`opponentsPerPlayer`) for the active {@see generate()} call (set per invocation). */
+    private int $activePartners = 1;
+
     /** When true, {@see budgetFor()} uses constructor-injected globals instead of the formula. */
     private bool $useStaticBudgets = false;
 
@@ -279,6 +297,13 @@ class TemplateMatchesGenerator
     private int $effectivePairingBudgetNs;
     private int $effectiveMatchMakingBudgetNs;
     private int $effectiveOrderingBudgetNs;
+
+    /**
+     * Per-MV-pass ordering try-loop wall in nanoseconds. `0` means
+     * {@see DEFAULT_GLOBAL_ORDERING_WALL_BUDGET_MULTIPLIER} × {@see $effectiveOrderingBudgetNs}
+     * resolved at generation time.
+     */
+    private int $globalOrderingWallBudgetNs;
 
     /** Live-progress context for the active ordering seed (set per seed inside {@see runOrderingPhase()}). */
     private int $orderingCurrentSeed = 1;
@@ -296,6 +321,7 @@ class TemplateMatchesGenerator
      */
     private PlayerDistributionScorer $distributionScorer;
     private PartnersFairnessScorer $partnersFairnessScorer;
+    private PlayingFairnessScorer $playingFairnessScorer;
 
     /**
      * @param callable|null $clock Optional `fn(): int` returning monotonic nanoseconds. Defaults
@@ -327,7 +353,8 @@ class TemplateMatchesGenerator
         int $maxBreakThreshold = -1,
         int $meetingsVariationLimitMax = self::DEFAULT_MEETINGS_VARIATION_LIMIT_MAX,
         int $dfsBranchCap = self::DEFAULT_DFS_BRANCH_CAP,
-        int $multiSeedCountSort = self::DEFAULT_MULTI_SEED_COUNT_SORT
+        int $multiSeedCountSort = self::DEFAULT_MULTI_SEED_COUNT_SORT,
+        int $globalOrderingWallBudgetNs = 0
     ) {
         $this->clock = $clock;
         $this->outerWallBudgetNs = $outerWallBudgetNs;
@@ -341,11 +368,13 @@ class TemplateMatchesGenerator
         // headroom and behaves as if S6 were disabled.
         $this->meetingsVariationLimitMax = max($this->meetingsVariationLimit, $meetingsVariationLimitMax);
         $this->dfsBranchCap = max(1, $dfsBranchCap);
+        $this->globalOrderingWallBudgetNs = max(0, $globalOrderingWallBudgetNs);
         $this->effectivePairingBudgetNs = $outerWallBudgetNs;
         $this->effectiveMatchMakingBudgetNs = $outerWallBudgetNs;
         $this->effectiveOrderingBudgetNs = $sortWallBudgetNs;
         $this->distributionScorer = new PlayerDistributionScorer();
         $this->partnersFairnessScorer = new PartnersFairnessScorer();
+        $this->playingFairnessScorer = new PlayingFairnessScorer();
     }
 
     /**
@@ -354,6 +383,15 @@ class TemplateMatchesGenerator
     public function setUseStaticBudgets(bool $useStaticBudgets): void
     {
         $this->useStaticBudgets = $useStaticBudgets;
+    }
+
+    private function resolveGlobalOrderingWallBudgetNs(): int
+    {
+        if ($this->globalOrderingWallBudgetNs > 0) {
+            return $this->globalOrderingWallBudgetNs;
+        }
+
+        return (int) (self::DEFAULT_GLOBAL_ORDERING_WALL_BUDGET_MULTIPLIER * $this->effectiveOrderingBudgetNs);
     }
 
     public static function computePairingWallBudgetNs(int $players, int $partners, int $courts): int
@@ -386,7 +424,7 @@ class TemplateMatchesGenerator
             + self::ORDERING_BUDGET_PER_ROUND_S * $roundsTotal
             + self::ORDERING_BUDGET_PER_COURT_S * $courts
             + self::ORDERING_BUDGET_PER_MATCH_S * $matchCount;
-        $seconds = min($seconds, self::ORDERING_BUDGET_MAX_S);
+        $seconds = min($seconds, self::ORDERING_BUDGET_MAX_S * $courts);
 
         return (int) round($seconds * 1_000_000_000);
     }
@@ -429,6 +467,7 @@ class TemplateMatchesGenerator
         bool $fixedTeams = false
     ): TemplateMatches {
         $this->activeCourts = max(1, $courts);
+        $this->activePartners = max(0, $partners);
         [$this->effectivePairingBudgetNs, $this->effectiveMatchMakingBudgetNs, $this->effectiveOrderingBudgetNs] = $this->budgetFor(
             $players,
             $partners,
@@ -507,17 +546,46 @@ class TemplateMatchesGenerator
                 null,
                 $pairingResult,
                 $nullMatchMakingQuality,
-                ['stopReason' => self::STOP_REASON_TRIVIAL, 'time' => 0.0, 'permutationsIterated' => 0, 'permutationIndex' => null, 'templatesGenerated' => 0, 'templateIndex' => null, 'meetingsVariationLimit' => $this->meetingsVariationLimit, 'relaxAttempts' => []],
+                [
+                    'stopReason' => self::STOP_REASON_TRIVIAL,
+                    'time' => 0.0,
+                    'permutationsIterated' => 0,
+                    'permutationIndex' => null,
+                    'templatesGenerated' => 0,
+                    'templateIndex' => null,
+                    'nodesExplored' => 0,
+                    'meetingsVariationLimit' => $this->meetingsVariationLimit,
+                    'candidatesCollected' => null,
+                    'candidatesDeduped' => null,
+                    'candidateIndex' => null,
+                    'relaxAttempts' => [],
+                ],
                 $nullOrderingQuality,
-                ['stopReason' => self::STOP_REASON_TRIVIAL, 'time' => 0.0, 'permutationsIterated' => 0, 'permutationIndex' => null, 'nodesExplored' => 0, 'seedIndex' => null, 'seedsTotal' => null]
+                [
+                    'stopReason' => self::STOP_REASON_TRIVIAL,
+                    'time' => 0.0,
+                    'permutationsIterated' => 0,
+                    'permutationIndex' => null,
+                    'nodesExplored' => 0,
+                    'seedIndex' => null,
+                    'seedsTotal' => null,
+                    'relaxAttempts' => [],
+                ]
             );
         }
 
         $effectiveMeetingsVariationLimit = $this->meetingsVariationLimit;
-        $relaxAttempts = [];
-        $matchMakingResult = null;
+        $matchMakingRelaxAttempts = [];
+        $orderingRelaxAttempts = [];
+        $winningCandidate = null;
+        $winningCandidateIndex = null;
+        $winningOrderingResult = null;
+        $lastMatchMakingResult = null;
 
         while (true) {
+            $orderingPassStartNs = $this->monotonicNow();
+            $orderingPassWallNs = $this->resolveGlobalOrderingWallBudgetNs();
+
             $matchMakingResult = $this->runMatchMakingPhase(
                 $pairs,
                 count($pairs),
@@ -526,32 +594,105 @@ class TemplateMatchesGenerator
                 $effectiveMeetingsVariationLimit,
                 $reporter
             );
-            $relaxAttempts[] = [
+            $lastMatchMakingResult = $matchMakingResult;
+
+            $candidates = $matchMakingResult['candidates'];
+            $candidatesDeduped = $matchMakingResult['candidatesDeduped'];
+            $candidatesTried = 0;
+            $orderingPassStopReason = self::STOP_REASON_PRUNE_INFEASIBLE;
+            $orderingPassTime = 0.0;
+            $passCommitted = false;
+
+            if ($candidatesDeduped === 0) {
+                $orderingPassStopReason = $matchMakingResult['matchMakingStopReason'];
+            } else {
+                $reporter->setPhaseStart($orderingPassStartNs);
+                $orderingTryStartNs = $this->monotonicNow();
+
+                foreach ($candidates as $candidateIndex => $candidate) {
+                    if ($this->monotonicNow() >= $orderingPassStartNs + $orderingPassWallNs) {
+                        $orderingPassStopReason = self::STOP_REASON_DEADLINE;
+                        break;
+                    }
+
+                    $candidatesTried++;
+                    $orderingResult = $this->runOrderingPhase($candidate['matches'], $mockPlayers, $reporter);
+                    $orderingPassStopReason = $orderingResult['stopReason'];
+
+                    if ($orderingResult['ordered'] === null) {
+                        continue;
+                    }
+
+                    if (
+                        $winningOrderingResult === null
+                        || $this->compareOrderingLex($orderingResult, $winningOrderingResult) > 0
+                    ) {
+                        $winningCandidate = $candidate;
+                        $winningCandidateIndex = $candidateIndex;
+                        $winningOrderingResult = $orderingResult;
+                        $passCommitted = true;
+                    }
+
+                    $bestCMin = $winningOrderingResult['consecutiveMinBreaks'] ?? null;
+                    $bestCMax = $winningOrderingResult['consecutiveMaxBreaks'] ?? null;
+                    if (
+                        $bestCMin !== null && $bestCMax !== null
+                        && $bestCMin <= 1 && $bestCMax <= 1
+                    ) {
+                        break;
+                    }
+                }
+
+                $orderingPassTime = $this->nsToSeconds($this->monotonicNow() - $orderingTryStartNs);
+            }
+
+            $matchMakingRelaxAttempts[] = [
                 'meetingsVariationLimit' => $effectiveMeetingsVariationLimit,
                 'permutationsIterated' => $matchMakingResult['processes']['permutationsIterated'],
                 'templatesGenerated' => $matchMakingResult['processes']['templatesGenerated'],
+                'nodesExplored' => $matchMakingResult['nodesExplored'],
                 'time' => $matchMakingResult['matchMakingTime'],
+                'candidatesCollected' => $matchMakingResult['candidatesCollected'],
+                'candidatesDeduped' => $matchMakingResult['candidatesDeduped'],
+                'stopReason' => $matchMakingResult['matchMakingStopReason'],
+            ];
+            $orderingRelaxAttempts[] = [
+                'meetingsVariationLimit' => $effectiveMeetingsVariationLimit,
+                'candidatesTried' => $candidatesTried,
+                'eligible' => $passCommitted,
+                'time' => $orderingPassTime,
+                'stopReason' => $passCommitted ? null : $orderingPassStopReason,
             ];
 
-            if ($matchMakingResult['bestTemplate']['matches'] !== null || $effectiveMeetingsVariationLimit >= $this->meetingsVariationLimitMax) {
+            if ($passCommitted) {
+                break;
+            }
+
+            if ($effectiveMeetingsVariationLimit >= $this->meetingsVariationLimitMax) {
                 break;
             }
             $effectiveMeetingsVariationLimit++;
         }
 
-        $bestTemplate = $matchMakingResult['bestTemplate'];
+        $snapshotResult = $lastMatchMakingResult;
+        $snapshotCandidate = $winningCandidate ?? ($snapshotResult['candidates'][0] ?? null);
+
         $matchMakingStats = [
-            'stopReason' => $matchMakingResult['matchMakingStopReason'],
-            'time' => $matchMakingResult['matchMakingTime'],
-            'permutationsIterated' => $matchMakingResult['processes']['permutationsIterated'],
-            'permutationIndex' => $bestTemplate['permutationIndex'],
-            'templatesGenerated' => $matchMakingResult['processes']['templatesGenerated'],
-            'templateIndex' => $bestTemplate['templateIndex'],
+            'stopReason' => $snapshotResult['matchMakingStopReason'],
+            'time' => $snapshotResult['matchMakingTime'],
+            'permutationsIterated' => $snapshotResult['processes']['permutationsIterated'],
+            'permutationIndex' => $snapshotCandidate['permutationIndex'] ?? null,
+            'templatesGenerated' => $snapshotResult['processes']['templatesGenerated'],
+            'templateIndex' => $snapshotCandidate['templateIndex'] ?? null,
+            'nodesExplored' => $snapshotResult['nodesExplored'],
             'meetingsVariationLimit' => $effectiveMeetingsVariationLimit,
-            'relaxAttempts' => $relaxAttempts,
+            'candidatesCollected' => $snapshotResult['candidatesCollected'],
+            'candidatesDeduped' => $snapshotResult['candidatesDeduped'],
+            'candidateIndex' => $winningCandidateIndex,
+            'relaxAttempts' => $matchMakingRelaxAttempts,
         ];
 
-        if ($bestTemplate['matches'] === null) {
+        if ($winningCandidate === null || $winningOrderingResult === null) {
             $reporter->setPhaseStart($this->monotonicNow());
             $reporter->ordering(
                 0,
@@ -560,7 +701,9 @@ class TemplateMatchesGenerator
                 $this->effectiveOrderingBudgetNs,
                 $this->monotonicNow(),
                 true,
-                self::STOP_REASON_TRIVIAL
+                $orderingRelaxAttempts !== []
+                    ? ($orderingRelaxAttempts[count($orderingRelaxAttempts) - 1]['stopReason'] ?? self::STOP_REASON_PRUNE_INFEASIBLE)
+                    : self::STOP_REASON_PRUNE_INFEASIBLE
             );
 
             return $this->assembleTemplateMatches(
@@ -579,25 +722,28 @@ class TemplateMatchesGenerator
                 ],
                 $matchMakingStats,
                 $nullOrderingQuality,
-                ['stopReason' => self::STOP_REASON_TRIVIAL, 'time' => 0.0, 'permutationsIterated' => 0, 'permutationIndex' => null, 'nodesExplored' => 0, 'seedIndex' => null, 'seedsTotal' => null]
+                [
+                    'stopReason' => $orderingRelaxAttempts !== []
+                        ? ($orderingRelaxAttempts[count($orderingRelaxAttempts) - 1]['stopReason'] ?? self::STOP_REASON_PRUNE_INFEASIBLE)
+                        : self::STOP_REASON_PRUNE_INFEASIBLE,
+                    'time' => $orderingRelaxAttempts !== []
+                        ? ($orderingRelaxAttempts[count($orderingRelaxAttempts) - 1]['time'] ?? 0.0)
+                        : 0.0,
+                    'permutationsIterated' => 0,
+                    'permutationIndex' => null,
+                    'nodesExplored' => 0,
+                    'seedIndex' => null,
+                    'seedsTotal' => null,
+                    'relaxAttempts' => $orderingRelaxAttempts,
+                ]
             );
         }
 
-        $orderingStartNs = $this->monotonicNow();
-        $reporter->setPhaseStart($orderingStartNs);
+        $matches = $this->adjustServingOrderByCourt($winningOrderingResult['ordered'], $playersCount);
+        $matches = $this->repeatMatchesByCourt($matches, $repeatOpponents);
+        $roundsCount = OpponentsMetSummary::roundsCount($matches);
 
-        $orderingResult = $this->runOrderingPhase($bestTemplate['matches'], $mockPlayers, $reporter);
-        $orderingTime = $this->nsToSeconds($this->monotonicNow() - $orderingStartNs);
-
-        $matches = null;
-        $roundsCount = null;
-        if ($orderingResult['ordered'] !== null) {
-            $matches = $this->adjustServingOrderByCourt($orderingResult['ordered'], $playersCount);
-            $matches = $this->repeatMatchesByCourt($matches, $repeatOpponents);
-            $roundsCount = OpponentsMetSummary::roundsCount($matches);
-        }
-
-        $opponentsBounds = OpponentsMetSummary::fromPlayersMet($bestTemplate['playersMet'], $playersCount);
+        $opponentsBounds = OpponentsMetSummary::fromPlayersMet($winningCandidate['playersMet'], $playersCount);
 
         return $this->assembleTemplateMatches(
             $playersCount,
@@ -607,30 +753,31 @@ class TemplateMatchesGenerator
             $matches,
             $pairingResult,
             [
-                'meetingsVariation' => $bestTemplate['meetingsVariation'],
+                'meetingsVariation' => $winningCandidate['meetingsVariation'],
                 'minOpponentsMet' => $opponentsBounds['min'],
                 'maxOpponentsMet' => $opponentsBounds['max'],
-                'playersMet' => $bestTemplate['playersMet'],
-                'matchesCount' => count($bestTemplate['matches']),
+                'playersMet' => $winningCandidate['playersMet'],
+                'matchesCount' => count($winningCandidate['matches']),
             ],
             $matchMakingStats,
             [
-                'minDistribution' => $orderingResult['min'],
-                'avgDistribution' => $orderingResult['avg'],
-                'minBreak' => $orderingResult['minBreak'],
-                'maxBreak' => $orderingResult['maxBreak'],
-                'courtSwitches' => $orderingResult['courtSwitches'],
-                'courtBalance' => $orderingResult['courtBalance'],
+                'minDistribution' => $winningOrderingResult['min'],
+                'avgDistribution' => $winningOrderingResult['avg'],
+                'minBreak' => $winningOrderingResult['minBreak'],
+                'maxBreak' => $winningOrderingResult['maxBreak'],
+                'courtSwitches' => $winningOrderingResult['courtSwitches'],
+                'courtBalance' => $winningOrderingResult['courtBalance'],
                 'roundsCount' => $roundsCount,
             ],
             [
-                'stopReason' => $orderingResult['stopReason'],
-                'time' => $orderingTime,
-                'permutationsIterated' => $orderingResult['permutationsIterated'],
-                'permutationIndex' => $orderingResult['permutationIndex'],
-                'nodesExplored' => $orderingResult['nodesExplored'],
-                'seedIndex' => $orderingResult['seedIndex'],
-                'seedsTotal' => $orderingResult['seedsTotal'],
+                'stopReason' => $winningOrderingResult['stopReason'],
+                'time' => $orderingRelaxAttempts[count($orderingRelaxAttempts) - 1]['time'],
+                'permutationsIterated' => $winningOrderingResult['permutationsIterated'],
+                'permutationIndex' => $winningOrderingResult['permutationIndex'],
+                'nodesExplored' => $winningOrderingResult['nodesExplored'],
+                'seedIndex' => $winningOrderingResult['seedIndex'],
+                'seedsTotal' => $winningOrderingResult['seedsTotal'],
+                'relaxAttempts' => $orderingRelaxAttempts,
             ]
         );
     }
@@ -693,6 +840,9 @@ class TemplateMatchesGenerator
 
         $consecutiveMinBreaks = null;
         $consecutiveMaxBreaks = null;
+        $minPlayingFairness = null;
+        $avgPlayingFairness = null;
+        $maxPlayingFairnessPenalty = null;
         if ($orderingSucceeded) {
             $streakMetrics = RoundScheduleBreakAnalyzer::analyze(
                 $matches,
@@ -702,6 +852,11 @@ class TemplateMatchesGenerator
             );
             $consecutiveMinBreaks = $streakMetrics['consecutiveMinBreaks'];
             $consecutiveMaxBreaks = $streakMetrics['consecutiveMaxBreaks'];
+
+            $playingFairness = (new PlayingFairnessScorer())->scoreTemplate($matches, $playersCount);
+            $minPlayingFairness = $playingFairness['min'];
+            $avgPlayingFairness = $playingFairness['avg'];
+            $maxPlayingFairnessPenalty = $playingFairness['maxPenalty'];
         }
 
         return new TemplateMatches(
@@ -726,10 +881,14 @@ class TemplateMatchesGenerator
             $matchMakingSucceeded ? $matchMakingQuality['maxOpponentsMet'] : null,
             $matchMakingSucceeded ? $matchMakingQuality['playersMet'] : null,
             $matchMakingSucceeded ? $matchMakingQuality['matchesCount'] : null,
+            $orderingSucceeded ? $minPlayingFairness : null,
+            $orderingSucceeded ? $avgPlayingFairness : null,
+            $orderingSucceeded ? $maxPlayingFairnessPenalty : null,
             $matchMakingStats['permutationsIterated'] ?? null,
             $matchMakingStats['permutationIndex'] ?? null,
             $matchMakingStats['templatesGenerated'] ?? null,
             $matchMakingStats['templateIndex'] ?? null,
+            $matchMakingStats['nodesExplored'] ?? null,
             $matchMakingStats['stopReason'] ?? null,
             $matchMakingStats['time'] ?? null,
             $matchMakingStats['meetingsVariationLimit'] ?? null,
@@ -749,445 +908,12 @@ class TemplateMatchesGenerator
             $orderingStats['nodesExplored'] ?? null,
             $orderingStats['seedIndex'] ?? null,
             $orderingStats['seedsTotal'] ?? null,
-            $orderingStats['time'] ?? null
+            $orderingStats['time'] ?? null,
+            $matchMakingStats['candidatesCollected'] ?? null,
+            $matchMakingStats['candidatesDeduped'] ?? null,
+            $matchMakingStats['candidateIndex'] ?? null,
+            $orderingStats['relaxAttempts'] ?? null
         );
-    }
-
-    /**
-     * Executes one full multi-seed pairing pass at the given `$meetingsVariationLimit`. Extracted from
-     * {@see generateMixed()} so the S6 auto-relax loop can re-invoke it with a bumped dl when
-     * the strict build yields no templates.
-     *
-     * @param array<int, array{players: array{0:int,1:int}, used: bool}> $pairs
-     * @param array<int, int> $partnersCount
-     * @return array{
-     *     bestTemplate: array{
-     *         meetingsVariation: float|null,
-     *         matches: array<int, array<int, array<int, int>>>|null,
-     *         playersMet: array<int, array<int, int>>,
-     *         permutationIndex: int|null,
-     *         templateIndex: int|null
-     *     },
-     *     processes: array{permutationsIterated: int, templatesGenerated: int},
-     *     pairingStopReason: string,
-     *     pairingTime: float,
-     *     totalSeeds: int
-     * }
-     */
-    private function runMatchMakingPhase(
-        array $pairs,
-        int $n,
-        array $partnersCount,
-        int $partnersCountVariation,
-        int $meetingsVariationLimit,
-        ProgressReporter $reporter
-    ): array {
-        $useMultiSeed = ($n >= $this->multiSeedThresholdPairs && $this->multiSeedCountPairing > 1);
-        $totalSeeds = $useMultiSeed ? $this->multiSeedCountPairing : 1;
-        // intdiv is safe: totalSeeds is always >= 1 by construction. A 0-budget input still does
-        // the right thing (each seed exits on the first deadline check).
-        $perSeedBudgetNs = intdiv($this->effectiveMatchMakingBudgetNs, $totalSeeds);
-
-        $processes = [
-            'permutationsIterated' => 0,
-            'templatesGenerated' => 0,
-        ];
-
-        $bestTemplate = [
-            'meetingsVariation' => null,
-            'matches' => null,
-            'playersMet' => [],
-            'permutationIndex' => null,
-            'templateIndex' => null,
-            'minMet' => null,
-        ];
-
-        $matchMakingStartNs = $this->monotonicNow();
-        $reporter->setPhaseStart($matchMakingStartNs);
-
-        $playersCount = $this->inferPlayersCountFromPairs($pairs);
-
-        $seedStopReasons = [];
-        for ($seedIdx = 0; $seedIdx < $totalSeeds; $seedIdx++) {
-            $startPerm = $useMultiSeed
-                ? $this->lehmerSeedPermutation($seedIdx, $totalSeeds, $n)
-                : range(0, $n - 1);
-
-            $seedStopReasons[] = $this->runMatchMakingSeedDfs(
-                $pairs,
-                $startPerm,
-                $perSeedBudgetNs,
-                $seedIdx + 1,
-                $totalSeeds,
-                $reporter,
-                $processes,
-                $bestTemplate,
-                $partnersCount,
-                $partnersCountVariation,
-                $meetingsVariationLimit,
-                $playersCount
-            );
-        }
-
-        $matchMakingStopReason = $this->aggregatePairingStopReason($seedStopReasons);
-        $matchMakingEndNs = $this->monotonicNow();
-        $matchMakingTime = $this->nsToSeconds($matchMakingEndNs - $matchMakingStartNs);
-
-        $matchesCount = $bestTemplate['matches'] !== null ? count($bestTemplate['matches']) : null;
-        $reporter->matchMaking(
-            $processes['permutationsIterated'],
-            $processes['templatesGenerated'],
-            $bestTemplate['meetingsVariation'],
-            $this->effectiveMatchMakingBudgetNs,
-            $matchMakingEndNs,
-            true,
-            $totalSeeds,
-            $totalSeeds,
-            $bestTemplate['permutationIndex'],
-            $bestTemplate['templateIndex'],
-            $matchesCount,
-            $partnersCount,
-            $bestTemplate['playersMet'],
-            $partnersCountVariation,
-            $matchMakingStopReason,
-            $meetingsVariationLimit
-        );
-
-        return [
-            'bestTemplate' => $bestTemplate,
-            'processes' => $processes,
-            'matchMakingStopReason' => $matchMakingStopReason,
-            'matchMakingTime' => $matchMakingTime,
-            'totalSeeds' => $totalSeeds,
-        ];
-    }
-
-    /**
-     * Pessimistic aggregation across seeds: returns `DEADLINE` if any seed exited because its
-     * per-seed wall budget elapsed, otherwise `FACTORIAL_COMPLETE` (every seed exhausted its lex
-     * space without hitting the budget). Single-seed runs degenerate to that one seed's reason.
-     *
-     * @param array<int, string> $seedStopReasons
-     */
-    private function aggregatePairingStopReason(array $seedStopReasons): string
-    {
-        if (empty($seedStopReasons)) {
-            return self::STOP_REASON_FACTORIAL_COMPLETE;
-        }
-        foreach ($seedStopReasons as $reason) {
-            if ($reason === self::STOP_REASON_DEADLINE) {
-                return self::STOP_REASON_DEADLINE;
-            }
-        }
-        return self::STOP_REASON_FACTORIAL_COMPLETE;
-    }
-
-    /**
-     * Runs one DFS attempt rooted at {@code $startPerm}: orders the pair list by the seed
-     * permutation, then calls {@see buildTemplateByBacktracking()} once. If the DFS finds a
-     * complete template, the seed contributes to {@code $bestTemplate} on
-     * `(meetingsVariation, seedIndex)` lex; if not, the seed contributes nothing and the next
-     * one runs.
-     *
-     * Returns the seed's exit reason: `DEADLINE` if the per-seed wall budget elapsed during
-     * the DFS, `FACTORIAL_COMPLETE` otherwise (the DFS finished its pruned subtree exploration,
-     * whether or not it produced a template).
-     *
-     * @param array<int, array{players: array{0:int,1:int}, used: bool}> $pairs Indexed pair pool.
-     * @param array<int, int> $startPerm Pair indices, the lex starting point for this seed.
-     * @param array{permutationsIterated:int,templatesGenerated:int} $processes Mutated by reference.
-     * @param array{meetingsVariation:?float,matches:?array,playersMet:array,permutationIndex:?int,templateIndex:?int,minMet:?int} $bestTemplate Mutated by reference.
-     * @param array<int, int> $partnersCount Per-player partner count (constant across the phase).
-     * @param int $meetingsVariationLimit Active gap tolerance for {@see playersMetTooMuch()}. Passed in
-     *                             explicitly so the S6 auto-relax loop can re-invoke the seed
-     *                             runner with a bumped value without mutating generator state.
-     */
-    private function runMatchMakingSeedDfs(
-        array $pairs,
-        array $startPerm,
-        int $perSeedBudgetNs,
-        int $currentSeed,
-        int $totalSeeds,
-        ProgressReporter $reporter,
-        array &$processes,
-        array &$bestTemplate,
-        array $partnersCount,
-        int $partnersCountVariation,
-        int $meetingsVariationLimit,
-        int $playersCount
-    ): string {
-        $deadlineNs = $this->monotonicNow() + $perSeedBudgetNs;
-
-        if ($this->monotonicNow() >= $deadlineNs) {
-            return self::STOP_REASON_DEADLINE;
-        }
-
-        $processes['permutationsIterated']++;
-
-        $matchesCount = $bestTemplate['matches'] !== null ? count($bestTemplate['matches']) : null;
-        $reporter->matchMaking(
-            $processes['permutationsIterated'],
-            $processes['templatesGenerated'],
-            $bestTemplate['meetingsVariation'],
-            $this->effectiveMatchMakingBudgetNs,
-            $this->monotonicNow(),
-            false,
-            $currentSeed,
-            $totalSeeds,
-            $bestTemplate['permutationIndex'],
-            $bestTemplate['templateIndex'],
-            $matchesCount,
-            $partnersCount,
-            $bestTemplate['playersMet'],
-            $partnersCountVariation,
-            null,
-            $meetingsVariationLimit
-        );
-
-        $orderedPairs = [];
-        foreach ($startPerm as $i) {
-            // Snapshot each pair as `used = false` regardless of the source slot's state;
-            // pair entries are mutated in-place during the DFS and we need a fresh template
-            // for each seed.
-            $orderedPairs[] = [
-                'players' => $pairs[$i]['players'],
-                'used' => false,
-            ];
-        }
-
-        $result = $this->buildMatchMakingByBacktracking(
-            $orderedPairs,
-            $deadlineNs,
-            $meetingsVariationLimit,
-            $this->dfsBranchCap,
-            $playersCount,
-            $bestTemplate['minMet']
-        );
-
-        if ($result !== null) {
-            $processes['templatesGenerated']++;
-
-            $meetingsVariation = $this->calculatePlayersMetMeetingsVariation($result['playersMet']);
-            $candidateMinMet = $this->calculateMinMet($result['playersMet'], $playersCount);
-
-            // Promote on strict `meetingsVariation` improvement; ties resolved by seed order
-            // (lower seed wins) — we only enter this branch on the first arrival for a given
-            // variation, since the comparison is strict `>` and the seeds iterate in ascending
-            // index.
-            if ($bestTemplate['meetingsVariation'] === null || $bestTemplate['meetingsVariation'] > $meetingsVariation) {
-                $bestTemplate['meetingsVariation'] = $meetingsVariation;
-                $bestTemplate['matches'] = $result['matches'];
-                $bestTemplate['playersMet'] = $result['playersMet'];
-                $bestTemplate['permutationIndex'] = $processes['permutationsIterated'];
-                $bestTemplate['templateIndex'] = $processes['templatesGenerated'];
-                $bestTemplate['minMet'] = $candidateMinMet;
-            }
-        }
-
-        if ($this->monotonicNow() >= $deadlineNs) {
-            return self::STOP_REASON_DEADLINE;
-        }
-        return self::STOP_REASON_FACTORIAL_COMPLETE;
-    }
-
-    /**
-     * Builds one complete template via depth-first search with chronological backtracking on
-     * the given pair list. Pair-1 is always the lowest unused index in the ordered list
-     * (deterministic); pair-2 candidates are tried in ascending index order (deterministic).
-     *
-     * The DFS enforces two prune signals:
-     * - HARD CONSTRAINT: {@see playersMetTooMuch()} with the current `$meetingsVariationLimit`.
-     * - B&B PRUNE on Min Met: if any player's current distinct-opponent count plus the count of
-     *   unused pairs containing that player is `< $bestMinMetSoFar`, the branch cannot beat
-     *   the current global-best template's Min Met — prune.
-     *
-     * Returns `null` when the recursion exhausts every choice without producing a complete
-     * template, when the wall deadline elapses, or when the branch cap is hit.
-     *
-     * @param array<int, array{players: array{0:int,1:int}, used: bool}> $orderedPairs
-     * @return array{matches: array<int, array{0: array{0:int,1:int}, 1: array{0:int,1:int}}>, playersMet: array<int, array<int, int>>}|null
-     */
-    private function buildMatchMakingByBacktracking(
-        array $orderedPairs,
-        int $deadlineNs,
-        int $meetingsVariationLimit,
-        int $branchCap,
-        int $playersCount,
-        ?int $bestMinMetSoFar
-    ): ?array {
-        $pairCount = count($orderedPairs);
-        $used = array_fill(0, $pairCount, false);
-        $playersMet = [];
-        $matches = [];
-        $branchesRemaining = $branchCap;
-
-        $success = $this->matchMakingDfsExpand(
-            $orderedPairs,
-            $playersCount,
-            $used,
-            $playersMet,
-            $matches,
-            $deadlineNs,
-            $meetingsVariationLimit,
-            $branchesRemaining,
-            $bestMinMetSoFar
-        );
-
-        if (!$success) {
-            return null;
-        }
-
-        return [
-            'matches' => $matches,
-            'playersMet' => $playersMet,
-        ];
-    }
-
-    /**
-     * Recursive DFS body for {@see buildTemplateByBacktracking()}. At each entry: checks the
-     * wall deadline, decrements the branch counter, applies the Min Met B&B prune, then picks
-     * the lowest unused pair as pair-1 and iterates pair-2 candidates in ascending index
-     * order. Returns `true` once a complete template is assembled (all pairs used); `false`
-     * when the (pruned) subtree below the current node is exhausted, when the deadline fires,
-     * or when the branch cap is hit.
-     *
-     * @param array<int, array{players: array{0:int,1:int}, used: bool}> $pairs
-     * @param array<int, bool> $used
-     * @param array<int, array<int, int>> $playersMet
-     * @param array<int, array{0: array{0:int,1:int}, 1: array{0:int,1:int}}> $matches
-     */
-    private function matchMakingDfsExpand(
-        array $pairs,
-        int $playersCount,
-        array &$used,
-        array &$playersMet,
-        array &$matches,
-        int $deadlineNs,
-        int $meetingsVariationLimit,
-        int &$branchesRemaining,
-        ?int $bestMinMetSoFar
-    ): bool {
-        if ($branchesRemaining <= 0) {
-            return false;
-        }
-        if ($this->monotonicNow() >= $deadlineNs) {
-            return false;
-        }
-        $branchesRemaining--;
-
-        if ($bestMinMetSoFar !== null && $bestMinMetSoFar > 0) {
-            // Upper bound on each player's final distinct-opponent count: every still-unused
-            // pair containing player `p` will, once matched, give `p` up to 3 new distinct
-            // opponents (1 partner + 2 cross-pair opponents). Clamping by `playersCount - 1`
-            // matches the absolute ceiling (a player cannot meet more people than exist).
-            //
-            // If any player's upper bound is `< bestMinMetSoFar`, the branch cannot beat the
-            // current global-best Min Met and we prune.
-            $remainingForP = array_fill(0, $playersCount, 0);
-            $pairCount = count($pairs);
-            for ($i = 0; $i < $pairCount; $i++) {
-                if ($used[$i]) {
-                    continue;
-                }
-                $remainingForP[$pairs[$i]['players'][0]]++;
-                $remainingForP[$pairs[$i]['players'][1]]++;
-            }
-            $maxDistinct = $playersCount - 1;
-            for ($p = 0; $p < $playersCount; $p++) {
-                $current = isset($playersMet[$p]) ? count($playersMet[$p]) : 0;
-                $upperBound = $current + 3 * $remainingForP[$p];
-                if ($upperBound > $maxDistinct) {
-                    $upperBound = $maxDistinct;
-                }
-                if ($upperBound < $bestMinMetSoFar) {
-                    return false;
-                }
-            }
-        }
-
-        $pair1Idx = -1;
-        $pairCount = count($pairs);
-        for ($i = 0; $i < $pairCount; $i++) {
-            if (!$used[$i]) {
-                $pair1Idx = $i;
-                break;
-            }
-        }
-
-        if ($pair1Idx === -1) {
-            return true;
-        }
-
-        $pair1Players = $pairs[$pair1Idx]['players'];
-        $used[$pair1Idx] = true;
-
-        for ($j = $pair1Idx + 1; $j < $pairCount; $j++) {
-            if ($used[$j]) {
-                continue;
-            }
-            $pair2Players = $pairs[$j]['players'];
-            if (array_intersect($pair1Players, $pair2Players)) {
-                continue;
-            }
-            if ($this->playersMetTooMuch($pair1Players, $pair2Players, $playersMet, $meetingsVariationLimit)) {
-                continue;
-            }
-
-            $playersMetSnapshot = $playersMet;
-            $playersMet = $this->addPlayersMet($playersMet, [$pair1Players, $pair2Players]);
-            $matches[] = [$pair1Players, $pair2Players];
-            $used[$j] = true;
-
-            $success = $this->matchMakingDfsExpand(
-                $pairs,
-                $playersCount,
-                $used,
-                $playersMet,
-                $matches,
-                $deadlineNs,
-                $meetingsVariationLimit,
-                $branchesRemaining,
-                $bestMinMetSoFar
-            );
-
-            if ($success) {
-                return true;
-            }
-
-            $used[$j] = false;
-            array_pop($matches);
-            $playersMet = $playersMetSnapshot;
-
-            if ($branchesRemaining <= 0) {
-                $used[$pair1Idx] = false;
-                return false;
-            }
-            if ($this->monotonicNow() >= $deadlineNs) {
-                $used[$pair1Idx] = false;
-                return false;
-            }
-        }
-
-        $used[$pair1Idx] = false;
-        return false;
-    }
-
-    /**
-     * Smallest count of distinct opponents across `[0..playersCount-1]`. Players who never met
-     * anyone (absent from `$playersMet`) contribute 0 — the schedule's Min Met cannot exceed
-     * what an uninvited player has met.
-     */
-    private function calculateMinMet(array $playersMet, int $playersCount): int
-    {
-        $min = PHP_INT_MAX;
-        for ($p = 0; $p < $playersCount; $p++) {
-            $distinct = isset($playersMet[$p]) ? count($playersMet[$p]) : 0;
-            if ($distinct < $min) {
-                $min = $distinct;
-            }
-        }
-
-        return $min === PHP_INT_MAX ? 0 : $min;
     }
 
     /**
@@ -1413,15 +1139,7 @@ class TemplateMatchesGenerator
 
     private function calculatePlayersMetMeetingsVariation(array $playersMet): float
     {
-        if (empty($playersMet)) {
-            return 0.0;
-        }
-
-        $variations = array_map(static function (array $met) {
-            return max($met) - min($met);
-        }, $playersMet);
-
-        return (float) array_sum($variations) / count($variations);
+        return MatchMakingLex::meetingsVariation($playersMet);
     }
 
     /**
@@ -1516,6 +1234,23 @@ class TemplateMatchesGenerator
         }
 
         return false;
+    }
+
+    /**
+     * @param list<string> $seedStopReasons
+     */
+    private function aggregatePairingStopReason(array $seedStopReasons): string
+    {
+        if ($seedStopReasons === []) {
+            return self::STOP_REASON_FACTORIAL_COMPLETE;
+        }
+        foreach ($seedStopReasons as $reason) {
+            if ($reason === self::STOP_REASON_DEADLINE) {
+                return self::STOP_REASON_DEADLINE;
+            }
+        }
+
+        return self::STOP_REASON_FACTORIAL_COMPLETE;
     }
 
     private function adjustServingOrder(array $matches, int $playerNumber): array

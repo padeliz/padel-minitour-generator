@@ -2,6 +2,7 @@
 
 namespace Tests\Unit;
 
+use Arshavinel\PadelMiniTour\Service\MatchMakingLex;
 use Arshavinel\PadelMiniTour\Service\Progress\GenerationProgress;
 use Arshavinel\PadelMiniTour\Service\Progress\OrderingProgress;
 use Arshavinel\PadelMiniTour\Service\Progress\MatchMakingProgress;
@@ -68,6 +69,95 @@ final class TemplateMatchesGeneratorTest extends GeneratorTestCase
         $this->assertSame(0, $template->getMatchMakingStatsTemplatesGenerated());
     }
 
+    public function test_coupling_parallel_relax_attempts_invariants_on_eligible_template(): void
+    {
+        $template = $this->invokePipelineMixed(new TemplateMatchesGenerator(), 4, 2);
+
+        $this->assertTrue($template->isEligible());
+
+        $mmAttempts = $template->getMatchMakingStatsRelaxAttempts();
+        $ordAttempts = $template->getOrderingStatsRelaxAttempts();
+        $this->assertNotNull($mmAttempts);
+        $this->assertNotNull($ordAttempts);
+        $this->assertCount(count($mmAttempts), $ordAttempts);
+
+        $eligiblePasses = 0;
+        foreach ($mmAttempts as $i => $mmAttempt) {
+            $this->assertArrayHasKey('nodesExplored', $mmAttempt);
+            $this->assertArrayHasKey('candidatesCollected', $mmAttempt);
+            $this->assertArrayHasKey('candidatesDeduped', $mmAttempt);
+            $this->assertSame($mmAttempt['meetingsVariationLimit'], $ordAttempts[$i]['meetingsVariationLimit']);
+            if ($ordAttempts[$i]['eligible']) {
+                $eligiblePasses++;
+            }
+        }
+        $this->assertSame(1, $eligiblePasses);
+        $this->assertNotNull($template->getMatchMakingStatsCandidateIndex());
+        $this->assertGreaterThanOrEqual(0, $template->getMatchMakingStatsCandidateIndex());
+    }
+
+    public function test_coupling_ineligible_template_marks_all_ordering_passes_not_eligible(): void
+    {
+        $generator = new TemplateMatchesGenerator(
+            static function (): int {
+                return 0;
+            },
+            0,
+            self::TEST_PHASE_BUDGET_NS
+        );
+
+        $template = $this->invokePipelineMixed(
+            $generator,
+            4,
+            2,
+            1,
+            1,
+            self::TEST_PHASE_BUDGET_NS,
+            0,
+            self::TEST_PHASE_BUDGET_NS
+        );
+
+        $mmAttempts = $template->getMatchMakingStatsRelaxAttempts();
+        $ordAttempts = $template->getOrderingStatsRelaxAttempts();
+        $this->assertNotNull($mmAttempts);
+        $this->assertNotNull($ordAttempts);
+        $this->assertGreaterThanOrEqual(1, count($mmAttempts));
+        $this->assertCount(count($mmAttempts), $ordAttempts);
+
+        foreach ($ordAttempts as $ordAttempt) {
+            $this->assertFalse($ordAttempt['eligible']);
+            $this->assertNotNull($ordAttempt['stopReason']);
+        }
+    }
+
+    public function test_coupling_empty_mm_pool_logs_zero_candidates_tried(): void
+    {
+        $generator = new TemplateMatchesGenerator(
+            static function (): int {
+                return 0;
+            },
+            0,
+            self::TEST_PHASE_BUDGET_NS
+        );
+
+        $template = $this->invokePipelineMixed(
+            $generator,
+            4,
+            2,
+            1,
+            1,
+            self::TEST_PHASE_BUDGET_NS,
+            0,
+            self::TEST_PHASE_BUDGET_NS
+        );
+        $ordAttempts = $template->getOrderingStatsRelaxAttempts();
+
+        $this->assertNotNull($ordAttempts);
+        $this->assertGreaterThanOrEqual(1, count($ordAttempts));
+        $this->assertSame(0, $ordAttempts[0]['candidatesTried']);
+        $this->assertFalse($ordAttempts[0]['eligible']);
+    }
+
     public function test_progress_callback_receives_pairing_and_ordering_finals_for_mixed(): void
     {
         $events = $this->capturePipelineEvents(new TemplateMatchesGenerator(), 4, 2, 1, false);
@@ -98,6 +188,7 @@ final class TemplateMatchesGeneratorTest extends GeneratorTestCase
         $this->assertGreaterThan(0, $matchMakingFinal->getIterations());
         $this->assertGreaterThan(0, $matchMakingFinal->getTemplatesGenerated());
         $this->assertNotNull($matchMakingFinal->getBestMeetingsVariation());
+        $this->assertGreaterThan(0, $matchMakingFinal->getNodesExplored());
 
         /** @var OrderingProgress $orderingFinal */
         $orderingFinal = $orderingFinals[0];
@@ -213,6 +304,9 @@ final class TemplateMatchesGeneratorTest extends GeneratorTestCase
 
         $this->assertTrue($template->isEligible());
         $this->assertNotNull($template->getMatchMakingQualityMeetingsVariation());
+        $this->assertNotNull($template->getMatchMakingQualityMinPlayingFairness());
+        $this->assertNotNull($template->getMatchMakingQualityAvgPlayingFairness());
+        $this->assertNotNull($template->getMatchMakingQualityMaxPlayingFairnessPenalty());
         $this->assertNotNull($template->getPairingQualityPartnersCount());
         $this->assertNotNull($template->getMatchMakingQualityPlayersMet());
         $this->assertNotNull($template->getPairingQualityPartnersCountVariation());
@@ -586,16 +680,38 @@ final class TemplateMatchesGeneratorTest extends GeneratorTestCase
             2,
             [0 => [1 => 1]],
             1,
+            null,
+            null,
+            null,
             10,
             7,
             10,
             7,
+            50,
             'FACTORIAL_COMPLETE',
             0.05,
             2,
             [
-                ['meetingsVariationLimit' => 1, 'permutationsIterated' => 3, 'templatesGenerated' => 0, 'time' => 0.04],
-                ['meetingsVariationLimit' => 2, 'permutationsIterated' => 5, 'templatesGenerated' => 5, 'time' => 0.06],
+                [
+                    'meetingsVariationLimit' => 1,
+                    'permutationsIterated' => 3,
+                    'templatesGenerated' => 0,
+                    'nodesExplored' => 0,
+                    'time' => 0.04,
+                    'candidatesCollected' => 0,
+                    'candidatesDeduped' => 0,
+                    'stopReason' => 'DEADLINE',
+                ],
+                [
+                    'meetingsVariationLimit' => 2,
+                    'permutationsIterated' => 5,
+                    'templatesGenerated' => 5,
+                    'nodesExplored' => 0,
+                    'time' => 0.06,
+                    'candidatesCollected' => 5,
+                    'candidatesDeduped' => 5,
+                    'stopReason' => 'FACTORIAL_COMPLETE',
+                ],
             ],
             0.9,
             0.95,
@@ -612,7 +728,26 @@ final class TemplateMatchesGeneratorTest extends GeneratorTestCase
             50,
             1,
             1,
-            0.05
+            0.05,
+            null,
+            null,
+            null,
+            [
+                [
+                    'meetingsVariationLimit' => 1,
+                    'candidatesTried' => 0,
+                    'eligible' => false,
+                    'time' => 0.01,
+                    'stopReason' => 'DEADLINE',
+                ],
+                [
+                    'meetingsVariationLimit' => 2,
+                    'candidatesTried' => 1,
+                    'eligible' => true,
+                    'time' => 0.02,
+                    'stopReason' => null,
+                ],
+            ]
         );
 
         $round = TemplateMatches::fromArray($template->toArray());
@@ -627,6 +762,15 @@ final class TemplateMatchesGeneratorTest extends GeneratorTestCase
         $this->assertSame(0.04, $attempts[0]['time']);
         $this->assertSame(2, $attempts[1]['meetingsVariationLimit']);
         $this->assertSame(5, $attempts[1]['templatesGenerated']);
+
+        $orderingAttempts = $round->getOrderingStatsRelaxAttempts();
+        $this->assertNotNull($orderingAttempts);
+        $this->assertCount(2, $orderingAttempts);
+        $this->assertSame(1, $orderingAttempts[0]['meetingsVariationLimit']);
+        $this->assertSame(0, $orderingAttempts[0]['candidatesTried']);
+        $this->assertFalse($orderingAttempts[0]['eligible']);
+        $this->assertTrue($orderingAttempts[1]['eligible']);
+        $this->assertNull($orderingAttempts[1]['stopReason']);
     }
 
     /**
@@ -704,7 +848,8 @@ final class TemplateMatchesGeneratorTest extends GeneratorTestCase
         );
 
         $this->assertNotNull($result, 'DFS must backtrack from the greedy dead-end and assemble a complete template.');
-        $this->assertCount(3, $result['matches']);
+        $this->assertCount(3, $result['candidate']['matches']);
+        $this->assertGreaterThan(0, $result['nodesExplored']);
     }
 
     public function test_backtracking_respects_branch_cap(): void
@@ -750,7 +895,7 @@ final class TemplateMatchesGeneratorTest extends GeneratorTestCase
         $method = $reflection->getMethod('buildMatchMakingByBacktracking');
         $method->setAccessible(true);
 
-        $result = $method->invoke($generator, $orderedPairs, 500_000_000, PHP_INT_MAX, 10_000, 8, null);
+        $result = $method->invoke($generator, $orderedPairs, 500_000_000, PHP_INT_MAX, 10_000, 8, null, 1, 0);
 
         $this->assertNull($result, 'DFS must return null once the wall deadline elapses, even with branch budget left.');
     }
@@ -826,7 +971,39 @@ final class TemplateMatchesGeneratorTest extends GeneratorTestCase
         $this->assertSame($first, $second);
     }
 
-    public function test_pairing_tie_break_prefers_lowest_seed(): void
+    public function test_match_making_multi_leaf_lex_picks_best_not_first_found(): void
+    {
+        $orderedPairs = [
+            ['players' => [0, 1], 'used' => false],
+            ['players' => [2, 3], 'used' => false],
+            ['players' => [2, 4], 'used' => false],
+            ['players' => [5, 6], 'used' => false],
+            ['players' => [3, 7], 'used' => false],
+            ['players' => [4, 7], 'used' => false],
+        ];
+
+        $result = $this->invokeBuildTemplateByBacktracking(
+            $orderedPairs,
+            PHP_INT_MAX,
+            PHP_INT_MAX,
+            10_000,
+            8,
+            null
+        );
+
+        $this->assertNotNull($result);
+        $this->assertGreaterThan(1, $result['nodesExplored'], 'DFS must score multiple complete leaves within the seed.');
+        $this->assertSame(3, $result['candidate']['minOpponentsMet']);
+        $this->assertEqualsWithDelta(0.0, $result['candidate']['meetingsVariation'], 1e-9);
+        $this->assertEqualsWithDelta(
+            0.2857142857142857,
+            $result['candidate']['minPlayingFairness'],
+            1e-9,
+            'Tier-2 tie-break must pick the lowest meetingsVariation leaf, not the first-found leaf.'
+        );
+    }
+
+    public function test_match_making_multi_seed_commits_lex_best_permutation(): void
     {
         $generator = new TemplateMatchesGenerator(
             null,
@@ -859,10 +1036,13 @@ final class TemplateMatchesGeneratorTest extends GeneratorTestCase
             }
         }
 
-        if (isset($data['metrics']['matchMaking']['stats']['relaxAttempts'])
-            && is_array($data['metrics']['matchMaking']['stats']['relaxAttempts'])
-        ) {
-            foreach ($data['metrics']['matchMaking']['stats']['relaxAttempts'] as &$attempt) {
+        foreach (['matchMaking', 'ordering'] as $phase) {
+            if (!isset($data['metrics'][$phase]['stats']['relaxAttempts'])
+                || !is_array($data['metrics'][$phase]['stats']['relaxAttempts'])
+            ) {
+                continue;
+            }
+            foreach ($data['metrics'][$phase]['stats']['relaxAttempts'] as &$attempt) {
                 if (is_array($attempt)) {
                     unset($attempt['time']);
                 }
@@ -875,7 +1055,7 @@ final class TemplateMatchesGeneratorTest extends GeneratorTestCase
 
     /**
      * @param array<int, array{players: array{0:int,1:int}, used: bool}> $orderedPairs
-     * @return array{matches: array<int, array{0: array{0:int,1:int}, 1: array{0:int,1:int}}>, playersMet: array<int, array<int, int>>}|null
+     * @return array{candidate: array<string, mixed>, nodesExplored: int}|null
      */
     private function invokeBuildTemplateByBacktracking(
         array $orderedPairs,
@@ -890,15 +1070,37 @@ final class TemplateMatchesGeneratorTest extends GeneratorTestCase
         $method = $reflection->getMethod('buildMatchMakingByBacktracking');
         $method->setAccessible(true);
 
-        return $method->invoke(
+        $raw = $method->invoke(
             $generator,
             $orderedPairs,
             $deadlineNs,
             $meetingsVariationLimit,
             $branchCap,
             $playersCount,
-            $bestMinMetSoFar
+            $bestMinMetSoFar,
+            1,
+            0
         );
+
+        if ($raw === null) {
+            return null;
+        }
+
+        $best = null;
+        foreach ($raw['leaves'] as $leaf) {
+            if (MatchMakingLex::compare($leaf, $best) > 0) {
+                $best = $leaf;
+            }
+        }
+
+        if ($best === null) {
+            return null;
+        }
+
+        return [
+            'candidate' => $best,
+            'nodesExplored' => $raw['nodesExplored'],
+        ];
     }
 }
 

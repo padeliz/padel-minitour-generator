@@ -13,27 +13,27 @@
                 ],
                 [
                     1,
-                    3
+                    4
                 ]
             ],
             [
                 [
                     1,
-                    5
+                    3
                 ],
                 [
                     0,
-                    4
+                    5
                 ]
             ],
             [
-                [
-                    3,
-                    4
-                ],
                 [
                     2,
                     5
+                ],
+                [
+                    3,
+                    4
                 ]
             ],
             [
@@ -41,29 +41,29 @@
                     0,
                     3
                 ],
-                [
-                    1,
-                    4
-                ]
-            ],
-            [
                 [
                     1,
                     2
-                ],
-                [
-                    3,
-                    5
                 ]
             ],
             [
                 [
-                    0,
+                    1,
                     5
                 ],
                 [
                     2,
                     4
+                ]
+            ],
+            [
+                [
+                    0,
+                    4
+                ],
+                [
+                    3,
+                    5
                 ]
             ]
         ]
@@ -86,7 +86,7 @@
             },
             "stats": {
                 "stopReason": "FACTORIAL_COMPLETE",
-                "time": 153.2026622,
+                "time": 158.1014359,
                 "nodesExplored": 2560000,
                 "seedIndex": 1,
                 "seedsTotal": 256
@@ -101,62 +101,73 @@
                     "0": {
                         "2": 2,
                         "1": 3,
-                        "3": 2,
-                        "4": 3,
+                        "4": 2,
+                        "3": 3,
                         "5": 2
                     },
                     "2": {
                         "0": 2,
-                        "1": 2,
-                        "3": 3,
-                        "5": 3,
-                        "4": 2
+                        "1": 3,
+                        "4": 3,
+                        "3": 2,
+                        "5": 2
                     },
                     "1": {
                         "0": 3,
-                        "2": 2,
-                        "3": 3,
-                        "4": 2,
-                        "5": 2
-                    },
-                    "3": {
-                        "0": 2,
                         "2": 3,
-                        "1": 3,
                         "4": 2,
+                        "3": 2,
                         "5": 2
                     },
                     "4": {
-                        "0": 3,
-                        "3": 2,
+                        "0": 2,
+                        "2": 3,
                         "1": 2,
-                        "5": 3,
-                        "2": 2
+                        "3": 2,
+                        "5": 3
+                    },
+                    "3": {
+                        "0": 3,
+                        "1": 2,
+                        "2": 2,
+                        "4": 2,
+                        "5": 3
                     },
                     "5": {
                         "0": 2,
                         "4": 3,
+                        "3": 3,
                         "1": 2,
-                        "2": 3,
-                        "3": 2
+                        "2": 2
                     }
                 },
-                "matchesCount": 6
+                "matchesCount": 6,
+                "minPlayingFairness": 0.875,
+                "avgPlayingFairness": 0.9333333333333332,
+                "maxPlayingFairnessPenalty": 0.1
             },
             "stats": {
                 "permutationsIterated": 256,
                 "permutationIndex": 1,
-                "templatesGenerated": 256,
-                "templateIndex": 1,
+                "templatesGenerated": 22528,
+                "templateIndex": 19,
+                "nodesExplored": 22528,
                 "stopReason": "FACTORIAL_COMPLETE",
-                "time": 0.0191525,
+                "time": 1.8929016,
                 "meetingsVariationLimit": 1,
+                "candidatesCollected": 22528,
+                "candidatesDeduped": 88,
+                "candidateIndex": 0,
                 "relaxAttempts": [
                     {
                         "meetingsVariationLimit": 1,
                         "permutationsIterated": 256,
-                        "templatesGenerated": 256,
-                        "time": 0.0191525
+                        "templatesGenerated": 22528,
+                        "nodesExplored": 22528,
+                        "time": 1.8929016,
+                        "candidatesCollected": 22528,
+                        "candidatesDeduped": 88,
+                        "stopReason": "FACTORIAL_COMPLETE"
                     }
                 ]
             }
@@ -175,12 +186,21 @@
             },
             "stats": {
                 "stopReason": "FACTORIAL_COMPLETE",
-                "permutationsIterated": 720,
-                "permutationIndex": 44,
-                "nodesExplored": 1957,
+                "permutationsIterated": 65,
+                "permutationIndex": 33,
+                "nodesExplored": 271,
                 "seedIndex": 1,
                 "seedsTotal": 1,
-                "time": 0.0284489
+                "time": 1.174372,
+                "relaxAttempts": [
+                    {
+                        "meetingsVariationLimit": 1,
+                        "candidatesTried": 88,
+                        "eligible": true,
+                        "time": 1.174372,
+                        "stopReason": null
+                    }
+                ]
             }
         }
     }

@@ -156,6 +156,9 @@ final class MetricsTemplatesFixedTeamsCommand extends Command
         $avgPartnersFairs = [];
         $partnersVars = [];
         $meetingsVars = [];
+        $minPlayingFairs = [];
+        $avgPlayingFairs = [];
+        $maxPlayingPenalties = [];
         $mins = [];
         $avgs = [];
         $previousPlayers = null;
@@ -173,6 +176,9 @@ final class MetricsTemplatesFixedTeamsCommand extends Command
                 $avgPartnersFairs[] = $template->getPairingQualityAvgPartnersFairness();
                 $partnersVars[] = $template->getPairingQualityPartnersCountVariation();
                 $meetingsVars[] = $template->getMatchMakingQualityMeetingsVariation();
+                $minPlayingFairs[] = $template->getMatchMakingQualityMinPlayingFairness();
+                $avgPlayingFairs[] = $template->getMatchMakingQualityAvgPlayingFairness();
+                $maxPlayingPenalties[] = $template->getMatchMakingQualityMaxPlayingFairnessPenalty();
                 $mins[] = $template->getOrderingQualityMinDistribution();
                 $avgs[] = $template->getOrderingQualityAvgDistribution();
             }
@@ -189,7 +195,7 @@ final class MetricsTemplatesFixedTeamsCommand extends Command
         }
 
         $table->addRow(array_fill(0, $layout['totalColumns'], new TableSeparator()));
-        $table->addRow($this->buildAvgRow($layout, $minPartnersFairs, $avgPartnersFairs, $partnersVars, $meetingsVars, $mins, $avgs));
+        $table->addRow($this->buildAvgRow($layout, $minPartnersFairs, $avgPartnersFairs, $partnersVars, $meetingsVars, $minPlayingFairs, $avgPlayingFairs, $maxPlayingPenalties, $mins, $avgs));
 
         $table->render();
 

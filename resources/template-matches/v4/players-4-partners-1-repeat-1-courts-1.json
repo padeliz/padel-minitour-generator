@@ -34,7 +34,7 @@
             },
             "stats": {
                 "stopReason": "FACTORIAL_COMPLETE",
-                "time": 0.4112034,
+                "time": 0.3582766,
                 "nodesExplored": 5,
                 "seedIndex": 1,
                 "seedsTotal": 1
@@ -67,22 +67,33 @@
                         "1": 1
                     }
                 },
-                "matchesCount": 1
+                "matchesCount": 1,
+                "minPlayingFairness": 1,
+                "avgPlayingFairness": 1,
+                "maxPlayingFairnessPenalty": 0
             },
             "stats": {
                 "permutationsIterated": 1,
                 "permutationIndex": 1,
                 "templatesGenerated": 1,
                 "templateIndex": 1,
+                "nodesExplored": 1,
                 "stopReason": "FACTORIAL_COMPLETE",
-                "time": 4.9e-5,
+                "time": 0.0172463,
                 "meetingsVariationLimit": 1,
+                "candidatesCollected": 1,
+                "candidatesDeduped": 1,
+                "candidateIndex": 0,
                 "relaxAttempts": [
                     {
                         "meetingsVariationLimit": 1,
                         "permutationsIterated": 1,
                         "templatesGenerated": 1,
-                        "time": 4.9e-5
+                        "nodesExplored": 1,
+                        "time": 0.0172463,
+                        "candidatesCollected": 1,
+                        "candidatesDeduped": 1,
+                        "stopReason": "FACTORIAL_COMPLETE"
                     }
                 ]
             }
@@ -106,7 +117,16 @@
                 "nodesExplored": 0,
                 "seedIndex": 1,
                 "seedsTotal": 1,
-                "time": 8.3e-6
+                "time": 9.8e-6,
+                "relaxAttempts": [
+                    {
+                        "meetingsVariationLimit": 1,
+                        "candidatesTried": 1,
+                        "eligible": true,
+                        "time": 9.8e-6,
+                        "stopReason": null
+                    }
+                ]
             }
         }
     }
