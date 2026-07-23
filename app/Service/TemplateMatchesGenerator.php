@@ -833,30 +833,77 @@ class TemplateMatchesGenerator
         array $orderingQuality,
         array $orderingStats
     ): TemplateMatches {
+        unset($orderingQuality);
         $pairingHasPool = ($pairingResult['pairCount'] ?? 0) > 0;
         $matchMakingSucceeded = ($matchMakingQuality['meetingsVariation'] ?? null) !== null
             || ($matchMakingQuality['playersMet'] ?? null) !== null;
         $orderingSucceeded = $matches !== null;
 
-        $consecutiveMinBreaks = null;
-        $consecutiveMaxBreaks = null;
-        $minPlayingFairness = null;
-        $avgPlayingFairness = null;
-        $maxPlayingFairnessPenalty = null;
         if ($orderingSucceeded) {
-            $streakMetrics = RoundScheduleBreakAnalyzer::analyze(
-                $matches,
-                range(0, $playersCount - 1),
-                $orderingQuality['minBreak'] ?? null,
-                $orderingQuality['maxBreak'] ?? null
+            $computed = (new CompletedScheduleQualityCalculator())->compute(
+                $playersCount,
+                $opponentsPerPlayer,
+                $repeatOpponents,
+                $this->activeCourts,
+                $fixedTeams,
+                $matches
             );
-            $consecutiveMinBreaks = $streakMetrics['consecutiveMinBreaks'];
-            $consecutiveMaxBreaks = $streakMetrics['consecutiveMaxBreaks'];
 
-            $playingFairness = (new PlayingFairnessScorer())->scoreTemplate($matches, $playersCount);
-            $minPlayingFairness = $playingFairness['min'];
-            $avgPlayingFairness = $playingFairness['avg'];
-            $maxPlayingFairnessPenalty = $playingFairness['maxPenalty'];
+            return new TemplateMatches(
+                $playersCount,
+                $opponentsPerPlayer,
+                $repeatOpponents,
+                $this->activeCourts,
+                $fixedTeams,
+                $matches,
+                $computed['pairing']['minPartnersFairness'],
+                $computed['pairing']['avgPartnersFairness'],
+                $computed['pairing']['partnersCount'],
+                $computed['pairing']['partnersCountVariation'],
+                $computed['pairing']['pairCount'],
+                $pairingResult['stopReason'] ?? null,
+                $pairingResult['time'] ?? null,
+                $pairingResult['nodesExplored'] ?? null,
+                $pairingResult['seedIndex'] ?? null,
+                $pairingResult['seedsTotal'] ?? null,
+                $computed['matchMaking']['meetingsVariation'],
+                $computed['matchMaking']['minOpponentsMet'],
+                $computed['matchMaking']['maxOpponentsMet'],
+                $computed['matchMaking']['playersMet'],
+                $computed['matchMaking']['matchesCount'],
+                $computed['matchMaking']['minPlayingFairness'],
+                $computed['matchMaking']['avgPlayingFairness'],
+                $computed['matchMaking']['maxPlayingFairnessPenalty'],
+                $matchMakingStats['permutationsIterated'] ?? null,
+                $matchMakingStats['permutationIndex'] ?? null,
+                $matchMakingStats['templatesGenerated'] ?? null,
+                $matchMakingStats['templateIndex'] ?? null,
+                $matchMakingStats['nodesExplored'] ?? null,
+                $matchMakingStats['stopReason'] ?? null,
+                $matchMakingStats['time'] ?? null,
+                $matchMakingStats['meetingsVariationLimit'] ?? null,
+                $matchMakingStats['relaxAttempts'] ?? null,
+                $computed['ordering']['minDistribution'],
+                $computed['ordering']['avgDistribution'],
+                $computed['ordering']['minBreak'],
+                $computed['ordering']['maxBreak'],
+                $computed['ordering']['consecutiveMinBreaks'],
+                $computed['ordering']['consecutiveMaxBreaks'],
+                $computed['ordering']['courtSwitches'],
+                $computed['ordering']['courtBalance'],
+                $computed['ordering']['roundsCount'],
+                $orderingStats['stopReason'] ?? null,
+                $orderingStats['permutationsIterated'] ?? null,
+                $orderingStats['permutationIndex'] ?? null,
+                $orderingStats['nodesExplored'] ?? null,
+                $orderingStats['seedIndex'] ?? null,
+                $orderingStats['seedsTotal'] ?? null,
+                $orderingStats['time'] ?? null,
+                $matchMakingStats['candidatesCollected'] ?? null,
+                $matchMakingStats['candidatesDeduped'] ?? null,
+                $matchMakingStats['candidateIndex'] ?? null,
+                $orderingStats['relaxAttempts'] ?? null
+            );
         }
 
         return new TemplateMatches(
@@ -881,9 +928,9 @@ class TemplateMatchesGenerator
             $matchMakingSucceeded ? $matchMakingQuality['maxOpponentsMet'] : null,
             $matchMakingSucceeded ? $matchMakingQuality['playersMet'] : null,
             $matchMakingSucceeded ? $matchMakingQuality['matchesCount'] : null,
-            $orderingSucceeded ? $minPlayingFairness : null,
-            $orderingSucceeded ? $avgPlayingFairness : null,
-            $orderingSucceeded ? $maxPlayingFairnessPenalty : null,
+            null,
+            null,
+            null,
             $matchMakingStats['permutationsIterated'] ?? null,
             $matchMakingStats['permutationIndex'] ?? null,
             $matchMakingStats['templatesGenerated'] ?? null,
@@ -893,15 +940,15 @@ class TemplateMatchesGenerator
             $matchMakingStats['time'] ?? null,
             $matchMakingStats['meetingsVariationLimit'] ?? null,
             $matchMakingStats['relaxAttempts'] ?? null,
-            $orderingSucceeded ? $orderingQuality['minDistribution'] : null,
-            $orderingSucceeded ? $orderingQuality['avgDistribution'] : null,
-            $orderingSucceeded ? $orderingQuality['minBreak'] : null,
-            $orderingSucceeded ? $orderingQuality['maxBreak'] : null,
-            $consecutiveMinBreaks,
-            $consecutiveMaxBreaks,
-            $orderingSucceeded ? $orderingQuality['courtSwitches'] : null,
-            $orderingSucceeded ? $orderingQuality['courtBalance'] : null,
-            $orderingSucceeded ? $orderingQuality['roundsCount'] : null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
             $orderingStats['stopReason'] ?? null,
             $orderingStats['permutationsIterated'] ?? null,
             $orderingStats['permutationIndex'] ?? null,
@@ -1175,28 +1222,7 @@ class TemplateMatchesGenerator
 
     private function addPlayersMet(array $playersMet, array $match): array
     {
-        $matchPlayers = [
-            $match[0][0],
-            $match[0][1],
-            $match[1][0],
-            $match[1][1],
-        ];
-
-        foreach ($matchPlayers as $p1) {
-            foreach ($matchPlayers as $p2) {
-                if ($p1 !== $p2) {
-                    if (!isset($playersMet[$p1])) {
-                        $playersMet[$p1] = [];
-                    }
-                    if (!isset($playersMet[$p1][$p2])) {
-                        $playersMet[$p1][$p2] = 0;
-                    }
-                    $playersMet[$p1][$p2]++;
-                }
-            }
-        }
-
-        return $playersMet;
+        return TemplateMatchDerivation::addPlayersMet($playersMet, $match);
     }
 
     /**

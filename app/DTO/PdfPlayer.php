@@ -155,16 +155,33 @@ final class PdfPlayer
 
     private function findStaticPhotoPath(): string
     {
-        $imageFilePath = 'statics/media/MiniTour-participants/' . $this->slugName;
-
-        if (is_file($imageFilePath . '.png')) {
-            return $imageFilePath . '.png';
-        } elseif (is_file($imageFilePath . '.jpg')) {
-            return $imageFilePath . '.jpg';
-        } elseif (is_file($imageFilePath . '.jpeg')) {
-            return $imageFilePath . '.jpeg';
+        $path = self::resolveStaticPhotoPath($this->slugName);
+        if ($path !== null) {
+            return $path;
         }
 
         throw new Exception('No static photo found for: ' . $this->player->name . ' (' . $this->slugName . ')');
+    }
+
+    public static function hasStaticPhoto(string $playerName): bool
+    {
+        return self::resolveStaticPhotoPath(Text::slug($playerName)) !== null;
+    }
+
+    private static function resolveStaticPhotoPath(string $slugName): ?string
+    {
+        $imageFilePath = 'statics/media/MiniTour-participants/' . $slugName;
+
+        if (is_file($imageFilePath . '.png')) {
+            return $imageFilePath . '.png';
+        }
+        if (is_file($imageFilePath . '.jpg')) {
+            return $imageFilePath . '.jpg';
+        }
+        if (is_file($imageFilePath . '.jpeg')) {
+            return $imageFilePath . '.jpeg';
+        }
+
+        return null;
     }
 }

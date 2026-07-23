@@ -1,0 +1,75 @@
+{
+    "players": 11,
+    "partners": 8,
+    "repeat": 1,
+    "courts": 1,
+    "fixedTeams": false,
+    "matches": null,
+    "metrics": {
+        "pairing": {
+            "quality": {
+                "minPartnersFairness": null,
+                "avgPartnersFairness": null,
+                "partnersCount": null,
+                "partnersCountVariation": null,
+                "pairCount": null
+            },
+            "stats": {
+                "stopReason": null,
+                "time": null,
+                "nodesExplored": null,
+                "seedIndex": null,
+                "seedsTotal": null
+            }
+        },
+        "matchMaking": {
+            "quality": {
+                "meetingsVariation": null,
+                "minOpponentsMet": null,
+                "maxOpponentsMet": null,
+                "playersMet": null,
+                "matchesCount": null,
+                "minPlayingFairness": null,
+                "avgPlayingFairness": null,
+                "maxPlayingFairnessPenalty": null
+            },
+            "stats": {
+                "permutationsIterated": 350000,
+                "permutationIndex": null,
+                "templatesGenerated": 0,
+                "templateIndex": null,
+                "nodesExplored": null,
+                "stopReason": null,
+                "time": 75.13,
+                "meetingsVariationLimit": null,
+                "candidatesCollected": null,
+                "candidatesDeduped": null,
+                "candidateIndex": null,
+                "relaxAttempts": null
+            }
+        },
+        "ordering": {
+            "quality": {
+                "minDistribution": null,
+                "avgDistribution": null,
+                "minBreak": null,
+                "maxBreak": null,
+                "consecutiveMinBreaks": null,
+                "consecutiveMaxBreaks": null,
+                "courtSwitches": null,
+                "courtBalance": null,
+                "roundsCount": null
+            },
+            "stats": {
+                "stopReason": null,
+                "permutationsIterated": null,
+                "permutationIndex": null,
+                "nodesExplored": null,
+                "seedIndex": null,
+                "seedsTotal": null,
+                "time": null,
+                "relaxAttempts": null
+            }
+        }
+    }
+}

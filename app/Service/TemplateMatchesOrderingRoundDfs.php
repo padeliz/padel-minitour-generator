@@ -687,7 +687,7 @@ trait TemplateMatchesOrderingRoundDfs
             $normCourtSwitches = $roundsTotal > 1
                 ? $maxCourtSwitches / ($roundsTotal - 1)
                 : 0.0;
-            $courtBalance = $this->computeCourtBalanceFromSchedule($matchesByCourt, $mockPlayers, $courts);
+            $courtBalance = CourtScheduleMetrics::courtBalanceFromSchedule($matchesByCourt, $mockPlayers, $courts);
 
             $candidateLex = [
                 'minBreak' => $currentMinBreak,
@@ -1049,35 +1049,6 @@ trait TemplateMatchesOrderingRoundDfs
         }
 
         return false;
-    }
-
-    /**
-     * @param array<int, array<int, array<int, array<int, int>>>> $matchesByCourt
-     */
-    private function computeCourtBalanceFromSchedule(
-        array $matchesByCourt,
-        array $mockPlayers,
-        int $courts
-    ): float {
-        if ($courts <= 1) {
-            return 0.0;
-        }
-
-        $perPlayerSpread = [];
-        foreach ($mockPlayers as $playerIndex) {
-            $counts = array_fill(0, $courts, 0);
-            foreach ($matchesByCourt as $courtIdx => $rounds) {
-                foreach ($rounds as $match) {
-                    $lookup = $this->matchPlayerLookup($match);
-                    if (isset($lookup[$playerIndex])) {
-                        $counts[$courtIdx]++;
-                    }
-                }
-            }
-            $perPlayerSpread[] = max($counts) - min($counts);
-        }
-
-        return $perPlayerSpread === [] ? 0.0 : (float) max($perPlayerSpread);
     }
 
     /**

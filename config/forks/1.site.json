@@ -8,6 +8,10 @@
 
     "home":	["GET",	["/generate", "/generator"]],
 
+    "templates": {
+        "demo": ["GET", "templates/demo/[version:i]"]
+    },
+
     "matches": {
         "1st-step-generate": ["GET", "matches/generated"],
         "2nd-step-beautify": ["GET", "matches/beautified"],

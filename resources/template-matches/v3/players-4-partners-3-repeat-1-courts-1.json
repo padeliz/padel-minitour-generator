@@ -87,22 +87,33 @@
                         3
                     ]
                 ],
-                "matchesCount": 3
+                "matchesCount": 3,
+                "minPlayingFairness": 0.6666666666666667,
+                "avgPlayingFairness": 0.8333333333333333,
+                "maxPlayingFairnessPenalty": 0.2222222222222222
             },
             "stats": {
                 "permutationsIterated": 1,
                 "permutationIndex": 1,
                 "templatesGenerated": 1,
                 "templateIndex": 1,
+                "nodesExplored": null,
                 "stopReason": "FACTORIAL_COMPLETE",
                 "time": 0.0001271,
                 "meetingsVariationLimit": 1,
+                "candidatesCollected": null,
+                "candidatesDeduped": null,
+                "candidateIndex": null,
                 "relaxAttempts": [
                     {
                         "meetingsVariationLimit": 1,
                         "permutationsIterated": 1,
                         "templatesGenerated": 1,
-                        "time": 0.0001271
+                        "nodesExplored": null,
+                        "time": 0.0001271,
+                        "candidatesCollected": null,
+                        "candidatesDeduped": null,
+                        "stopReason": null
                     }
                 ]
             }
@@ -113,6 +124,8 @@
                 "avgDistribution": 1,
                 "minBreak": 0,
                 "maxBreak": 0,
+                "consecutiveMinBreaks": 4,
+                "consecutiveMaxBreaks": 4,
                 "courtSwitches": 0,
                 "courtBalance": 0,
                 "roundsCount": 3
@@ -124,7 +137,8 @@
                 "nodesExplored": 16,
                 "seedIndex": 1,
                 "seedsTotal": 1,
-                "time": 0.0049944
+                "time": 0.0049944,
+                "relaxAttempts": null
             }
         }
     }

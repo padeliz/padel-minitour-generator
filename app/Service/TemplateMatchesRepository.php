@@ -376,4 +376,266 @@ final class TemplateMatchesRepository
     {
         return $this->baseDir;
     }
+
+    /**
+     * Resolves exactly one on-disk directory for version N matching `^v{N}(-|$)`.
+     *
+     * @return array{directoryName: string, version: int, isClean: bool, absolutePath: string}
+     * @throws \RuntimeException when 0 or 2+ dirs match, or when a suffix source would collide with clean v{N}
+     */
+    public function resolveVersionSourceDirectory(int $version): array
+    {
+        if ($version < 1) {
+            throw new \InvalidArgumentException('Template version must be a positive integer.');
+        }
+
+        if (!is_dir($this->baseDir)) {
+            throw new \RuntimeException(sprintf(
+                'No template directory matching v%d found under %s.',
+                $version,
+                $this->baseDir
+            ));
+        }
+
+        $entries = scandir($this->baseDir);
+        if ($entries === false) {
+            throw new \RuntimeException(sprintf('Could not read template base directory: %s', $this->baseDir));
+        }
+
+        $pattern = '/^v' . $version . '(-|$)/';
+        $matches = [];
+        foreach ($entries as $entry) {
+            if ($entry === '.' || $entry === '..') {
+                continue;
+            }
+            $path = $this->baseDir . DIRECTORY_SEPARATOR . $entry;
+            if (!is_dir($path)) {
+                continue;
+            }
+            if (preg_match($pattern, $entry) === 1) {
+                $matches[] = $entry;
+            }
+        }
+
+        if ($matches === []) {
+            throw new \RuntimeException(sprintf(
+                'No template directory matching v%d found under %s.',
+                $version,
+                $this->baseDir
+            ));
+        }
+        if (count($matches) > 1) {
+            sort($matches, SORT_STRING);
+            throw new \RuntimeException(sprintf(
+                'Ambiguous template directories for v%d: %s. Keep exactly one of them.',
+                $version,
+                implode(', ', $matches)
+            ));
+        }
+
+        $directoryName = $matches[0];
+        $isClean = $directoryName === 'v' . $version;
+        $absolutePath = $this->baseDir . DIRECTORY_SEPARATOR . $directoryName;
+
+        if (!$isClean) {
+            $cleanPath = $this->baseDir . DIRECTORY_SEPARATOR . 'v' . $version;
+            if (is_dir($cleanPath)) {
+                throw new \RuntimeException(sprintf(
+                    'Cannot migrate %s: clean directory v%d already exists.',
+                    $directoryName,
+                    $version
+                ));
+            }
+        }
+
+        return [
+            'directoryName' => $directoryName,
+            'version' => $version,
+            'isClean' => $isClean,
+            'absolutePath' => $absolutePath,
+        ];
+    }
+
+    /**
+     * Lists template JSON files in an arbitrary version directory (clean or suffixed).
+     * Accepts both current (`-courts-N`) and legacy (no courts) filenames.
+     *
+     * @param array{
+     *     players?: int,
+     *     partners?: int,
+     *     repeat?: int,
+     *     courts?: int,
+     *     fixedTeams?: bool
+     * } $filters
+     * @return list<array{
+     *     absolutePath: string,
+     *     basename: string,
+     *     players: int,
+     *     partners: int,
+     *     repeat: int,
+     *     courts: int,
+     *     fixedTeams: bool,
+     *     isLegacyFilename: bool
+     * }>
+     */
+    public function listTemplateFilesInDirectory(string $directoryName, array $filters = []): array
+    {
+        $dir = $this->baseDir . DIRECTORY_SEPARATOR . $directoryName;
+        if (!is_dir($dir)) {
+            return [];
+        }
+
+        $files = glob($dir . DIRECTORY_SEPARATOR . 'players-*.json');
+        if ($files === false) {
+            return [];
+        }
+
+        $currentPattern = '/^players-(\d+)-partners-(\d+)-repeat-(\d+)-courts-(\d+)(-fixedteams)?\.json$/';
+        $legacyPattern = '/^players-(\d+)-partners-(\d+)-repeat-(\d+)(-fixedteams)?\.json$/';
+        $out = [];
+
+        foreach ($files as $file) {
+            $basename = basename($file);
+            $identity = null;
+            $isLegacyFilename = false;
+
+            if (preg_match($currentPattern, $basename, $m) === 1) {
+                $identity = [
+                    'players' => (int) $m[1],
+                    'partners' => (int) $m[2],
+                    'repeat' => (int) $m[3],
+                    'courts' => (int) $m[4],
+                    'fixedTeams' => ($m[5] ?? '') === '-fixedteams',
+                ];
+            } elseif (preg_match($legacyPattern, $basename, $m) === 1) {
+                $isLegacyFilename = true;
+                $identity = [
+                    'players' => (int) $m[1],
+                    'partners' => (int) $m[2],
+                    'repeat' => (int) $m[3],
+                    'courts' => 1,
+                    'fixedTeams' => ($m[4] ?? '') === '-fixedteams',
+                ];
+            } else {
+                continue;
+            }
+
+            if (!$this->identityMatchesListFilters($identity, $filters)) {
+                continue;
+            }
+
+            $out[] = array_merge($identity, [
+                'absolutePath' => $file,
+                'basename' => $basename,
+                'isLegacyFilename' => $isLegacyFilename,
+            ]);
+        }
+
+        usort(
+            $out,
+            static fn(array $a, array $b): int => [$a['players'], $a['partners'], $a['repeat'], $a['courts'], (int) $a['fixedTeams']]
+                <=> [$b['players'], $b['partners'], $b['repeat'], $b['courts'], (int) $b['fixedTeams']]
+        );
+
+        return $out;
+    }
+
+    /**
+     * Canonical filename for a combo identity (current schema pattern).
+     */
+    public function filenameForIdentity(
+        int $players,
+        int $partners,
+        int $repeat,
+        int $courts,
+        bool $fixedTeams = false
+    ): string {
+        return sprintf(
+            'players-%d-partners-%d-repeat-%d-courts-%d%s.json',
+            $players,
+            $partners,
+            $repeat,
+            $courts,
+            $fixedTeams ? '-fixedteams' : ''
+        );
+    }
+
+    /**
+     * Overwrites a template JSON file at an absolute path (no mkdir of version dirs).
+     */
+    public function writeTemplateFile(string $absolutePath, TemplateMatches $template): void
+    {
+        $json = json_encode(
+            $template->toArray(),
+            JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT
+        );
+
+        if ($json === false) {
+            throw new \RuntimeException(
+                'Could not JSON-encode TemplateMatches: ' . json_last_error_msg()
+            );
+        }
+
+        if (file_put_contents($absolutePath, $json . "\n", LOCK_EX) === false) {
+            throw new \RuntimeException("Could not write template file: {$absolutePath}");
+        }
+    }
+
+    /**
+     * Renames a file within the same directory. Fails if the target already exists.
+     */
+    public function renameTemplateFile(string $fromAbsolutePath, string $toAbsolutePath): void
+    {
+        if ($fromAbsolutePath === $toAbsolutePath) {
+            return;
+        }
+        if (!is_file($fromAbsolutePath)) {
+            throw new \RuntimeException("Cannot rename missing template file: {$fromAbsolutePath}");
+        }
+        if (is_file($toAbsolutePath)) {
+            throw new \RuntimeException(sprintf(
+                'Cannot rename %s to %s: target already exists.',
+                basename($fromAbsolutePath),
+                basename($toAbsolutePath)
+            ));
+        }
+        if (!@rename($fromAbsolutePath, $toAbsolutePath)) {
+            throw new \RuntimeException(sprintf(
+                'Failed to rename template file %s → %s.',
+                $fromAbsolutePath,
+                $toAbsolutePath
+            ));
+        }
+    }
+
+    /**
+     * Renames a version directory under baseDir (e.g. v1-no-compatibility → v1).
+     */
+    public function renameVersionDirectory(string $fromDirectoryName, string $toDirectoryName): void
+    {
+        if ($fromDirectoryName === $toDirectoryName) {
+            return;
+        }
+
+        $from = $this->baseDir . DIRECTORY_SEPARATOR . $fromDirectoryName;
+        $to = $this->baseDir . DIRECTORY_SEPARATOR . $toDirectoryName;
+
+        if (!is_dir($from)) {
+            throw new \RuntimeException("Cannot rename missing version directory: {$from}");
+        }
+        if (file_exists($to)) {
+            throw new \RuntimeException(sprintf(
+                'Cannot rename %s to %s: target already exists.',
+                $fromDirectoryName,
+                $toDirectoryName
+            ));
+        }
+        if (!@rename($from, $to)) {
+            throw new \RuntimeException(sprintf(
+                'Failed to rename version directory %s → %s.',
+                $fromDirectoryName,
+                $toDirectoryName
+            ));
+        }
+    }
 }

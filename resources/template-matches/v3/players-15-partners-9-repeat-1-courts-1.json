@@ -44,34 +44,53 @@
                 "minOpponentsMet": null,
                 "maxOpponentsMet": null,
                 "playersMet": null,
-                "matchesCount": null
+                "matchesCount": null,
+                "minPlayingFairness": null,
+                "avgPlayingFairness": null,
+                "maxPlayingFairnessPenalty": null
             },
             "stats": {
                 "permutationsIterated": 256,
                 "permutationIndex": null,
                 "templatesGenerated": 0,
                 "templateIndex": null,
+                "nodesExplored": null,
                 "stopReason": "FACTORIAL_COMPLETE",
                 "time": 19.4440169,
                 "meetingsVariationLimit": 3,
+                "candidatesCollected": null,
+                "candidatesDeduped": null,
+                "candidateIndex": null,
                 "relaxAttempts": [
                     {
                         "meetingsVariationLimit": 1,
                         "permutationsIterated": 256,
                         "templatesGenerated": 0,
-                        "time": 27.3998616
+                        "nodesExplored": null,
+                        "time": 27.3998616,
+                        "candidatesCollected": null,
+                        "candidatesDeduped": null,
+                        "stopReason": null
                     },
                     {
                         "meetingsVariationLimit": 2,
                         "permutationsIterated": 256,
                         "templatesGenerated": 0,
-                        "time": 19.9692451
+                        "nodesExplored": null,
+                        "time": 19.9692451,
+                        "candidatesCollected": null,
+                        "candidatesDeduped": null,
+                        "stopReason": null
                     },
                     {
                         "meetingsVariationLimit": 3,
                         "permutationsIterated": 256,
                         "templatesGenerated": 0,
-                        "time": 19.4440169
+                        "nodesExplored": null,
+                        "time": 19.4440169,
+                        "candidatesCollected": null,
+                        "candidatesDeduped": null,
+                        "stopReason": null
                     }
                 ]
             }
@@ -82,6 +101,8 @@
                 "avgDistribution": null,
                 "minBreak": null,
                 "maxBreak": null,
+                "consecutiveMinBreaks": null,
+                "consecutiveMaxBreaks": null,
                 "courtSwitches": null,
                 "courtBalance": null,
                 "roundsCount": null
@@ -93,7 +114,8 @@
                 "nodesExplored": 0,
                 "seedIndex": null,
                 "seedsTotal": null,
-                "time": 0
+                "time": 0,
+                "relaxAttempts": null
             }
         }
     }

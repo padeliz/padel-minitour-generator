@@ -69,7 +69,7 @@ final class TemplateMatches
     private ?string $matchMakingStatsStopReason;
     private ?float $matchMakingStatsTime;
     private ?int $matchMakingStatsMeetingsVariationLimit;
-    /** @var array<int, array{meetingsVariationLimit:int,permutationsIterated:int,templatesGenerated:int,nodesExplored:int,time:float,candidatesCollected:int,candidatesDeduped:int,stopReason:string}>|null */
+    /** @var array<int, array{meetingsVariationLimit:int,permutationsIterated:int,templatesGenerated:int,nodesExplored:int|null,time:float,candidatesCollected:int|null,candidatesDeduped:int|null,stopReason:string|null}>|null */
     private ?array $matchMakingStatsRelaxAttempts;
     private ?int $matchMakingStatsCandidatesCollected;
     private ?int $matchMakingStatsCandidatesDeduped;
@@ -99,7 +99,7 @@ final class TemplateMatches
      * @param array<int, array<int, array<int, array<int, int>>>>|null $matches
      * @param array<int, int>|null                                      $pairingQualityPartnersCount
      * @param array<int, array<int, int>>|null                            $matchMakingQualityPlayersMet
-     * @param array<int, array{meetingsVariationLimit:int,permutationsIterated:int,templatesGenerated:int,nodesExplored:int,time:float,candidatesCollected:int,candidatesDeduped:int,stopReason:string}>|null $matchMakingStatsRelaxAttempts
+     * @param array<int, array{meetingsVariationLimit:int,permutationsIterated:int,templatesGenerated:int,nodesExplored:int|null,time:float,candidatesCollected:int|null,candidatesDeduped:int|null,stopReason:string|null}>|null $matchMakingStatsRelaxAttempts
      * @param array<int, array{meetingsVariationLimit:int,candidatesTried:int,eligible:bool,time:float,stopReason:string|null}>|null $orderingStatsRelaxAttempts
      */
     public function __construct(
@@ -392,7 +392,7 @@ final class TemplateMatches
     /**
      * Per-attempt forensic trail of the MV relax loop (MM-only fields per pass).
      *
-     * @return array<int, array{meetingsVariationLimit:int,permutationsIterated:int,templatesGenerated:int,nodesExplored:int,time:float,candidatesCollected:int,candidatesDeduped:int,stopReason:string}>|null
+     * @return array<int, array{meetingsVariationLimit:int,permutationsIterated:int,templatesGenerated:int,nodesExplored:int|null,time:float,candidatesCollected:int|null,candidatesDeduped:int|null,stopReason:string|null}>|null
      */
     public function getMatchMakingStatsRelaxAttempts(): ?array
     {
@@ -972,6 +972,34 @@ final class TemplateMatches
     }
 
     /**
+     * Returns a copy with replaced quality sections; identity, matches, and stats are preserved.
+     *
+     * @param array{
+     *     pairing: array<string, mixed>,
+     *     matchMaking: array<string, mixed>,
+     *     ordering: array<string, mixed>
+     * } $qualityByPhase
+     */
+    public function withRecalculatedQuality(array $qualityByPhase): self
+    {
+        $data = $this->toArray();
+        $data['metrics']['pairing']['quality'] = array_merge(
+            $data['metrics']['pairing']['quality'],
+            $qualityByPhase['pairing']
+        );
+        $data['metrics']['matchMaking']['quality'] = array_merge(
+            $data['metrics']['matchMaking']['quality'],
+            $qualityByPhase['matchMaking']
+        );
+        $data['metrics']['ordering']['quality'] = array_merge(
+            $data['metrics']['ordering']['quality'],
+            $qualityByPhase['ordering']
+        );
+
+        return self::fromArray($data);
+    }
+
+    /**
      * Validates and normalises the per-court matches shape. Rejects legacy flat lists.
      *
      * @param array<int, mixed> $raw
@@ -1039,7 +1067,7 @@ final class TemplateMatches
 
     /**
      * @param array<int, array<string, mixed>> $raw
-     * @return array<int, array{meetingsVariationLimit:int,permutationsIterated:int,templatesGenerated:int,nodesExplored:int,time:float,candidatesCollected:int,candidatesDeduped:int,stopReason:string}>
+     * @return array<int, array{meetingsVariationLimit:int,permutationsIterated:int,templatesGenerated:int,nodesExplored:int|null,time:float,candidatesCollected:int|null,candidatesDeduped:int|null,stopReason:string|null}>
      */
     private static function normalizeMatchMakingRelaxAttempts(array $raw): array
     {
@@ -1048,8 +1076,8 @@ final class TemplateMatches
             if (!is_array($entry)) {
                 throw new \InvalidArgumentException('matchMaking.stats.relaxAttempts entry must be an object.');
             }
-            foreach (['meetingsVariationLimit', 'permutationsIterated', 'templatesGenerated', 'nodesExplored', 'time', 'candidatesCollected', 'candidatesDeduped', 'stopReason'] as $required) {
-                if (!array_key_exists($required, $entry)) {
+            foreach (['meetingsVariationLimit', 'permutationsIterated', 'templatesGenerated', 'time'] as $required) {
+                if (!array_key_exists($required, $entry) || $entry[$required] === null) {
                     throw new \InvalidArgumentException("matchMaking.stats.relaxAttempts missing required key: {$required}");
                 }
             }
@@ -1057,11 +1085,19 @@ final class TemplateMatches
                 'meetingsVariationLimit' => (int) $entry['meetingsVariationLimit'],
                 'permutationsIterated' => (int) $entry['permutationsIterated'],
                 'templatesGenerated' => (int) $entry['templatesGenerated'],
-                'nodesExplored' => (int) $entry['nodesExplored'],
+                'nodesExplored' => array_key_exists('nodesExplored', $entry) && $entry['nodesExplored'] !== null
+                    ? (int) $entry['nodesExplored']
+                    : null,
                 'time' => (float) $entry['time'],
-                'candidatesCollected' => (int) $entry['candidatesCollected'],
-                'candidatesDeduped' => (int) $entry['candidatesDeduped'],
-                'stopReason' => (string) $entry['stopReason'],
+                'candidatesCollected' => array_key_exists('candidatesCollected', $entry) && $entry['candidatesCollected'] !== null
+                    ? (int) $entry['candidatesCollected']
+                    : null,
+                'candidatesDeduped' => array_key_exists('candidatesDeduped', $entry) && $entry['candidatesDeduped'] !== null
+                    ? (int) $entry['candidatesDeduped']
+                    : null,
+                'stopReason' => array_key_exists('stopReason', $entry) && $entry['stopReason'] !== null
+                    ? (string) $entry['stopReason']
+                    : null,
             ];
         }
 

@@ -68,7 +68,7 @@ final class TemplatesVersionsCommand extends Command
         $expectedCount = count($expectedKeys);
 
         $table = new Table($output);
-        $table->setHeaders(['Directory', 'Compatible', 'Latest', 'Files', 'Catalog', 'Missing', 'Extra']);
+        $table->setHeaders(['Directory', 'Compatible', 'Latest', 'Files', 'Catalog', 'Missing', 'Extra', 'Demo']);
 
         foreach ($versions as $entry) {
             $dirName = $entry['directoryName'];
@@ -82,6 +82,7 @@ final class TemplatesVersionsCommand extends Command
             $catalog = $coverageCells['catalog'];
             $missing = $coverageCells['missing'];
             $extra = $coverageCells['extra'];
+            $demoPath = $this->demoPathForEntry($entry);
 
             $table->addRow([
                 $dirName,
@@ -91,6 +92,7 @@ final class TemplatesVersionsCommand extends Command
                 $catalog,
                 $missing,
                 $extra,
+                $demoPath,
             ]);
         }
 
@@ -156,6 +158,18 @@ final class TemplatesVersionsCommand extends Command
         }
 
         return count($files);
+    }
+
+    /**
+     * @param array{version:?int,isCompatible:bool} $entry
+     */
+    private function demoPathForEntry(array $entry): string
+    {
+        if (!$entry['isCompatible'] || $entry['version'] === null) {
+            return '—';
+        }
+
+        return '/templates/demo/' . $entry['version'];
     }
 
     /**

@@ -100,14 +100,14 @@
         },
         "ordering": {
             "quality": {
-                "minDistribution": null,
-                "avgDistribution": null,
-                "minBreak": null,
-                "maxBreak": null,
-                "consecutiveMinBreaks": null,
-                "consecutiveMaxBreaks": null,
-                "courtSwitches": null,
-                "courtBalance": null,
+                "minDistribution": 1,
+                "avgDistribution": 1,
+                "minBreak": 0,
+                "maxBreak": 0,
+                "consecutiveMinBreaks": 2,
+                "consecutiveMaxBreaks": 2,
+                "courtSwitches": 0,
+                "courtBalance": 0,
                 "roundsCount": 1
             },
             "stats": {

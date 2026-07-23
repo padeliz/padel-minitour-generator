@@ -32,17 +32,14 @@ final class OpponentsMetSummary
         ];
     }
 
+    /**
+     * Simultaneous time slots (rounds on the first court). Prefer
+     * {@see TemplateMatchDerivation::roundsCount()} for new call sites.
+     *
+     * @param array<int, array<int, mixed>>|null $matchesByCourt
+     */
     public static function roundsCount(?array $matchesByCourt): ?int
     {
-        if ($matchesByCourt === null) {
-            return null;
-        }
-
-        $total = 0;
-        foreach ($matchesByCourt as $courtRounds) {
-            $total += count($courtRounds);
-        }
-
-        return $total;
+        return TemplateMatchDerivation::roundsCount($matchesByCourt);
     }
 }

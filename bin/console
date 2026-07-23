@@ -8,6 +8,8 @@
  *  - templates:generate            (additively writes missing combos into resources/template-matches/v{N+1}/, never wipes)
  *  - templates:metrics               (read-only metrics over the in-use mixed-teams templates)
  *  - templates:metrics-fixed-teams   (read-only metrics over the in-use fixed-teams templates)
+ *  - templates:recalculate-quality-metrics (migrate schema + recalculate quality in place)
+ *  - templates:versions
  *
  * Not intended to be deployed to production: the regenerate/generate commands are long-running
  * batch jobs meant to be run by an engineer locally, and the stats commands are inspection
@@ -22,12 +24,14 @@
  *   php bin/console templates:metrics --templates-version=2
  *   php bin/console templates:metrics-fixed-teams
  *   php bin/console templates:metrics-fixed-teams --templates-version=2
+ *   php bin/console templates:recalculate-quality-metrics --templates-version=1
  *   php bin/console templates:versions
  */
 
 require_once __DIR__ . '/../vendor/autoload.php';
 
 use Arshavinel\PadelMiniTour\Console\Command\GenerateTemplatesCommand;
+use Arshavinel\PadelMiniTour\Console\Command\RecalculateQualityMetricsCommand;
 use Arshavinel\PadelMiniTour\Console\Command\RegenerateTemplatesCommand;
 use Arshavinel\PadelMiniTour\Console\Command\MetricsTemplatesCommand;
 use Arshavinel\PadelMiniTour\Console\Command\MetricsTemplatesFixedTeamsCommand;
@@ -39,6 +43,7 @@ $application->add(new RegenerateTemplatesCommand());
 $application->add(new GenerateTemplatesCommand());
 $application->add(new MetricsTemplatesCommand());
 $application->add(new MetricsTemplatesFixedTeamsCommand());
+$application->add(new RecalculateQualityMetricsCommand());
 $application->add(new TemplatesVersionsCommand());
 
 $exitCode = $application->run();

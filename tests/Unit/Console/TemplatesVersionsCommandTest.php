@@ -60,6 +60,7 @@ final class TemplatesVersionsCommandTest extends TestCase
         $this->assertStringContainsString('v1-no-compatibility', $output);
         $this->assertStringContainsString('—', $output);
         $this->assertStringContainsString('| no |', $this->normalizeForContains($output));
+        $this->assertStringNotContainsString('/templates/demo/', $output);
     }
 
     public function test_single_compatible_dir_reports_expected_catalog_coverage(): void
@@ -89,6 +90,7 @@ final class TemplatesVersionsCommandTest extends TestCase
         $this->assertStringContainsString($expectedCatalogCell, $output);
         $this->assertStringContainsString((string) $expectedMissing, $output);
         $this->assertStringContainsString((string) $expectedExtra, $output);
+        $this->assertStringContainsString('/templates/demo/' . $version, $output);
 
         // Only one latest marker exists.
         $this->assertSame(1, substr_count($output, '*'));

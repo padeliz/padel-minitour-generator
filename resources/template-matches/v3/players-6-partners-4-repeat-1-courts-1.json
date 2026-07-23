@@ -102,8 +102,8 @@
                         "2": 2,
                         "1": 3,
                         "3": 2,
-                        "4": 3,
-                        "5": 2
+                        "5": 2,
+                        "4": 3
                     },
                     "2": {
                         "0": 2,
@@ -116,47 +116,58 @@
                         "0": 3,
                         "2": 2,
                         "3": 3,
-                        "4": 2,
-                        "5": 2
+                        "5": 2,
+                        "4": 2
                     },
                     "3": {
                         "0": 2,
                         "2": 3,
                         "1": 3,
-                        "4": 2,
-                        "5": 2
-                    },
-                    "4": {
-                        "0": 3,
-                        "3": 2,
-                        "1": 2,
-                        "5": 3,
-                        "2": 2
+                        "5": 2,
+                        "4": 2
                     },
                     "5": {
+                        "1": 2,
                         "0": 2,
                         "4": 3,
+                        "3": 2,
+                        "2": 3
+                    },
+                    "4": {
                         "1": 2,
-                        "2": 3,
+                        "5": 3,
+                        "0": 3,
+                        "2": 2,
                         "3": 2
                     }
                 },
-                "matchesCount": 6
+                "matchesCount": 6,
+                "minPlayingFairness": 0.825,
+                "avgPlayingFairness": 0.9,
+                "maxPlayingFairnessPenalty": 0.125
             },
             "stats": {
                 "permutationsIterated": 256,
                 "permutationIndex": 1,
                 "templatesGenerated": 256,
                 "templateIndex": 1,
+                "nodesExplored": null,
                 "stopReason": "FACTORIAL_COMPLETE",
                 "time": 0.0201536,
                 "meetingsVariationLimit": 1,
+                "candidatesCollected": null,
+                "candidatesDeduped": null,
+                "candidateIndex": null,
                 "relaxAttempts": [
                     {
                         "meetingsVariationLimit": 1,
                         "permutationsIterated": 256,
                         "templatesGenerated": 256,
-                        "time": 0.0201536
+                        "nodesExplored": null,
+                        "time": 0.0201536,
+                        "candidatesCollected": null,
+                        "candidatesDeduped": null,
+                        "stopReason": null
                     }
                 ]
             }
@@ -167,6 +178,8 @@
                 "avgDistribution": 0.9555555555555556,
                 "minBreak": 0,
                 "maxBreak": 1,
+                "consecutiveMinBreaks": 3,
+                "consecutiveMaxBreaks": 2,
                 "courtSwitches": 0,
                 "courtBalance": 0,
                 "roundsCount": 6
@@ -178,7 +191,8 @@
                 "nodesExplored": 1957,
                 "seedIndex": 1,
                 "seedsTotal": 1,
-                "time": 0.0286713
+                "time": 0.0286713,
+                "relaxAttempts": null
             }
         }
     }

@@ -67,34 +67,47 @@
                         "1": 1
                     }
                 },
-                "matchesCount": 1
+                "matchesCount": 1,
+                "minPlayingFairness": 1,
+                "avgPlayingFairness": 1,
+                "maxPlayingFairnessPenalty": 0
             },
             "stats": {
                 "permutationsIterated": 1,
                 "permutationIndex": 1,
                 "templatesGenerated": 1,
                 "templateIndex": 1,
+                "nodesExplored": null,
                 "stopReason": "FACTORIAL_COMPLETE",
                 "time": 5.48e-5,
                 "meetingsVariationLimit": 1,
+                "candidatesCollected": null,
+                "candidatesDeduped": null,
+                "candidateIndex": null,
                 "relaxAttempts": [
                     {
                         "meetingsVariationLimit": 1,
                         "permutationsIterated": 1,
                         "templatesGenerated": 1,
-                        "time": 5.48e-5
+                        "nodesExplored": null,
+                        "time": 5.48e-5,
+                        "candidatesCollected": null,
+                        "candidatesDeduped": null,
+                        "stopReason": null
                     }
                 ]
             }
         },
         "ordering": {
             "quality": {
-                "minDistribution": null,
-                "avgDistribution": null,
-                "minBreak": null,
-                "maxBreak": null,
-                "courtSwitches": null,
-                "courtBalance": null,
+                "minDistribution": 1,
+                "avgDistribution": 1,
+                "minBreak": 0,
+                "maxBreak": 0,
+                "consecutiveMinBreaks": 2,
+                "consecutiveMaxBreaks": 2,
+                "courtSwitches": 0,
+                "courtBalance": 0,
                 "roundsCount": 1
             },
             "stats": {
@@ -104,7 +117,8 @@
                 "nodesExplored": 0,
                 "seedIndex": 1,
                 "seedsTotal": 1,
-                "time": 1.58e-5
+                "time": 1.58e-5,
+                "relaxAttempts": null
             }
         }
     }
