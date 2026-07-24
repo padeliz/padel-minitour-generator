@@ -1,6 +1,7 @@
 <?php
 
 use Arshavinel\PadelMiniTour\DTO\PdfPlayer;
+use Arshavinel\PadelMiniTour\Helper\EditionDivisionCourtHelper;
 use Arshavinel\PadelMiniTour\Table\Division;
 use Arshavinel\PadelMiniTour\Table\Edition;
 use Arshavinel\PadelMiniTour\Table\Edition\EditionDivision;
@@ -190,7 +191,7 @@ if ($luckyOne) {
     );
 
     $luckyOne->division = Division::first([
-        'columns' => "name, color, " . EditionDivision::TABLE . ".court AS division_court",
+        'columns' => "name, color, " . EditionDivision::TABLE . "." . EditionDivision::PRIMARY_KEY . " AS edition_division_id",
         'joins' => [
             [
                 'type' => 'INNER',
@@ -210,6 +211,10 @@ if ($luckyOne) {
         ],
         'where' => LotteryLucky::TABLE . '.' . LotteryLucky::PRIMARY_KEY . ' = ?'
     ], [$luckyOne->id()]);
+
+    $luckyOne->division->division_court = EditionDivisionCourtHelper::firstCourtName(
+        (int) $luckyOne->division->edition_division_id
+    );
 
     // each of the same type is
     $luckyOne->lottery->prize_index = 1 + LotteryLucky::count([
