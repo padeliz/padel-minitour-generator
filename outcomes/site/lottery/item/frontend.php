@@ -21,7 +21,7 @@
                 <div class="col-auto text-center pb-3">
                     <div class="lucky">
                         <small class="thumb d-inline-block px-3 fz-16 nowrap" style="background-color: <?= $allLotteryLucky->division_color ?>;">
-                            <?= $allLotteryLucky->division_name ?>
+                            <?= $allLotteryLucky->division_title ?>
                         </small>
                         <br>
                         <div class="thumb-wrapper" style="background-color: <?= $allLotteryLucky->division_color ?>; border-color: <?= $allLotteryLucky->division_color ?>;">
@@ -144,7 +144,7 @@
                     <?php } else { ?>
                         <div class="lucky">
                             <small class="thumb d-inline-block px-3" style="background-color: <?= $luckyOne->division->color ?>;">
-                                <?= $luckyOne->division->name ?>
+                                <?= $luckyOne->division->division_title ?>
                             </small>
                             <br>
                             <div class="thumb-wrapper" style="background-color: <?= $luckyOne->division->color ?>; border-color: <?= $luckyOne->division->color ?>;">

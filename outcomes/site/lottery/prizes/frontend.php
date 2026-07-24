@@ -70,7 +70,7 @@
                             <div class="col-auto text-center pb-3">
                                 <div class="lucky <?= $statusClass ?>">
                                     <small class="thumb d-inline-block px-3 fz-16 nowrap" style="background-color: <?= htmlspecialchars($lucky->division_color) ?>;">
-                                        <?= htmlspecialchars($lucky->division_name) ?>
+                                        <?= htmlspecialchars($lucky->division_title) ?>
                                     </small>
                                     <br>
                                     <div class="thumb-wrapper" style="background-color: <?= htmlspecialchars($lucky->division_color) ?>; border-color: <?= htmlspecialchars($lucky->division_color) ?>;">

@@ -1,5 +1,6 @@
 <?php
 
+use Arshavinel\PadelMiniTour\Helper\PlayerDivisionHistoryHelper;
 use Arshavinel\PadelMiniTour\Table\Player;
 use Arshavinel\PadelMiniTour\Table\Edition;
 use Arshavinel\PadelMiniTour\Table\Edition\Participation;
@@ -27,12 +28,7 @@ $players = Player::select([
          WHERE edition_participations.player_id = players.id_player
          ORDER BY editions.date DESC
          LIMIT 1) AS last_edition_name,
-        (SELECT divisions.name FROM divisions
-         JOIN edition_divisions ON divisions.id_division = edition_divisions.division_id
-         JOIN edition_participations ON edition_divisions.id_edition_division = edition_participations.edition_division_id
-         WHERE edition_participations.player_id = players.id_player
-         ORDER BY editions.date DESC
-         LIMIT 1) AS last_division_name
+        " . PlayerDivisionHistoryHelper::lastDivisionTitleSubquery() . " AS last_division_title
     ",
     'joins' => [
         [
@@ -64,6 +60,6 @@ $playersData = array_map(function ($player) {
         'avatar_small' => $player->file('avatar')->url('small'),
         'first_edition' => $player->first_edition_name ?? null,
         'last_edition' => $player->last_edition_name ?? null,
-        'last_division' => $player->last_division_name ?? null
+        'last_division_title' => $player->last_division_title ?? null
     ];
 }, $players);

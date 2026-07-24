@@ -91,8 +91,8 @@ $(document).ready(function () {
                                     return `${playerData.first_edition} — ${playerData.last_edition}`;
                                 })()}
                                 ${(() => {
-                                    if (playerData.last_division) {
-                                        return `<span class="nowrap">${playerData.last_division}</span>`
+                                    if (playerData.last_division_title) {
+                                        return `<span class="nowrap">${playerData.last_division_title}</span>`
                                     }
                                     return '';
                                 })()}

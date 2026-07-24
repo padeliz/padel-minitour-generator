@@ -191,7 +191,7 @@ if ($luckyOne) {
     );
 
     $luckyOne->division = Division::first([
-        'columns' => "name, color, " . EditionDivision::TABLE . "." . EditionDivision::PRIMARY_KEY . " AS edition_division_id",
+        'columns' => EditionDivision::TABLE . ".division_title AS division_title, " . Division::TABLE . ".color, " . EditionDivision::TABLE . "." . EditionDivision::PRIMARY_KEY . " AS edition_division_id",
         'joins' => [
             [
                 'type' => 'INNER',
@@ -252,7 +252,7 @@ if ($luckyOne) {
 
 if (!$luckyOne) {
     $allLotteryLuckies = LotteryLucky::select([
-        'columns' => LotteryRule::TABLE . ".lottery_id, players.id_player, players.name AS player_name, available_at, " . Division::TABLE . '.name AS division_name, ' . Division::TABLE . '.color AS division_color',
+        'columns' => LotteryRule::TABLE . ".lottery_id, players.id_player, players.name AS player_name, available_at, " . EditionDivision::TABLE . '.division_title AS division_title, ' . Division::TABLE . '.color AS division_color',
         'joins' => [
             [
                 'type' => 'INNER',

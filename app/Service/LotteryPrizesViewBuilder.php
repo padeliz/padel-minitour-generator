@@ -330,7 +330,7 @@ final class LotteryPrizesViewBuilder
                 " . LotteryLucky::TABLE . ".rejected_at,
                 " . LotteryRule::TABLE . ".orderliness,
                 " . Participation::TABLE . ".player_id AS lucky_player_id,
-                " . Division::TABLE . ".name AS division_name,
+                " . EditionDivision::TABLE . ".division_title AS division_title,
                 " . Division::TABLE . ".color AS division_color
             ",
             'joins' => [
