@@ -18,39 +18,22 @@ OUTPUT_FOLDER = "avatars"
 # Try to use Arial or fallback
 try:
     FONT = ImageFont.truetype("arial.ttf", FONT_SIZE)
-except:
+except Exception:
     FONT = ImageFont.load_default()
 
 # ==========================
 # NAME LIST
 # ==========================
 names = [
-    "Ana M. Ann",
-    "Alexandra A. Poaca",
-    "Tudor Petracovici",
-    "Alex C. Kis",
-    "Florin Tutuianu",
-    "Teodora Calota",
-    "Matei Popa",
-    "Viorel Munteanu",
-    "Alexandru Macovei",
-    "Sebastian Salaru",
-    "Lidia E. Ciucă",
-    "Vlad Angelo",
-    "Darius C. Crivineanu",
-    "Teddy G. Iovan",
-    "Rareș Munteanu",
-    "Tudor Zoran",
-    "Codruț F. Dica",
-    "Alex Gabor",
-    "Gabriela Ștefan",
-    "Victor Rausse",
-    "Cătălin Horomnea"
-    "Alexandru Palievici",
-    "Imam A. Alfa",
-    "David Axiniea",
-    "Ștefan Brănescu",
-    "Claudiu Ghiță"
+    "Andreea Enescu",
+    "Andrei R. Brebeanu",
+    "Billy Al Moussa",
+    "Cristi B. Enache",
+    "Elena L. Stoian",
+    "Gabriel Constantinescu",
+    "Oana Crusmac",
+    "Răzvan Zamfira",
+    "Tiberiu Danila",
 ]
 
 # ==========================
@@ -66,7 +49,7 @@ def get_initials(name):
 
 
 def snake_case_filename(name):
-    """Convert name to safe snake-case filename."""
+    """Convert name to safe snake-case filename (matches Text::slug for these names)."""
     nfkd = unicodedata.normalize("NFKD", name)
     no_accent = "".join(c for c in nfkd if not unicodedata.combining(c))
     clean = ""
@@ -109,5 +92,6 @@ for name in names:
     draw.text((x, y), initials, fill=TEXT_COLOR, font=FONT)
 
     img.save(os.path.join(OUTPUT_FOLDER, filename))
+    print(f"Wrote {filename} ({initials})")
 
 print("Done! Avatars saved in the 'avatars' folder.")
